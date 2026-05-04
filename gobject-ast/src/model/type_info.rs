@@ -59,58 +59,46 @@ impl std::fmt::Display for AutoCleanupMacro {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TypeInfo {
-    /// The base type without qualifiers, keywords, or pointers (e.g., "GFile",
-    /// "int", "CheckIfMarkerHitClosure")
+    /// Base type without qualifiers or pointers: `"GFile"`, `"int"`.
     pub base_type: String,
-    /// Whether the type has a const qualifier
     pub is_const: bool,
-    /// Whether the type was spelled with the `struct` keyword (e.g., `struct
-    /// Foo *`)
+    /// True when spelled with the `struct` keyword (`struct Foo *`).
     #[serde(default)]
     pub is_struct: bool,
-    /// Whether the type was spelled with the `union` keyword (e.g., `union Foo
-    /// *`)
+    /// True when spelled with the `union` keyword (`union Foo *`).
     #[serde(default)]
     pub is_union: bool,
-    /// Number of pointer indirections (0 for value, 1 for *, 2 for **)
+    /// Pointer indirections: 0 = value, 1 = `*`, 2 = `**`.
     pub pointer_depth: usize,
-    /// The full type string as it appears in source (e.g., "const GFile *")
+    /// Full type string as it appears in source (`"const GFile *"`).
     pub full_text: String,
-    /// Location of the type in the source code
     pub location: SourceLocation,
-    /// Auto-cleanup macro used, if any
     pub auto_cleanup: Option<AutoCleanupMacro>,
 }
 
 impl TypeInfo {
-    /// Create TypeInfo from a full type string with location information
-    /// Automatically filters out storage class specifiers (static, extern,
-    /// inline)
     pub fn new(type_string: String, location: SourceLocation) -> Self {
         let trimmed = type_string.trim();
-
-        // Parse auto-cleanup macro first
         let auto_cleanup = Self::parse_auto_cleanup(trimmed);
 
-        // Split by whitespace and filter out storage class specifiers
         let parts: Vec<&str> = trimmed.split_whitespace().collect();
-        let mut filtered_parts = Vec::new();
+        let mut filtered_parts: Vec<&str> = Vec::new();
         let mut is_const = false;
 
-        for part in parts {
-            match part {
-                "static" | "extern" | "inline" => {
-                    // Skip storage class specifiers
-                }
+        let macro_name = auto_cleanup.as_ref().map(|a| a.name());
+
+        for part in &parts {
+            match *part {
+                "static" | "extern" | "inline" => {}
                 "const" => {
                     is_const = true;
                     filtered_parts.push(part);
                 }
-                _ if auto_cleanup.is_some() && part == auto_cleanup.as_ref().unwrap().name() => {
-                    // Skip the auto-cleanup macro name (e.g. g_autofree) — it
-                    // is already captured in auto_cleanup and must not end up
-                    // in base_type (e.g. "g_autofree MyType" → "MyType").
-                }
+                // Drop the macro token(s): bare name ("g_autoptr"), compact
+                // form ("g_autoptr(Foo)"), or the arg token ("(Foo)") from
+                // the spaced form "g_autoptr (Foo)".
+                _ if macro_name
+                    .is_some_and(|name| part.starts_with(name) || part.starts_with('(')) => {}
                 _ => {
                     filtered_parts.push(part);
                 }
@@ -119,25 +107,23 @@ impl TypeInfo {
 
         let cleaned = filtered_parts.join(" ");
 
-        // Remove const qualifier from base type extraction
         let without_const = if is_const {
             cleaned.strip_prefix("const ").unwrap_or(&cleaned).trim()
         } else {
             &cleaned
         };
 
-        // Count pointer depth
         let pointer_depth = without_const.chars().filter(|&c| c == '*').count();
 
-        // Extract base type (remove pointers, trim, then strip struct/union keyword)
         let raw_base = without_const.replace('*', "").trim().to_string();
-        let (base_type, is_struct, is_union) = if let Some(rest) = raw_base.strip_prefix("struct ")
-        {
-            (rest.trim().to_string(), true, false)
-        } else if let Some(rest) = raw_base.strip_prefix("union ") {
-            (rest.trim().to_string(), false, true)
+        let (base_type, is_struct, is_union) = if let Some(ref auto) = auto_cleanup {
+            if let Some(type_arg) = auto.type_arg() {
+                (type_arg.to_owned(), false, false)
+            } else {
+                Self::extract_base_type(&raw_base)
+            }
         } else {
-            (raw_base, false, false)
+            Self::extract_base_type(&raw_base)
         };
 
         Self {
@@ -152,31 +138,41 @@ impl TypeInfo {
         }
     }
 
-    /// Parse auto-cleanup macro from type string
+    fn extract_base_type(raw_base: &str) -> (String, bool, bool) {
+        if let Some(rest) = raw_base.strip_prefix("struct ") {
+            (rest.trim().to_string(), true, false)
+        } else if let Some(rest) = raw_base.strip_prefix("union ") {
+            (rest.trim().to_string(), false, true)
+        } else {
+            (raw_base.to_string(), false, false)
+        }
+    }
+
     fn parse_auto_cleanup(type_str: &str) -> Option<AutoCleanupMacro> {
-        // Helper to extract type from macro(Type) pattern
-        let extract_type = |prefix: &str| -> Option<String> {
-            if let Some(rest) = type_str.strip_prefix(prefix) {
-                if let Some(end) = rest.find(')') {
-                    let inner = &rest[0..end];
-                    return Some(inner.trim().to_string());
-                }
+        let try_with_arg = |macro_name: &str| -> Option<String> {
+            let pos = type_str.find(macro_name)?;
+            let after_name = type_str[pos + macro_name.len()..].trim_start();
+            if !after_name.starts_with('(') {
+                return None;
             }
-            None
+            let inner = &after_name[1..];
+            let end = inner.find(')')?;
+            Some(inner[..end].trim().to_string())
         };
 
         if type_str.contains("g_autofree") {
             Some(AutoCleanupMacro::Autofree)
-        } else if let Some(type_arg) = extract_type("g_autoptr(") {
-            Some(AutoCleanupMacro::Autoptr(type_arg))
-        } else if let Some(type_arg) = extract_type("g_auto(") {
-            Some(AutoCleanupMacro::Auto(type_arg))
-        } else if let Some(type_arg) = extract_type("g_autolist(") {
-            Some(AutoCleanupMacro::Autolist(type_arg))
-        } else if let Some(type_arg) = extract_type("g_autoslist(") {
-            Some(AutoCleanupMacro::Autoslist(type_arg))
-        } else if let Some(type_arg) = extract_type("g_autoqueue(") {
-            Some(AutoCleanupMacro::Autoqueue(type_arg))
+        } else if let Some(t) = try_with_arg("g_autoptr") {
+            Some(AutoCleanupMacro::Autoptr(t))
+        } else if let Some(t) = try_with_arg("g_autolist") {
+            Some(AutoCleanupMacro::Autolist(t))
+        } else if let Some(t) = try_with_arg("g_autoslist") {
+            Some(AutoCleanupMacro::Autoslist(t))
+        } else if let Some(t) = try_with_arg("g_autoqueue") {
+            Some(AutoCleanupMacro::Autoqueue(t))
+        } else if let Some(t) = try_with_arg("g_auto") {
+            // Checked last — "g_auto" is a prefix of all the variants above.
+            Some(AutoCleanupMacro::Auto(t))
         } else {
             None
         }
@@ -208,9 +204,7 @@ impl TypeInfo {
         self.auto_cleanup.is_some()
     }
 
-    /// Return the base type with GLib C aliases normalized to their C
-    /// equivalents (e.g. `gint` → `int`). Types without a GLib alias are
-    /// returned unchanged.
+    /// GLib C aliases normalised to their C equivalents (`gint` → `int`).
     pub fn normalized_base_type(&self) -> &str {
         match self.base_type.as_str() {
             "gint" => "int",
@@ -241,95 +235,107 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_autofree() {
-        let ti = TypeInfo::new("g_autofree char *".to_string(), SourceLocation::default());
-        assert_eq!(ti.auto_cleanup, Some(AutoCleanupMacro::Autofree));
-        assert_eq!(ti.auto_cleanup.as_ref().unwrap().name(), "g_autofree");
-        assert_eq!(ti.auto_cleanup.as_ref().unwrap().type_arg(), None);
-    }
+    fn test_parse_type_info() {
+        let t = TypeInfo::new("g_autofree char *".into(), SourceLocation::default());
+        assert_eq!(t.auto_cleanup, Some(AutoCleanupMacro::Autofree));
+        assert_eq!(t.base_type, "char");
+        assert_eq!(t.pointer_depth, 1);
 
-    #[test]
-    fn test_autoptr() {
-        let ti = TypeInfo::new("g_autoptr(GFile) *".to_string(), SourceLocation::default());
-        assert_eq!(
-            ti.auto_cleanup,
-            Some(AutoCleanupMacro::Autoptr("GFile".to_string()))
-        );
-        assert_eq!(ti.auto_cleanup.as_ref().unwrap().name(), "g_autoptr");
-        assert_eq!(ti.auto_cleanup.as_ref().unwrap().type_arg(), Some("GFile"));
-    }
-
-    #[test]
-    fn test_auto() {
-        let ti = TypeInfo::new("g_auto(GString) *".to_string(), SourceLocation::default());
-        assert_eq!(
-            ti.auto_cleanup,
-            Some(AutoCleanupMacro::Auto("GString".to_string()))
-        );
-        assert_eq!(ti.auto_cleanup.as_ref().unwrap().name(), "g_auto");
-        assert_eq!(
-            ti.auto_cleanup.as_ref().unwrap().type_arg(),
-            Some("GString")
-        );
-    }
-
-    #[test]
-    fn test_autolist() {
-        let ti = TypeInfo::new("g_autolist(GFile)".to_string(), SourceLocation::default());
-        assert_eq!(
-            ti.auto_cleanup,
-            Some(AutoCleanupMacro::Autolist("GFile".to_string()))
-        );
-        assert_eq!(ti.auto_cleanup.as_ref().unwrap().name(), "g_autolist");
-        assert_eq!(ti.auto_cleanup.as_ref().unwrap().type_arg(), Some("GFile"));
-    }
-
-    #[test]
-    fn test_autoslist() {
-        let ti = TypeInfo::new("g_autoslist(GFile)".to_string(), SourceLocation::default());
-        assert_eq!(
-            ti.auto_cleanup,
-            Some(AutoCleanupMacro::Autoslist("GFile".to_string()))
-        );
-        assert_eq!(ti.auto_cleanup.as_ref().unwrap().name(), "g_autoslist");
-        assert_eq!(ti.auto_cleanup.as_ref().unwrap().type_arg(), Some("GFile"));
-    }
-
-    #[test]
-    fn test_autoqueue() {
-        let ti = TypeInfo::new("g_autoqueue(GFile)".to_string(), SourceLocation::default());
-        assert_eq!(
-            ti.auto_cleanup,
-            Some(AutoCleanupMacro::Autoqueue("GFile".to_string()))
-        );
-        assert_eq!(ti.auto_cleanup.as_ref().unwrap().name(), "g_autoqueue");
-        assert_eq!(ti.auto_cleanup.as_ref().unwrap().type_arg(), Some("GFile"));
-    }
-
-    #[test]
-    fn test_no_auto_cleanup() {
-        let ti = TypeInfo::new("char *".to_string(), SourceLocation::default());
-        assert_eq!(ti.auto_cleanup, None);
-        assert!(!ti.uses_auto_cleanup());
-    }
-
-    #[test]
-    fn test_const_autofree() {
-        let ti = TypeInfo::new(
-            "const g_autofree char *".to_string(),
+        let t = TypeInfo::new(
+            "g_autofree FuZipFirmwareWriteItem *".into(),
             SourceLocation::default(),
         );
-        assert_eq!(ti.auto_cleanup, Some(AutoCleanupMacro::Autofree));
-        assert!(ti.is_const);
-    }
+        assert_eq!(t.auto_cleanup, Some(AutoCleanupMacro::Autofree));
+        assert_eq!(t.base_type, "FuZipFirmwareWriteItem");
 
-    #[test]
-    fn test_autofree_with_type() {
-        let ti = TypeInfo::new(
-            "g_autofree FuZipFirmwareWriteItem *".to_string(),
+        let t = TypeInfo::new("const g_autofree char *".into(), SourceLocation::default());
+        assert_eq!(t.auto_cleanup, Some(AutoCleanupMacro::Autofree));
+        assert!(t.is_const);
+        assert_eq!(t.base_type, "char");
+
+        let t = TypeInfo::new("g_autoptr(GFile)".into(), SourceLocation::default());
+        assert_eq!(
+            t.auto_cleanup,
+            Some(AutoCleanupMacro::Autoptr("GFile".into()))
+        );
+        assert_eq!(t.base_type, "GFile");
+
+        let t = TypeInfo::new("g_autoptr (GFile)".into(), SourceLocation::default());
+        assert_eq!(
+            t.auto_cleanup,
+            Some(AutoCleanupMacro::Autoptr("GFile".into()))
+        );
+        assert_eq!(t.base_type, "GFile");
+
+        let t = TypeInfo::new(
+            "g_autoptr (GdmConfigCommandHandler)".into(),
             SourceLocation::default(),
         );
-        assert_eq!(ti.auto_cleanup, Some(AutoCleanupMacro::Autofree));
-        assert_eq!(ti.base_type, "FuZipFirmwareWriteItem");
+        assert_eq!(
+            t.auto_cleanup,
+            Some(AutoCleanupMacro::Autoptr("GdmConfigCommandHandler".into()))
+        );
+        assert_eq!(t.base_type, "GdmConfigCommandHandler");
+
+        let t = TypeInfo::new("g_auto(GString)".into(), SourceLocation::default());
+        assert_eq!(
+            t.auto_cleanup,
+            Some(AutoCleanupMacro::Auto("GString".into()))
+        );
+        assert_eq!(t.base_type, "GString");
+
+        let t = TypeInfo::new("g_auto (GString)".into(), SourceLocation::default());
+        assert_eq!(
+            t.auto_cleanup,
+            Some(AutoCleanupMacro::Auto("GString".into()))
+        );
+        assert_eq!(t.base_type, "GString");
+
+        let t = TypeInfo::new("g_autolist(GFile)".into(), SourceLocation::default());
+        assert_eq!(
+            t.auto_cleanup,
+            Some(AutoCleanupMacro::Autolist("GFile".into()))
+        );
+        assert_eq!(t.base_type, "GFile");
+
+        let t = TypeInfo::new("g_autolist (GFile)".into(), SourceLocation::default());
+        assert_eq!(
+            t.auto_cleanup,
+            Some(AutoCleanupMacro::Autolist("GFile".into()))
+        );
+        assert_eq!(t.base_type, "GFile");
+
+        let t = TypeInfo::new("g_autoslist(GFile)".into(), SourceLocation::default());
+        assert_eq!(
+            t.auto_cleanup,
+            Some(AutoCleanupMacro::Autoslist("GFile".into()))
+        );
+        assert_eq!(t.base_type, "GFile");
+
+        let t = TypeInfo::new("g_autoslist (GFile)".into(), SourceLocation::default());
+        assert_eq!(
+            t.auto_cleanup,
+            Some(AutoCleanupMacro::Autoslist("GFile".into()))
+        );
+        assert_eq!(t.base_type, "GFile");
+
+        let t = TypeInfo::new("g_autoqueue(GFile)".into(), SourceLocation::default());
+        assert_eq!(
+            t.auto_cleanup,
+            Some(AutoCleanupMacro::Autoqueue("GFile".into()))
+        );
+        assert_eq!(t.base_type, "GFile");
+
+        let t = TypeInfo::new("g_autoqueue (GFile)".into(), SourceLocation::default());
+        assert_eq!(
+            t.auto_cleanup,
+            Some(AutoCleanupMacro::Autoqueue("GFile".into()))
+        );
+        assert_eq!(t.base_type, "GFile");
+
+        let t = TypeInfo::new("char *".into(), SourceLocation::default());
+        assert_eq!(t.auto_cleanup, None);
+        assert_eq!(t.base_type, "char");
+        assert_eq!(t.pointer_depth, 1);
     }
 }
