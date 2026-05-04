@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use gobject_ast::model::{
     TypeInfo,
-    expression::Expression,
+    expression::{Designator, Expression},
     top_level::{PreprocessorDirective, TopLevelItem, TypeDefItem},
 };
 
@@ -47,204 +47,632 @@ impl Rule for DeadCode {
         _config: &Config,
         violations: &mut Vec<Violation>,
     ) {
-        // Skip if we don't have public/private distinction
         if !ast_context.has_public_private_info() {
             return;
         }
 
-        // ── Step 1: Collect all function declarations and definitions ───────────
+        let aliases = AliasMaps::new(ast_context);
+        let (func_defs, func_decls) = collect_function_maps(ast_context);
+        let (func_refs, type_refs) = aliases.collect_references(ast_context);
+        let (field_refs_qualified, field_refs_unqualified) =
+            aliases.collect_field_refs(ast_context);
 
-        let mut function_definitions: HashMap<
-            String,
-            Vec<(&std::path::Path, bool, gobject_ast::SourceLocation)>,
-        > = HashMap::new();
-        let mut function_declarations: HashMap<
-            String,
-            Vec<(&std::path::Path, gobject_ast::SourceLocation)>,
-        > = HashMap::new();
+        let type_defs = collect_type_defs(ast_context);
+        let field_defs = collect_field_defs(ast_context);
+        let enum_value_defs = collect_enum_value_defs(ast_context);
 
-        for (path, file) in ast_context.iter_c_files() {
-            for func in file.iter_function_definitions() {
-                function_definitions
-                    .entry(func.name.clone())
-                    .or_default()
-                    .push((path, func.is_static, func.location));
-            }
-        }
+        self.report_function_violations(
+            ast_context,
+            &func_defs,
+            &func_decls,
+            &func_refs,
+            violations,
+        );
+        self.report_type_violations(&type_defs, &type_refs, &aliases, violations);
+        self.report_enum_value_violations(&enum_value_defs, &func_refs, violations);
+        self.report_field_violations(
+            &field_defs,
+            &field_refs_qualified,
+            &field_refs_unqualified,
+            &aliases,
+            violations,
+        );
+    }
+}
 
-        for (path, file) in ast_context.iter_header_files() {
-            for func in file.iter_function_declarations() {
-                function_declarations
-                    .entry(func.name.clone())
-                    .or_default()
-                    .push((path, func.location));
-            }
-        }
+struct AliasMaps {
+    typedef_to_tag: HashMap<String, String>,
+    tag_to_typedef: HashMap<String, String>,
+}
 
-        // ── Step 1b: Collect type definitions from private contexts ─────────────
-
-        // name → [(file_path, location)]
-        let mut type_definitions: HashMap<
-            String,
-            Vec<(&std::path::Path, gobject_ast::SourceLocation)>,
-        > = HashMap::new();
-
-        // For forward typedef aliases (`typedef struct _Foo Foo;`), map the
-        // typedef name to its underlying tag so we can consider the typedef
-        // referenced whenever the tag is referenced (code often uses the tag
-        // directly rather than the alias).
+impl AliasMaps {
+    fn new(ast_context: &AstContext) -> Self {
         let mut typedef_to_tag: HashMap<String, String> = HashMap::new();
-        // Reverse map: bare tag name → typedef alias name.  Used to consider
-        // `struct _Foo` (keyed as "_Foo") referenced when `Foo` appears in code.
         let mut tag_to_typedef: HashMap<String, String> = HashMap::new();
 
-        // Alias maps must cover ALL files — a public header often holds the
-        // `typedef struct _Foo Foo` while the struct body lives in the .c file.
+        // G_DECLARE_FINAL_TYPE etc. expand to `typedef struct _Foo Foo` at compile
+        // time; synthesise that alias for every known GObject type our parser sees.
         for (_path, file) in ast_context.iter_all_files() {
-            collect_typedef_aliases(
-                &file.top_level_items,
-                &mut typedef_to_tag,
-                &mut tag_to_typedef,
-            );
-        }
-
-        for (path, file) in ast_context.iter_c_files() {
-            collect_type_defs_from_items(&file.top_level_items, path, &mut type_definitions);
-        }
-
-        for (path, file) in ast_context.iter_header_files() {
-            // Skip public headers — types there are part of the public API
-            if ast_context.is_public_header(path) == Some(true) {
-                continue;
+            for (name, target) in file.iter_typedef_pairs() {
+                typedef_to_tag.insert(name.to_owned(), target.base_type.clone());
+                if target.is_struct || target.is_union {
+                    tag_to_typedef.insert(target.base_type.clone(), name.to_owned());
+                }
             }
-            collect_type_defs_from_items(&file.top_level_items, path, &mut type_definitions);
+            for gt in file.iter_all_gobject_types() {
+                let tag = format!("_{}", gt.type_name);
+                typedef_to_tag
+                    .entry(gt.type_name.clone())
+                    .or_insert_with(|| tag.clone());
+                tag_to_typedef
+                    .entry(tag)
+                    .or_insert_with(|| gt.type_name.clone());
+            }
         }
 
-        // ── Step 2: Collect all function and type references ───────────────────
+        Self {
+            typedef_to_tag,
+            tag_to_typedef,
+        }
+    }
 
-        let mut function_references: HashSet<String> = HashSet::new();
-        let mut type_references: HashSet<String> = HashSet::new();
+    fn canonical<'a>(&'a self, name: &'a str) -> &'a str {
+        self.typedef_to_tag
+            .get(name)
+            .map(|s| s.as_str())
+            .unwrap_or(name)
+    }
+
+    fn is_referenced(&self, name: &str, refs: &HashSet<String>) -> bool {
+        refs.contains(name)
+            || self
+                .typedef_to_tag
+                .get(name)
+                .is_some_and(|t| refs.contains(t))
+            || self
+                .tag_to_typedef
+                .get(name)
+                .is_some_and(|a| refs.contains(a))
+    }
+
+    fn field_is_referenced(
+        &self,
+        struct_name: &str,
+        field_name: &str,
+        qualified: &HashSet<(String, String)>,
+    ) -> bool {
+        let has = |s: &str| qualified.contains(&(s.to_owned(), field_name.to_owned()));
+        has(struct_name)
+            || self.typedef_to_tag.get(struct_name).is_some_and(|t| has(t))
+            || self.tag_to_typedef.get(struct_name).is_some_and(|a| has(a))
+    }
+
+    fn type_map_for(
+        &self,
+        func: &gobject_ast::model::top_level::FunctionDefItem,
+    ) -> HashMap<String, String> {
+        use gobject_ast::model::statement::Statement;
+        let mut map: HashMap<String, String> = HashMap::new();
+        for param in &func.parameters {
+            if let Some(name) = &param.name {
+                let base = &param.type_info.base_type;
+                if !base.is_empty() {
+                    map.insert(name.clone(), self.canonical(base).to_owned());
+                }
+            }
+        }
+        for stmt in &func.body_statements {
+            stmt.walk(&mut |s| {
+                if let Statement::Declaration(decl) = s {
+                    let base = &decl.type_info.base_type;
+                    if !base.is_empty() {
+                        map.insert(decl.name.clone(), self.canonical(base).to_owned());
+                    }
+                }
+            });
+        }
+        map
+    }
+
+    fn insert_qualified(
+        &self,
+        type_name: &str,
+        field_name: &str,
+        qualified: &mut HashSet<(String, String)>,
+    ) {
+        qualified.insert((type_name.to_owned(), field_name.to_owned()));
+        if let Some(alias) = self.tag_to_typedef.get(type_name) {
+            qualified.insert((alias.clone(), field_name.to_owned()));
+        }
+        if let Some(tag) = self.typedef_to_tag.get(type_name) {
+            qualified.insert((tag.clone(), field_name.to_owned()));
+        }
+    }
+
+    fn collect_references(&self, ast_context: &AstContext) -> (HashSet<String>, HashSet<String>) {
+        let mut func_refs: HashSet<String> = HashSet::new();
+        let mut type_refs: HashSet<String> = HashSet::new();
 
         for (_path, file) in ast_context.iter_all_files() {
-            // Scan function bodies
             for func in file.iter_function_definitions() {
-                // Function parameters and return type
-                collect_type_ref(&func.return_type, &mut type_references);
+                collect_type_ref(&func.return_type, &mut type_refs);
                 for param in &func.parameters {
-                    collect_type_ref(&param.type_info, &mut type_references);
+                    collect_type_ref(&param.type_info, &mut type_refs);
                 }
-
                 for stmt in &func.body_statements {
-                    collect_function_references(stmt, &mut function_references);
-                    collect_type_refs_from_stmt(stmt, &mut type_references);
+                    collect_func_refs_from_stmt(stmt, &mut func_refs);
+                    collect_type_refs_from_stmt(stmt, &mut type_refs);
                 }
             }
 
-            // Function declarations: return type and parameters reference types
             for func in file.iter_function_declarations() {
-                collect_type_ref(&func.return_type, &mut type_references);
+                collect_type_ref(&func.return_type, &mut type_refs);
                 for param in &func.parameters {
-                    collect_type_ref(&param.type_info, &mut type_references);
+                    collect_type_ref(&param.type_info, &mut type_refs);
                 }
             }
 
-            // Top-level declarations and preprocessor directives
-            for item in &file.top_level_items {
-                collect_function_references_from_top_level_item(item, &mut function_references);
-                collect_type_refs_from_top_level_item(item, &mut type_references);
+            for item in file.iter_all_items() {
+                if let TopLevelItem::Declaration(decl) = item {
+                    collect_func_refs_from_stmt(decl, &mut func_refs);
+                }
+                collect_type_refs_from_top_level_item(item, &mut type_refs);
+                match item {
+                    TopLevelItem::Preprocessor(PreprocessorDirective::Define {
+                        value: Some(value),
+                        ..
+                    }) => {
+                        extract_function_calls_from_text(value, &mut func_refs);
+                    }
+                    TopLevelItem::Preprocessor(
+                        PreprocessorDirective::AutoptrCleanupFunc {
+                            type_name,
+                            cleanup_function,
+                            ..
+                        }
+                        | PreprocessorDirective::AutoCleanupClearFunc {
+                            type_name,
+                            cleanup_function,
+                            ..
+                        },
+                    ) => {
+                        func_refs.insert(cleanup_function.clone());
+                        type_refs.insert(type_name.clone());
+                    }
+                    _ => {}
+                }
             }
 
-            // GObject type registration: mark implicitly referenced functions/types
-            for gobject_type in file.iter_all_gobject_types() {
-                use gobject_ast::model::types::GObjectTypeKind;
+            collect_gobject_implicit_refs(file, &mut func_refs, &mut type_refs);
 
-                if gobject_type.is_interface() {
-                    function_references.insert(gobject_type.default_init_function_name());
-                } else {
-                    function_references.insert(gobject_type.class_init_function_name());
-                    function_references.insert(gobject_type.init_function_name());
+            for enum_info in file.iter_all_enums() {
+                for value in &enum_info.values {
+                    if let Some(expr) = &value.value_expr {
+                        func_refs.extend(expr.collect_identifiers());
+                    }
                 }
+            }
+        }
 
-                for interface_impl in &gobject_type.interfaces {
-                    function_references.insert(interface_impl.init_function.clone());
+        (func_refs, type_refs)
+    }
+
+    fn collect_field_refs(
+        &self,
+        ast_context: &AstContext,
+    ) -> (HashSet<(String, String)>, HashSet<String>) {
+        let mut qualified: HashSet<(String, String)> = HashSet::new();
+        let mut unqualified: HashSet<String> = HashSet::new();
+        let empty_map: HashMap<String, String> = HashMap::new();
+
+        for (_path, file) in ast_context.iter_all_files() {
+            for func in file.iter_function_definitions() {
+                let type_map = self.type_map_for(func);
+                for stmt in &func.body_statements {
+                    collect_field_refs_from_stmt(
+                        stmt,
+                        &type_map,
+                        self,
+                        &mut qualified,
+                        &mut unqualified,
+                    );
                 }
+            }
 
-                if let GObjectTypeKind::DefineBoxed {
-                    copy_func,
-                    free_func,
-                } = &gobject_type.kind
+            for item in file.iter_all_items() {
+                match item {
+                    TopLevelItem::Declaration(stmt) => {
+                        collect_field_refs_from_stmt(
+                            stmt,
+                            &empty_map,
+                            self,
+                            &mut qualified,
+                            &mut unqualified,
+                        );
+                    }
+                    TopLevelItem::Preprocessor(PreprocessorDirective::Define {
+                        value: Some(value),
+                        ..
+                    }) => {
+                        extract_field_refs_from_text(value, &mut unqualified);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        (qualified, unqualified)
+    }
+}
+
+type FuncDefMap<'a> =
+    HashMap<String, Vec<(&'a std::path::Path, bool, gobject_ast::SourceLocation)>>;
+type FuncDeclMap<'a> = HashMap<String, Vec<(&'a std::path::Path, gobject_ast::SourceLocation)>>;
+
+fn collect_function_maps<'a>(ast_context: &'a AstContext) -> (FuncDefMap<'a>, FuncDeclMap<'a>) {
+    let mut defs: FuncDefMap = HashMap::new();
+    let mut decls: FuncDeclMap = HashMap::new();
+
+    for (path, file) in ast_context.iter_c_files() {
+        for func in file.iter_function_definitions() {
+            defs.entry(func.name.clone())
+                .or_default()
+                .push((path, func.is_static, func.location));
+        }
+    }
+
+    for (path, file) in ast_context.iter_header_files() {
+        for func in file.iter_function_declarations() {
+            decls
+                .entry(func.name.clone())
+                .or_default()
+                .push((path, func.location));
+        }
+    }
+
+    (defs, decls)
+}
+
+type TypeDefMap<'a> = HashMap<String, Vec<(&'a std::path::Path, gobject_ast::SourceLocation)>>;
+
+fn collect_type_defs<'a>(ast_context: &'a AstContext) -> TypeDefMap<'a> {
+    let mut defs: TypeDefMap = HashMap::new();
+    for (path, file) in ast_context.iter_private_files() {
+        for item in file.iter_all_items() {
+            match item {
+                TopLevelItem::TypeDefinition(TypeDefItem::Struct {
+                    name,
+                    has_body: true,
+                    location,
+                    ..
+                }) => {
+                    defs.entry(name.clone())
+                        .or_default()
+                        .push((path, *location));
+                }
+                TopLevelItem::TypeDefinition(TypeDefItem::Typedef { name, location, .. }) => {
+                    defs.entry(name.clone())
+                        .or_default()
+                        .push((path, *location));
+                }
+                _ => {}
+            }
+        }
+    }
+    defs
+}
+
+type EnumValueDefMap<'a> = HashMap<String, Vec<(&'a std::path::Path, gobject_ast::SourceLocation)>>;
+
+fn collect_enum_value_defs<'a>(ast_context: &'a AstContext) -> EnumValueDefMap<'a> {
+    let mut defs: EnumValueDefMap = HashMap::new();
+    for (path, file) in ast_context.iter_private_files() {
+        for enum_info in file.iter_all_enums() {
+            for value in &enum_info.values {
+                if value.is_prop_0()
+                    || value.is_prop_last()
+                    || value.is_signal_last()
+                    || (value.value == Some(0) && value.value_expr.is_some())
                 {
-                    function_references.insert(copy_func.clone());
-                    function_references.insert(free_func.clone());
+                    continue;
                 }
+                defs.entry(value.name.clone())
+                    .or_default()
+                    .push((path, value.location));
+            }
+        }
+    }
+    defs
+}
 
-                // *_WITH_PRIVATE variants implicitly use {TypeName}Private
-                if gobject_type.has_private {
-                    let priv_name = format!("{}Private", gobject_type.type_name);
-                    type_references.insert(priv_name.clone());
-                    // Also mark the underscore-prefixed tag form (e.g.
-                    // `struct _ShellGLSLEffectPrivate` forward-declared before
-                    // G_DEFINE_TYPE_WITH_PRIVATE).
-                    type_references.insert(format!("_{priv_name}"));
+type FieldDefMap<'a> =
+    HashMap<String, Vec<(&'a std::path::Path, gobject_ast::SourceLocation, String)>>;
+
+fn collect_field_defs<'a>(ast_context: &'a AstContext) -> FieldDefMap<'a> {
+    let mut defs: FieldDefMap = HashMap::new();
+    for (path, file) in ast_context.iter_private_files() {
+        for item in file.iter_all_items() {
+            match item {
+                TopLevelItem::TypeDefinition(
+                    td @ TypeDefItem::Struct {
+                        name,
+                        has_body: true,
+                        fields,
+                        ..
+                    },
+                ) if !td.is_vtable_struct() => {
+                    collect_fields_into_defs(fields, name, path, &mut defs);
                 }
-
-                // GObject private structs are used implicitly by the type
-                // machinery — never flag them as dead code.
-                //   _TypeName          — instance struct (all types)
-                //   _TypeNameClass     — class vtable (derivable/abstract)
-                //   _TypeNameInterface — interface vtable (interfaces only)
-                let tn = &gobject_type.type_name;
-                type_references.insert(format!("_{tn}"));
-                if gobject_type.is_interface() {
-                    type_references.insert(format!("_{tn}Interface"));
-                } else if !matches!(gobject_type.kind, GObjectTypeKind::DefineBoxed { .. }) {
-                    type_references.insert(format!("_{tn}Class"));
+                TopLevelItem::TypeDefinition(
+                    td @ TypeDefItem::Typedef {
+                        name,
+                        struct_fields,
+                        ..
+                    },
+                ) if !td.is_vtable_struct() => {
+                    collect_fields_into_defs(struct_fields, name, path, &mut defs);
                 }
+                _ => {}
+            }
+        }
+    }
+    defs
+}
 
-                for stmt in &gobject_type.code_block_statements {
-                    collect_function_references(stmt, &mut function_references);
-                    collect_type_refs_from_stmt(stmt, &mut type_references);
+fn collect_fields_into_defs<'a>(
+    fields: &'a [gobject_ast::model::top_level::StructField],
+    struct_name: &str,
+    path: &'a std::path::Path,
+    defs: &mut FieldDefMap<'a>,
+) {
+    let last_non_reserved = fields.iter().rposition(|f| !f.is_reserved());
+
+    for (idx, field) in fields.iter().enumerate() {
+        let Some(field_name) = &field.field_name else {
+            continue;
+        };
+        if idx == 0 && field_name.starts_with("parent") {
+            continue;
+        }
+        if field.is_reserved() && last_non_reserved.is_none_or(|last| idx > last) {
+            continue;
+        }
+        defs.entry(field_name.clone()).or_default().push((
+            path,
+            field.location,
+            struct_name.to_owned(),
+        ));
+    }
+}
+
+fn collect_gobject_implicit_refs(
+    file: &gobject_ast::FileModel,
+    func_refs: &mut HashSet<String>,
+    type_refs: &mut HashSet<String>,
+) {
+    use gobject_ast::model::types::GObjectTypeKind;
+
+    for gt in file.iter_all_gobject_types() {
+        if gt.is_interface() {
+            func_refs.insert(gt.default_init_function_name());
+        } else {
+            func_refs.insert(gt.class_init_function_name());
+            func_refs.insert(gt.init_function_name());
+        }
+
+        for iface in &gt.interfaces {
+            func_refs.insert(iface.init_function.clone());
+        }
+
+        if let GObjectTypeKind::DefineBoxed {
+            copy_func,
+            free_func,
+        } = &gt.kind
+        {
+            func_refs.insert(copy_func.clone());
+            func_refs.insert(free_func.clone());
+        }
+
+        if gt.has_private {
+            let priv_name = format!("{}Private", gt.type_name);
+            type_refs.insert(priv_name.clone());
+            type_refs.insert(format!("_{priv_name}"));
+        }
+
+        let tn = &gt.type_name;
+        type_refs.insert(format!("_{tn}"));
+        if gt.is_interface() {
+            type_refs.insert(format!("_{tn}Interface"));
+        } else if !matches!(gt.kind, GObjectTypeKind::DefineBoxed { .. }) {
+            type_refs.insert(format!("_{tn}Class"));
+        }
+
+        for stmt in &gt.code_block_statements {
+            collect_func_refs_from_stmt(stmt, func_refs);
+            collect_type_refs_from_stmt(stmt, type_refs);
+        }
+    }
+}
+
+fn collect_type_ref(type_info: &TypeInfo, refs: &mut HashSet<String>) {
+    if !type_info.base_type.is_empty() {
+        refs.insert(type_info.base_type.clone());
+    }
+}
+
+fn collect_type_refs_from_stmt(
+    stmt: &gobject_ast::model::statement::Statement,
+    refs: &mut HashSet<String>,
+) {
+    use gobject_ast::model::statement::Statement;
+    stmt.walk(&mut |s| {
+        if let Statement::Declaration(decl) = s {
+            collect_type_ref(&decl.type_info, refs);
+        }
+    });
+    stmt.walk_expressions(&mut |expr| {
+        expr.walk(&mut |e| match e {
+            Expression::Cast(cast) => collect_type_ref(&cast.type_info, refs),
+            Expression::Sizeof(sizeof) => {
+                if let Some(name) = sizeof.type_name()
+                    && !name.is_empty()
+                {
+                    refs.insert(name);
                 }
             }
+            _ => {}
+        });
+    });
+}
 
-            // Preprocessor directives (autoptr cleanup, #define bodies).
-            // scan_preprocessor_items recurses into #ifdef/#if blocks so that
-            // #define macros inside conditional sections are also checked.
-            scan_preprocessor_items(
-                &file.top_level_items,
-                &mut function_references,
-                &mut type_references,
-            );
-
-            // Enum value expressions (e.g. `FOO_AB = FOO_A | FOO_B`) reference
-            // other enum values — collect those so we don't falsely report them.
-            collect_enum_value_expr_refs(&file.top_level_items, &mut function_references);
+fn collect_type_refs_from_top_level_item(item: &TopLevelItem, refs: &mut HashSet<String>) {
+    match item {
+        TopLevelItem::Declaration(stmt) => collect_type_refs_from_stmt(stmt, refs),
+        TopLevelItem::TypeDefinition(TypeDefItem::Typedef {
+            target_type,
+            struct_fields,
+            ..
+        }) => {
+            collect_type_ref(target_type, refs);
+            for field in struct_fields {
+                collect_type_ref(&field.field_type, refs);
+            }
         }
-
-        // ── Step 2b: Collect enum value definitions from private contexts ───────
-
-        let mut enum_value_defs: HashMap<
-            String,
-            Vec<(&std::path::Path, gobject_ast::SourceLocation)>,
-        > = HashMap::new();
-
-        for (path, file) in ast_context.iter_c_files() {
-            collect_enum_values_from_items(&file.top_level_items, path, &mut enum_value_defs);
+        TopLevelItem::TypeDefinition(TypeDefItem::Struct { fields, .. }) => {
+            for field in fields {
+                collect_type_ref(&field.field_type, refs);
+            }
         }
-        for (path, file) in ast_context.iter_header_files() {
-            if ast_context.is_public_header(path) == Some(true) {
+        _ => {}
+    }
+}
+
+fn collect_func_refs_from_stmt(
+    stmt: &gobject_ast::model::statement::Statement,
+    refs: &mut HashSet<String>,
+) {
+    use gobject_ast::model::statement::Statement;
+    stmt.walk_expressions(&mut |expr| refs.extend(expr.collect_identifiers()));
+    stmt.walk(&mut |s| {
+        if let Statement::Preprocessor(PreprocessorDirective::Define {
+            value: Some(value), ..
+        }) = s
+        {
+            extract_function_calls_from_text(value, refs);
+        }
+    });
+}
+
+fn extract_function_calls_from_text(text: &str, refs: &mut HashSet<String>) {
+    let mut chars = text.chars().peekable();
+    let mut ident = String::new();
+
+    while let Some(c) = chars.next() {
+        if c.is_alphanumeric() || c == '_' {
+            ident.push(c);
+        } else {
+            if !ident.is_empty() {
+                if c == '(' {
+                    refs.insert(ident.clone());
+                } else if c.is_whitespace() || c == '\\' {
+                    let mut lookahead = chars.clone();
+                    while let Some(&nc) = lookahead.peek() {
+                        if nc.is_whitespace() || nc == '\\' {
+                            lookahead.next();
+                        } else {
+                            if nc == '(' {
+                                refs.insert(ident.clone());
+                            }
+                            break;
+                        }
+                    }
+                }
+                ident.clear();
+            }
+        }
+    }
+}
+
+fn collect_field_refs_from_stmt(
+    stmt: &gobject_ast::model::statement::Statement,
+    type_map: &HashMap<String, String>,
+    aliases: &AliasMaps,
+    qualified: &mut HashSet<(String, String)>,
+    unqualified: &mut HashSet<String>,
+) {
+    use gobject_ast::model::statement::Statement;
+
+    stmt.walk_expressions(&mut |expr| {
+        expr.walk(&mut |e| match e {
+            Expression::FieldAccess(f) => {
+                if let Expression::Identifier(id) = f.base.as_ref()
+                    && let Some(type_name) = type_map.get(&id.name)
+                {
+                    aliases.insert_qualified(type_name, &f.field, qualified);
+                    return;
+                }
+                unqualified.insert(f.field.clone());
+            }
+            Expression::InitializerList(init) => {
+                for item in &init.items {
+                    if let Some(Designator::Field(name)) = &item.designator {
+                        unqualified.insert(name.clone());
+                    }
+                }
+            }
+            _ => {}
+        });
+    });
+
+    stmt.walk(&mut |s| {
+        if let Statement::Preprocessor(PreprocessorDirective::Define {
+            value: Some(value), ..
+        }) = s
+        {
+            extract_field_refs_from_text(value, unqualified);
+        }
+    });
+}
+
+fn extract_field_refs_from_text(text: &str, unqualified: &mut HashSet<String>) {
+    let b = text.as_bytes();
+    let mut i = 0;
+    while i < b.len() {
+        let arrow = i + 1 < b.len() && b[i] == b'-' && b[i + 1] == b'>';
+        let dot = b[i] == b'.'
+            && i > 0
+            && (b[i - 1].is_ascii_alphanumeric()
+                || b[i - 1] == b'_'
+                || matches!(b[i - 1], b')' | b']'));
+        if arrow || dot {
+            let start = i + if arrow { 2 } else { 1 };
+            let mut end = start;
+            while end < b.len() && (b[end].is_ascii_alphanumeric() || b[end] == b'_') {
+                end += 1;
+            }
+            if end > start {
+                unqualified.insert(text[start..end].to_owned());
+            }
+            i = end;
+        } else {
+            i += 1;
+        }
+    }
+}
+
+impl DeadCode {
+    fn report_function_violations(
+        &self,
+        ast_context: &AstContext,
+        func_defs: &FuncDefMap,
+        func_decls: &FuncDeclMap,
+        func_refs: &HashSet<String>,
+        violations: &mut Vec<Violation>,
+    ) {
+        for (func_name, defs) in func_defs {
+            if func_refs.contains(func_name) {
                 continue;
             }
-            collect_enum_values_from_items(&file.top_level_items, path, &mut enum_value_defs);
-        }
-
-        // ── Step 3: Report function violations ─────────────────────────────────
-
-        for (func_name, defs) in &function_definitions {
-            if function_references.contains(func_name) {
-                continue;
-            }
-
             for (def_path, is_static, location) in defs {
                 if *is_static {
                     violations.push(self.violation(
@@ -255,10 +683,7 @@ impl Rule for DeadCode {
                     ));
                     continue;
                 }
-
-                if let Some(decls) = function_declarations.get(func_name) {
-                    // If any declaration is in a public header the function is
-                    // public API — don't report any of its declarations.
+                if let Some(decls) = func_decls.get(func_name) {
                     if decls
                         .iter()
                         .any(|(p, _)| ast_context.is_public_header(p) == Some(true))
@@ -280,15 +705,10 @@ impl Rule for DeadCode {
             }
         }
 
-        // Declared-but-not-defined functions in private headers
-        for (func_name, decls) in &function_declarations {
-            if function_references.contains(func_name) {
+        for (func_name, decls) in func_decls {
+            if func_refs.contains(func_name) || func_defs.contains_key(func_name) {
                 continue;
             }
-            if function_definitions.contains_key(func_name) {
-                continue;
-            }
-            // If any declaration is in a public header the function is public API.
             if decls
                 .iter()
                 .any(|(p, _)| ast_context.is_public_header(p) == Some(true))
@@ -307,33 +727,19 @@ impl Rule for DeadCode {
                 ));
             }
         }
+    }
 
-        // ── Step 4: Report type violations ─────────────────────────────────────
-
-        for (type_name, defs) in &type_definitions {
-            if type_references.contains(type_name) {
+    fn report_type_violations(
+        &self,
+        type_defs: &TypeDefMap,
+        type_refs: &HashSet<String>,
+        aliases: &AliasMaps,
+        violations: &mut Vec<Violation>,
+    ) {
+        for (type_name, defs) in type_defs {
+            if aliases.is_referenced(type_name, type_refs) {
                 continue;
             }
-            // For forward typedef aliases (`typedef struct _Foo Foo`), also
-            // consider the typedef referenced if the underlying tag is used.
-            if typedef_to_tag
-                .get(type_name)
-                .is_some_and(|tag| type_references.contains(tag))
-            {
-                continue;
-            }
-            // Reverse: if `_Foo` is a tag with typedef alias `Foo`, consider
-            // the tag referenced whenever the alias appears in code.  This
-            // covers the common pattern where a union/struct is forward-declared
-            // as `typedef union _Foo Foo;` and then defined as `union _Foo {...}`
-            // but code only ever spells `Foo`, not `_Foo`.
-            if tag_to_typedef
-                .get(type_name)
-                .is_some_and(|alias| type_references.contains(alias))
-            {
-                continue;
-            }
-
             for (def_path, location) in defs {
                 violations.push(self.violation(
                     def_path,
@@ -343,11 +749,16 @@ impl Rule for DeadCode {
                 ));
             }
         }
+    }
 
-        // ── Step 5: Report unused enum values ──────────────────────────────────
-
-        for (value_name, defs) in &enum_value_defs {
-            if function_references.contains(value_name) {
+    fn report_enum_value_violations(
+        &self,
+        enum_value_defs: &EnumValueDefMap,
+        func_refs: &HashSet<String>,
+        violations: &mut Vec<Violation>,
+    ) {
+        for (value_name, defs) in enum_value_defs {
+            if func_refs.contains(value_name) {
                 continue;
             }
             for (def_path, location) in defs {
@@ -360,335 +771,30 @@ impl Rule for DeadCode {
             }
         }
     }
-}
 
-// ── Type definition collection
-// ─────────────────────────────────────────────────
-
-/// Collect typedef alias pairs from one file's items into typedef_to_tag and
-/// tag_to_typedef. Called for ALL files (including public headers) so that
-/// alias relationships are known even when the struct body is in a .c file and
-/// its `typedef struct _Foo Foo` declaration is in a public header.
-fn collect_typedef_aliases(
-    items: &[TopLevelItem],
-    typedef_to_tag: &mut HashMap<String, String>,
-    tag_to_typedef: &mut HashMap<String, String>,
-) {
-    for item in items {
-        match item {
-            TopLevelItem::TypeDefinition(TypeDefItem::Typedef {
-                name,
-                target_type,
-                struct_fields,
-                ..
-            }) if struct_fields.is_empty() && !target_type.base_type.is_empty() => {
-                typedef_to_tag.insert(name.clone(), target_type.base_type.clone());
-                // For `typedef struct _Foo Foo`, base_type is now "_Foo" and
-                // is_struct/is_union is set — build the reverse map too.
-                if target_type.is_struct || target_type.is_union {
-                    tag_to_typedef.insert(target_type.base_type.clone(), name.clone());
+    fn report_field_violations(
+        &self,
+        field_defs: &FieldDefMap,
+        field_refs_qualified: &HashSet<(String, String)>,
+        field_refs_unqualified: &HashSet<String>,
+        aliases: &AliasMaps,
+        violations: &mut Vec<Violation>,
+    ) {
+        for (field_name, defs) in field_defs {
+            if field_refs_unqualified.contains(field_name) {
+                continue;
+            }
+            for (def_path, location, struct_name) in defs {
+                if aliases.field_is_referenced(struct_name, field_name, field_refs_qualified) {
+                    continue;
                 }
+                violations.push(self.violation(
+                    def_path,
+                    location.line,
+                    location.column,
+                    format!("Field '{}' in '{}' is never used", field_name, struct_name),
+                ));
             }
-            TopLevelItem::Preprocessor(
-                PreprocessorDirective::Conditional { body, .. }
-                | PreprocessorDirective::GObjectDeclsBlock { body, .. },
-            ) => {
-                collect_typedef_aliases(body, typedef_to_tag, tag_to_typedef);
-            }
-            _ => {}
-        }
-    }
-}
-
-fn collect_type_defs_from_items<'a>(
-    items: &'a [TopLevelItem],
-    path: &'a std::path::Path,
-    defs: &mut HashMap<String, Vec<(&'a std::path::Path, gobject_ast::SourceLocation)>>,
-) {
-    for item in items {
-        match item {
-            TopLevelItem::TypeDefinition(type_def) => match type_def {
-                TypeDefItem::Struct {
-                    name,
-                    has_body: true,
-                    location,
-                    ..
-                } => {
-                    defs.entry(name.clone())
-                        .or_default()
-                        .push((path, *location));
-                }
-                TypeDefItem::Typedef { name, location, .. } => {
-                    defs.entry(name.clone())
-                        .or_default()
-                        .push((path, *location));
-                }
-                _ => {}
-            },
-            // Recurse into preprocessor conditional/decls-block bodies
-            TopLevelItem::Preprocessor(
-                PreprocessorDirective::Conditional { body, .. }
-                | PreprocessorDirective::GObjectDeclsBlock { body, .. },
-            ) => {
-                collect_type_defs_from_items(body, path, defs);
-            }
-            _ => {}
-        }
-    }
-}
-
-/// Recursively scan preprocessor directives for function/type references.
-/// Handles autoptr cleanup, #define bodies, and recurses into #ifdef blocks
-/// so that macros defined inside conditional sections are not missed.
-fn scan_preprocessor_items(
-    items: &[TopLevelItem],
-    function_refs: &mut HashSet<String>,
-    type_refs: &mut HashSet<String>,
-) {
-    for item in items {
-        if let TopLevelItem::Preprocessor(directive) = item {
-            match directive {
-                PreprocessorDirective::AutoptrCleanupFunc {
-                    type_name,
-                    cleanup_function,
-                    ..
-                } => {
-                    function_refs.insert(cleanup_function.clone());
-                    type_refs.insert(type_name.clone());
-                }
-                PreprocessorDirective::AutoCleanupClearFunc {
-                    type_name,
-                    cleanup_function,
-                    ..
-                } => {
-                    function_refs.insert(cleanup_function.clone());
-                    type_refs.insert(type_name.clone());
-                }
-                PreprocessorDirective::Define {
-                    value: Some(value), ..
-                } => {
-                    extract_function_calls_from_text(value, function_refs);
-                }
-                PreprocessorDirective::Conditional { body, .. }
-                | PreprocessorDirective::GObjectDeclsBlock { body, .. } => {
-                    scan_preprocessor_items(body, function_refs, type_refs);
-                }
-                _ => {}
-            }
-        }
-    }
-}
-
-// ── Type reference collection
-// ──────────────────────────────────────────────────
-
-fn collect_type_ref(type_info: &TypeInfo, refs: &mut HashSet<String>) {
-    if !type_info.base_type.is_empty() {
-        refs.insert(type_info.base_type.clone());
-    }
-    if let Some(auto) = &type_info.auto_cleanup
-        && let Some(arg) = auto.type_arg()
-    {
-        refs.insert(arg.to_string());
-    }
-}
-
-fn collect_type_refs_from_expr(expr: &Expression, refs: &mut HashSet<String>) {
-    expr.walk(&mut |e| match e {
-        Expression::Cast(cast) => {
-            collect_type_ref(&cast.type_info, refs);
-        }
-        Expression::Sizeof(sizeof) => {
-            if let Some(name) = sizeof.type_name()
-                && !name.is_empty()
-            {
-                refs.insert(name);
-            }
-        }
-        _ => {}
-    });
-}
-
-fn collect_type_refs_from_stmt(
-    stmt: &gobject_ast::model::statement::Statement,
-    refs: &mut HashSet<String>,
-) {
-    use gobject_ast::model::statement::Statement;
-
-    stmt.walk(&mut |s| {
-        if let Statement::Declaration(decl) = s {
-            collect_type_ref(&decl.type_info, refs);
-        }
-    });
-
-    stmt.walk_expressions(&mut |expr| {
-        collect_type_refs_from_expr(expr, refs);
-    });
-}
-
-fn collect_type_refs_from_top_level_item(item: &TopLevelItem, refs: &mut HashSet<String>) {
-    match item {
-        TopLevelItem::Declaration(stmt) => {
-            collect_type_refs_from_stmt(stmt, refs);
-        }
-        // Typedef: its target type name is a reference, and if it wraps a struct body
-        // its field types are also references.
-        TopLevelItem::TypeDefinition(TypeDefItem::Typedef {
-            target_type,
-            struct_fields,
-            ..
-        }) => {
-            if !target_type.base_type.is_empty() {
-                refs.insert(target_type.base_type.clone());
-            }
-            for field in struct_fields {
-                if !field.field_type.base_type.is_empty() {
-                    refs.insert(field.field_type.base_type.clone());
-                }
-            }
-        }
-        // Standalone struct definition: `struct _Foo { FieldType f; };`
-        TopLevelItem::TypeDefinition(TypeDefItem::Struct { fields, .. }) => {
-            for field in fields {
-                if !field.field_type.base_type.is_empty() {
-                    refs.insert(field.field_type.base_type.clone());
-                }
-            }
-        }
-        TopLevelItem::Preprocessor(
-            PreprocessorDirective::Conditional { body, .. }
-            | PreprocessorDirective::GObjectDeclsBlock { body, .. },
-        ) => {
-            for body_item in body {
-                collect_type_refs_from_top_level_item(body_item, refs);
-            }
-        }
-        _ => {}
-    }
-}
-
-// ── Function reference collection (unchanged from dead_code_functions)
-// ─────────
-
-fn collect_function_references_from_top_level_item(
-    item: &TopLevelItem,
-    refs: &mut HashSet<String>,
-) {
-    match item {
-        TopLevelItem::Declaration(decl) => {
-            collect_function_references(decl, refs);
-        }
-        TopLevelItem::Preprocessor(
-            PreprocessorDirective::Conditional { body, .. }
-            | PreprocessorDirective::GObjectDeclsBlock { body, .. },
-        ) => {
-            for body_item in body {
-                collect_function_references_from_top_level_item(body_item, refs);
-            }
-        }
-        _ => {}
-    }
-}
-
-fn extract_function_calls_from_text(text: &str, refs: &mut HashSet<String>) {
-    let mut chars = text.chars().peekable();
-    let mut current_identifier = String::new();
-
-    while let Some(c) = chars.next() {
-        if c.is_alphanumeric() || c == '_' {
-            current_identifier.push(c);
-        } else {
-            if !current_identifier.is_empty() {
-                if c == '(' {
-                    refs.insert(current_identifier.clone());
-                } else if c.is_whitespace() || c == '\\' {
-                    // Skip whitespace and backslash line-continuations, then
-                    // check whether '(' follows (macro call on next line).
-                    let mut temp_chars = chars.clone();
-                    while let Some(&next_c) = temp_chars.peek() {
-                        if next_c.is_whitespace() || next_c == '\\' {
-                            temp_chars.next();
-                        } else {
-                            if next_c == '(' {
-                                refs.insert(current_identifier.clone());
-                            }
-                            break;
-                        }
-                    }
-                }
-                current_identifier.clear();
-            }
-        }
-    }
-}
-
-fn collect_function_references(
-    stmt: &gobject_ast::model::statement::Statement,
-    refs: &mut HashSet<String>,
-) {
-    use gobject_ast::model::statement::Statement;
-
-    stmt.walk_expressions(&mut |expr| {
-        refs.extend(expr.collect_identifiers());
-    });
-    stmt.walk(&mut |s| {
-        if let Statement::Preprocessor(PreprocessorDirective::Define {
-            value: Some(value), ..
-        }) = s
-        {
-            extract_function_calls_from_text(value, refs);
-        }
-    });
-}
-
-// ── Enum value collection
-// ──────────────────────────────────────────────────────
-
-/// Scan enum value initialiser expressions for identifier references.
-/// This prevents false positives for flag combinations like
-/// `FOO_AB = FOO_A | FOO_B` where `FOO_A` would otherwise look unused.
-fn collect_enum_value_expr_refs(items: &[TopLevelItem], refs: &mut HashSet<String>) {
-    for item in items {
-        match item {
-            TopLevelItem::TypeDefinition(TypeDefItem::Enum { enum_info }) => {
-                for value in &enum_info.values {
-                    if let Some(expr) = &value.value_expr {
-                        refs.extend(expr.collect_identifiers());
-                    }
-                }
-            }
-            TopLevelItem::Preprocessor(
-                PreprocessorDirective::Conditional { body, .. }
-                | PreprocessorDirective::GObjectDeclsBlock { body, .. },
-            ) => collect_enum_value_expr_refs(body, refs),
-            _ => {}
-        }
-    }
-}
-
-/// Collect enum value definitions (excluding sentinels) from a slice of items.
-fn collect_enum_values_from_items<'a>(
-    items: &'a [TopLevelItem],
-    path: &'a std::path::Path,
-    defs: &mut HashMap<String, Vec<(&'a std::path::Path, gobject_ast::SourceLocation)>>,
-) {
-    for item in items {
-        match item {
-            TopLevelItem::TypeDefinition(TypeDefItem::Enum { enum_info }) => {
-                for value in &enum_info.values {
-                    if value.is_prop_0() || value.is_prop_last() || value.is_signal_last() {
-                        continue;
-                    }
-                    defs.entry(value.name.clone())
-                        .or_default()
-                        .push((path, value.location));
-                }
-            }
-            TopLevelItem::Preprocessor(
-                PreprocessorDirective::Conditional { body, .. }
-                | PreprocessorDirective::GObjectDeclsBlock { body, .. },
-            ) => collect_enum_values_from_items(body, path, defs),
-            _ => {}
         }
     }
 }

@@ -1,0 +1,1 @@
+used_fields.c:6:1: dead_code: Static function 'distance_sq' is never used

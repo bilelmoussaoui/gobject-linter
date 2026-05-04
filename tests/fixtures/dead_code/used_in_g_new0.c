@@ -11,5 +11,8 @@ foo(GPtrArray *imgs)
 {
     g_autofree FuZipFirmwareWriteItem *items = NULL;
     items = g_new0(FuZipFirmwareWriteItem, imgs->len);
+    items[0].uncompressed_crc = 0;
+    items[0].uncompressed_size = 0;
+    items[0].compressed_size = 0;
     (void)items;
 }

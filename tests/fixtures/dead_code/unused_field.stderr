@@ -1,0 +1,2 @@
+unused_field.c:3:5: dead_code: Field 'unused_field' in 'FooData' is never used
+unused_field.c:6:1: dead_code: Static function 'foo_init' is never used
