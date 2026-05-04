@@ -1320,6 +1320,7 @@ name = "tree-sitter-c-gobject"
 version = "0.1.0"
 dependencies = [
  "cc",
+ "tree-sitter",
  "tree-sitter-language",
 ]
 
