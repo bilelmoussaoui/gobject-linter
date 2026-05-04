@@ -325,10 +325,10 @@ impl UseGObjectClassInstallProperties {
 
         // Remove GParamSpec variable declarations
         for var_name in param_spec_vars {
-            if let Some(decl_stmt) =
+            if let Some(decl) =
                 self.find_param_spec_declaration(&class_init.body_statements, &var_name)
             {
-                fixes.push(Fix::delete_line(decl_stmt.location(), source));
+                fixes.push(Fix::delete_line(&decl.location, source));
             }
         }
 
@@ -412,16 +412,10 @@ impl UseGObjectClassInstallProperties {
         &self,
         class_init: &gobject_ast::top_level::FunctionDefItem,
     ) -> Option<String> {
-        use gobject_ast::Statement;
-
-        for stmt in &class_init.body_statements {
-            if let Statement::Declaration(decl) = stmt
-                && decl.type_info.base_type == "GObjectClass"
-            {
-                return Some(decl.name.clone());
-            }
-        }
-        None
+        class_init
+            .iter_local_declarations()
+            .find(|decl| decl.type_info.base_type == "GObjectClass")
+            .map(|decl| decl.name.clone())
     }
 
     /// Re-indent multiline text to align continuation lines to a specific
@@ -453,18 +447,10 @@ impl UseGObjectClassInstallProperties {
         &self,
         statements: &'a [Statement],
         var_name: &str,
-    ) -> Option<&'a Statement> {
-        use gobject_ast::Statement;
-
-        for stmt in statements {
-            if let Statement::Declaration(decl) = stmt
-                && decl.name == var_name
-                && decl.type_info.base_type == "GParamSpec"
-            {
-                return Some(stmt);
-            }
-        }
-
-        None
+    ) -> Option<&'a gobject_ast::VariableDecl> {
+        statements
+            .iter()
+            .flat_map(|s| s.iter_declarations())
+            .find(|decl| decl.name == var_name && decl.type_info.base_type == "GParamSpec")
     }
 }
