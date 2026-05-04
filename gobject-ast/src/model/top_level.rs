@@ -126,6 +126,10 @@ pub struct StructField {
     /// Field name, if present (anonymous bitfields have none)
     pub field_name: Option<String>,
     pub location: super::SourceLocation,
+    /// Non-empty for anonymous struct/union fields: the members of the
+    /// embedded aggregate (e.g. `union { A a; B b; } d` → inner_fields = [a, b]).
+    #[serde(default)]
+    pub inner_fields: Vec<StructField>,
 }
 
 impl StructField {
@@ -138,6 +142,18 @@ impl StructField {
                 || n.starts_with("padding")
                 || n.starts_with("_padding")
         })
+    }
+
+    /// Visit this field and all nested fields (anonymous struct/union members)
+    /// in pre-order, matching the pattern used by `Statement::walk`.
+    pub fn walk<F>(&self, f: &mut F)
+    where
+        F: FnMut(&StructField),
+    {
+        f(self);
+        for inner in &self.inner_fields {
+            inner.walk(f);
+        }
     }
 }
 

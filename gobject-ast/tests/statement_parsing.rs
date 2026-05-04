@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use gobject_ast::{Expression, ExpressionStmt, Parser, Statement};
+use gobject_ast::{Expression, ExpressionStmt, Parser, Statement, model::top_level::TypeDefItem};
 
 fn parse_fixture(name: &str) -> gobject_ast::Project {
     let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -144,6 +144,54 @@ fn test_parse_goto_statement() {
     let has_goto = find_goto_recursive(&func.body_statements);
 
     assert!(has_goto, "Should find goto statement");
+}
+
+#[test]
+fn test_anonymous_union_field_types_collected() {
+    let project = parse_fixture("anonymous_union.h");
+
+    let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("anonymous_union.h");
+
+    let file = project.get_file(&fixture_path).expect("File should be parsed");
+
+    let xdp_rule = file.iter_all_items().find_map(|item| match item {
+        gobject_ast::model::top_level::TopLevelItem::TypeDefinition(
+            td @ TypeDefItem::Typedef { name, .. },
+        ) if name == "XdpUsbRule" => Some(td),
+        _ => None,
+    });
+
+    let TypeDefItem::Typedef { struct_fields, .. } =
+        xdp_rule.expect("XdpUsbRule typedef not found")
+    else {
+        panic!("XdpUsbRule should be a Typedef");
+    };
+
+    assert_eq!(struct_fields.len(), 2, "XdpUsbRule should have 2 top-level fields");
+
+    let rule_type = &struct_fields[0];
+    assert_eq!(rule_type.field_name.as_deref(), Some("rule_type"));
+    assert_eq!(rule_type.field_type.base_type, "int");
+    assert!(rule_type.inner_fields.is_empty());
+
+    // The anonymous union `union { ... } d` is stored as field `d` with inner_fields.
+    let union_d = &struct_fields[1];
+    assert_eq!(union_d.field_name.as_deref(), Some("d"));
+    assert!(union_d.field_type.base_type.is_empty(), "anonymous union has no base type");
+
+    let inner: Vec<(&str, &str)> = union_d
+        .inner_fields
+        .iter()
+        .map(|f| (f.field_name.as_deref().unwrap_or(""), f.field_type.base_type.as_str()))
+        .collect();
+    assert_eq!(
+        inner,
+        vec![("device_class", "int"), ("product", "UsbProduct"), ("vendor", "UsbVendor")],
+        "anonymous union inner fields mismatch"
+    );
 }
 
 fn find_goto_recursive(statements: &[Statement]) -> bool {

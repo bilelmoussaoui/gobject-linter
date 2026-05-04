@@ -612,6 +612,32 @@ impl Parser {
                         continue;
                     };
 
+                    // Anonymous struct/union: store as a field with inner_fields
+                    // so callers can see `union { A a; B b; } d` as field d with
+                    // inner fields [a, b], preserving the aggregate structure.
+                    if matches!(type_node.kind(), "struct_specifier" | "union_specifier")
+                        && type_node.child_by_field_name("name").is_none()
+                    {
+                        let inner_fields = type_node
+                            .child_by_field_name("body")
+                            .map(|b| self.extract_struct_fields_from_body(b, source))
+                            .unwrap_or_default();
+                        let field_name = child
+                            .child_by_field_name("declarator")
+                            .and_then(|d| self.extract_field_declarator_name(d, source))
+                            .map(|s| s.to_owned());
+                        fields.push(StructField {
+                            field_type: crate::TypeInfo::new(
+                                String::new(),
+                                self.node_location(type_node),
+                            ),
+                            field_name,
+                            location: self.node_location(child),
+                            inner_fields,
+                        });
+                        continue;
+                    }
+
                     let type_text: Option<String> = match type_node.kind() {
                         "type_identifier" | "primitive_type" => {
                             std::str::from_utf8(&source[type_node.byte_range()])
@@ -619,8 +645,7 @@ impl Parser {
                                 .map(|s| s.trim().to_owned())
                         }
                         "struct_specifier" | "union_specifier" | "enum_specifier" => {
-                            // `struct/union/enum Tag { … }` or bare tag ref —
-                            // grab the tag name so type_references tracks it.
+                            // Named tag: grab the name so type_references tracks it.
                             type_node
                                 .child_by_field_name("name")
                                 .and_then(|n| std::str::from_utf8(&source[n.byte_range()]).ok())
@@ -645,6 +670,7 @@ impl Parser {
                         field_type,
                         field_name,
                         location: self.node_location(child),
+                        inner_fields: vec![],
                     });
                 }
                 // Recurse into nested anonymous struct/union bodies

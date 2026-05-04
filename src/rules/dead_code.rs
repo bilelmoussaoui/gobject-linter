@@ -431,6 +431,10 @@ fn collect_fields_into_defs<'a>(
         let Some(field_name) = &field.field_name else {
             continue;
         };
+        if !field.inner_fields.is_empty() {
+            collect_fields_into_defs(&field.inner_fields, struct_name, path, defs);
+            continue;
+        }
         if idx == 0 && field_name.starts_with("parent") {
             continue;
         }
@@ -534,16 +538,21 @@ fn collect_type_refs_from_top_level_item(item: &TopLevelItem, refs: &mut HashSet
             ..
         }) => {
             collect_type_ref(target_type, refs);
-            for field in struct_fields {
-                collect_type_ref(&field.field_type, refs);
-            }
+            collect_type_refs_from_fields(struct_fields, refs);
         }
         TopLevelItem::TypeDefinition(TypeDefItem::Struct { fields, .. }) => {
-            for field in fields {
-                collect_type_ref(&field.field_type, refs);
-            }
+            collect_type_refs_from_fields(fields, refs);
         }
         _ => {}
+    }
+}
+
+fn collect_type_refs_from_fields(
+    fields: &[gobject_ast::model::top_level::StructField],
+    refs: &mut HashSet<String>,
+) {
+    for field in fields {
+        field.walk(&mut |f| collect_type_ref(&f.field_type, refs));
     }
 }
 
