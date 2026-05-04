@@ -31,8 +31,12 @@ impl Rule for UseGStrHasPrefixSuffix {
         violations: &mut Vec<Violation>,
     ) {
         for stmt in &func.body_statements {
-            stmt.walk_expressions(&mut |expr| {
-                self.check_expression(expr, path, violations);
+            stmt.walk(&mut |s| {
+                for expr in s.expressions() {
+                    expr.walk(&mut |e| {
+                        self.check_expression(e, path, violations);
+                    });
+                }
             });
         }
     }
@@ -45,51 +49,44 @@ impl UseGStrHasPrefixSuffix {
         file_path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
-        // Check if this is a binary expression with == or !=
-        if let Expression::Binary(bin) = expr
-            && matches!(bin.operator, BinaryOp::Equal | BinaryOp::NotEqual)
-        {
-            // Check both sides for strcmp/strncmp patterns
-            self.check_for_prefix_pattern(
-                &bin.left,
-                &bin.right,
-                &bin.operator,
-                file_path,
-                &bin.location,
-                violations,
-            );
-            self.check_for_prefix_pattern(
-                &bin.right,
-                &bin.left,
-                &bin.operator,
-                file_path,
-                &bin.location,
-                violations,
-            );
-            self.check_for_suffix_pattern(
-                &bin.left,
-                &bin.right,
-                &bin.operator,
-                file_path,
-                &bin.location,
-                violations,
-            );
-            self.check_for_suffix_pattern(
-                &bin.right,
-                &bin.left,
-                &bin.operator,
-                file_path,
-                &bin.location,
-                violations,
-            );
+        let Expression::Binary(bin) = expr else {
+            return;
+        };
+        if !matches!(bin.operator, BinaryOp::Equal | BinaryOp::NotEqual) {
+            return;
         }
-
-        // Recursively check sub-expressions
-        expr.walk(&mut |e| {
-            if !std::ptr::eq(e, expr) {
-                self.check_expression(e, file_path, violations);
-            }
-        });
+        self.check_for_prefix_pattern(
+            &bin.left,
+            &bin.right,
+            &bin.operator,
+            file_path,
+            &bin.location,
+            violations,
+        );
+        self.check_for_prefix_pattern(
+            &bin.right,
+            &bin.left,
+            &bin.operator,
+            file_path,
+            &bin.location,
+            violations,
+        );
+        self.check_for_suffix_pattern(
+            &bin.left,
+            &bin.right,
+            &bin.operator,
+            file_path,
+            &bin.location,
+            violations,
+        );
+        self.check_for_suffix_pattern(
+            &bin.right,
+            &bin.left,
+            &bin.operator,
+            file_path,
+            &bin.location,
+            violations,
+        );
     }
 
     /// Check for strncmp(str, "prefix", strlen("prefix")) == 0 pattern
@@ -131,8 +128,7 @@ impl UseGStrHasPrefixSuffix {
             return;
         }
 
-        // Get the string argument
-        let str_arg_text = self.arg_to_text(&call.arguments[0]);
+        let str_arg_text = call.get_arg(0).map(|e| e.to_text()).unwrap_or_default();
 
         let replacement = if *operator == BinaryOp::Equal {
             format!("g_str_has_prefix ({str_arg_text}, \"{prefix_text}\")")
@@ -248,8 +244,7 @@ impl UseGStrHasPrefixSuffix {
             return None;
         }
 
-        // Get str_expr from left side
-        let str_expr = self.expr_to_text(&inner_bin.left);
+        let str_expr = inner_bin.left.to_text();
 
         // Right side must be strlen(str_expr)
         if !self.is_strlen_of_arg(&inner_bin.right, &str_expr) {
@@ -297,8 +292,8 @@ impl UseGStrHasPrefixSuffix {
             return false;
         }
 
-        // For comparing with expr_to_text output which includes identifiers
-        self.arg_to_text(&call.arguments[0]) == expected_text_with_quotes
+        call.get_arg(0)
+            .is_some_and(|e| e.to_text() == expected_text_with_quotes)
     }
 
     /// Returns true if expr is strlen("expected_string_value")
@@ -321,19 +316,5 @@ impl UseGStrHasPrefixSuffix {
         }
 
         false
-    }
-
-    fn arg_to_text(&self, arg: &gobject_ast::Argument) -> String {
-        let gobject_ast::Argument::Expression(expr) = arg;
-        self.expr_to_text(expr)
-    }
-
-    fn expr_to_text(&self, expr: &Expression) -> String {
-        match expr {
-            Expression::StringLiteral(s) => format!("\"{}\"", s.value),
-            Expression::Identifier(id) => id.name.clone(),
-            Expression::FieldAccess(f) => f.text(),
-            _ => String::new(),
-        }
     }
 }
