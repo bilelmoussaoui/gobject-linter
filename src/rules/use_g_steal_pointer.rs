@@ -1,4 +1,4 @@
-use gobject_ast::{AssignmentOp, BinaryOp, Expression, Statement};
+use gobject_ast::{AssignmentOp, Expression, Statement};
 
 use super::{Fix, Rule};
 use crate::{ast_context::AstContext, config::Config, rules::Violation};
@@ -255,7 +255,7 @@ impl UseGStealPointer {
         };
 
         // Extract tested expression from condition
-        let Some(expr_text) = self.extract_condition_expr(&if_stmt.condition) else {
+        let Some(expr_text) = if_stmt.extract_null_check_variable() else {
             return false;
         };
 
@@ -306,23 +306,6 @@ impl UseGStealPointer {
         true
     }
 
-    /// Extract the tested pointer expression from an if-condition
-    /// Handles bare `expr`, `expr != NULL`, and `NULL != expr`
-    fn extract_condition_expr(&self, condition: &Expression) -> Option<String> {
-        if let Expression::Binary(bin) = condition
-            && bin.operator == BinaryOp::NotEqual
-        {
-            if matches!(&*bin.right, Expression::Null(_)) {
-                return bin.left.extract_variable_name();
-            }
-            if matches!(&*bin.left, Expression::Null(_)) {
-                return bin.right.extract_variable_name();
-            }
-            return None;
-        }
-        condition.extract_variable_name()
-    }
-
     /// Matches if-without-else with steal pattern in body
     /// if (c) { dest = ptr; ptr = NULL; } or if (c) { T *tmp = ptr; ptr = NULL;
     /// return tmp; }
@@ -343,7 +326,7 @@ impl UseGStealPointer {
         }
 
         // Try to extract condition expression
-        let condition_expr = self.extract_condition_expr(&if_stmt.condition);
+        let condition_expr = if_stmt.extract_null_check_variable();
 
         // Pattern 1: 2 statements - dest = ptr; ptr = NULL;
         if if_stmt.then_body.len() == 2 {

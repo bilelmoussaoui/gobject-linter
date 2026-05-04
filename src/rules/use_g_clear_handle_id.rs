@@ -84,7 +84,7 @@ impl UseGClearHandleId {
             let stmt_count = if_stmt.then_body.len();
 
             let has_else = if_stmt.else_body.is_some();
-            let cond_id = self.extract_id_from_condition(&if_stmt.condition);
+            let cond_id = if_stmt.extract_nonzero_check_variable();
 
             for (var_name, cleanup_func, first_loc, second_loc) in conversions {
                 let replacement = format!("g_clear_handle_id (&{}, {});", var_name, cleanup_func);
@@ -235,19 +235,5 @@ impl UseGClearHandleId {
         let var_name = arg_expr.location().as_str(source)?.trim().to_string();
 
         Some((var_name, func_name.to_string()))
-    }
-
-    fn extract_id_from_condition(&self, condition: &Expression) -> Option<String> {
-        // Try direct variable extraction first
-        if let Some(var) = condition.extract_variable_name() {
-            return Some(var);
-        }
-
-        // Then try binary comparison
-        if let Expression::Binary(bin) = condition {
-            return bin.extract_compared_variable();
-        }
-
-        None
     }
 }

@@ -18,9 +18,8 @@ impl IfStatement {
         match &self.condition {
             // Binary: ptr != NULL or NULL != ptr
             Expression::Binary(bin) if bin.is_null_check() => bin.extract_compared_variable(),
-            // Direct identifier: if (ptr)
-            Expression::Identifier(id) => Some(id.name.clone()),
-            _ => None,
+            // Bare identifier or field access: if (ptr) or if (self->ptr)
+            expr => expr.extract_variable_name(),
         }
     }
 
