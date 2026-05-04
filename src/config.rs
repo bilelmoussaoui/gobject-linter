@@ -86,10 +86,16 @@ pub struct Config {
     /// If not specified, will search for common build directories (build/,
     /// builddir/, _build/)
     pub build_dir: Option<String>,
+
+    /// Default severity level for all non-opt-in rules.
+    /// Opt-in rules always default to "ignore" regardless of this setting.
+    /// Per-rule `level` settings override this.
+    pub default_level: Option<RuleLevel>,
 }
 
 /// Rule severity level
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum RuleLevel {
     /// Report as error and exit with failure code
     Error,

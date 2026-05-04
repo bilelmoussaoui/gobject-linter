@@ -41,6 +41,16 @@ ignore = ["tests/**"]  # Ignore this rule for files matching these globs
 - `warn` - Reports but doesn't fail
 - `ignore` - Disables the rule completely
 
+### Default Level
+
+To make all non-opt-in rules fail instead of warn, set `default_level`:
+
+```toml
+default_level = "error"
+```
+
+This applies to every non-opt-in rule that does not have an explicit `level` set. Opt-in rules (`dead_code`, `missing_export_macro`) are unaffected and must still be enabled explicitly.
+
 ### Global Ignore Patterns
 
 The top-level `ignore` field skips files/directories for **all rules**:
