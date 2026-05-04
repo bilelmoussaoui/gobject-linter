@@ -207,6 +207,33 @@ impl TypeInfo {
     pub fn uses_auto_cleanup(&self) -> bool {
         self.auto_cleanup.is_some()
     }
+
+    /// Return the base type with GLib C aliases normalized to their C
+    /// equivalents (e.g. `gint` → `int`). Types without a GLib alias are
+    /// returned unchanged.
+    fn normalized_base_type(&self) -> &str {
+        match self.base_type.as_str() {
+            "gint" => "int",
+            "guint" => "unsigned int",
+            "glong" => "long",
+            "gulong" => "unsigned long",
+            "gshort" => "short",
+            "gushort" => "unsigned short",
+            "gchar" => "char",
+            "guchar" => "unsigned char",
+            "gfloat" => "float",
+            "gdouble" => "double",
+            other => other,
+        }
+    }
+
+    /// Return true if `self` and `other` represent the same type, treating
+    /// GLib C aliases as equivalent to their underlying C types.
+    pub fn matches(&self, other: &TypeInfo) -> bool {
+        self.normalized_base_type() == other.normalized_base_type()
+            && self.pointer_depth == other.pointer_depth
+            && self.is_const == other.is_const
+    }
 }
 
 #[cfg(test)]

@@ -1,0 +1,1 @@
+static_mismatch.c:5:1: inconsistent_function_signature: 'baz_cb' declared as returning 'gboolean' but defined as returning 'gint'

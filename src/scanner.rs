@@ -114,6 +114,7 @@ macro_rules! for_each_rule {
             // opt_in = true: rule defaults to ignore, user must explicitly enable it
             (dead_code, DeadCode, 2, 0, false, true),
             (include_order, IncludeOrder, 2, 0, false, false),
+            (inconsistent_function_signature, InconsistentFunctionSignature, 2, 0, false, false),
             (use_pragma_once, UsePragmaOnce, 2, 0, false, false),
             (missing_implementation, MissingImplementation, 2, 0, false, false),
             (missing_autoptr_cleanup, MissingAutoptrCleanup, 2, 0, false, false),

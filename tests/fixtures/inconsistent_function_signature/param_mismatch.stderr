@@ -1,0 +1,2 @@
+param_mismatch.c:4:1: inconsistent_function_signature: 'quux_set_value' parameter 'enabled' declared as 'gboolean' but defined as 'gint'
+param_mismatch.c:10:1: inconsistent_function_signature: 'quux_reset' declared with 1 parameter(s) but defined with 0

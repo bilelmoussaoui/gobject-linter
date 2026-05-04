@@ -916,9 +916,10 @@ impl Parser {
         let mut current = node;
 
         loop {
-            if current.kind() == "pointer_declarator" {
+            if current.kind() == "pointer_declarator"
+                || current.kind() == "abstract_pointer_declarator"
+            {
                 count += 1;
-                // Look for nested pointer or move to declarator field
                 if let Some(inner) = current.child_by_field_name("declarator") {
                     current = inner;
                 } else {
