@@ -85,18 +85,10 @@ impl UnnecessaryNullCheck {
         }
 
         // Check if the call arguments reference the checked variable
-        let mut references_var = false;
-        for arg in &call.arguments {
-            // Check if the argument references our variable
-            let gobject_ast::Argument::Expression(arg_expr) = arg;
-            arg_expr.walk(&mut |e| {
-                if let Expression::Identifier(id) = e
-                    && id.name == checked_var
-                {
-                    references_var = true;
-                }
-            });
-        }
+        let references_var = call
+            .arguments
+            .iter()
+            .any(|gobject_ast::Argument::Expression(e)| e.contains_identifier(&checked_var));
 
         if !references_var {
             return;
