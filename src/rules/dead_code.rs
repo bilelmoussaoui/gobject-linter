@@ -215,6 +215,27 @@ impl Rule for DeadCode {
                 &mut function_references,
                 &mut type_references,
             );
+
+            // Enum value expressions (e.g. `FOO_AB = FOO_A | FOO_B`) reference
+            // other enum values — collect those so we don't falsely report them.
+            collect_enum_value_expr_refs(&file.top_level_items, &mut function_references);
+        }
+
+        // ── Step 2b: Collect enum value definitions from private contexts ───────
+
+        let mut enum_value_defs: HashMap<
+            String,
+            Vec<(&std::path::Path, gobject_ast::SourceLocation)>,
+        > = HashMap::new();
+
+        for (path, file) in ast_context.iter_c_files() {
+            collect_enum_values_from_items(&file.top_level_items, path, &mut enum_value_defs);
+        }
+        for (path, file) in ast_context.iter_header_files() {
+            if ast_context.is_public_header(path) == Some(true) {
+                continue;
+            }
+            collect_enum_values_from_items(&file.top_level_items, path, &mut enum_value_defs);
         }
 
         // ── Step 3: Report function violations ─────────────────────────────────
@@ -236,11 +257,15 @@ impl Rule for DeadCode {
                 }
 
                 if let Some(decls) = function_declarations.get(func_name) {
+                    // If any declaration is in a public header the function is
+                    // public API — don't report any of its declarations.
+                    if decls
+                        .iter()
+                        .any(|(p, _)| ast_context.is_public_header(p) == Some(true))
+                    {
+                        continue;
+                    }
                     for (decl_path, decl_location) in decls {
-                        if ast_context.is_public_header(decl_path) == Some(true) {
-                            continue;
-                        }
-
                         violations.push(self.violation(
                             decl_path,
                             decl_location.line,
@@ -263,12 +288,14 @@ impl Rule for DeadCode {
             if function_definitions.contains_key(func_name) {
                 continue;
             }
-
+            // If any declaration is in a public header the function is public API.
+            if decls
+                .iter()
+                .any(|(p, _)| ast_context.is_public_header(p) == Some(true))
+            {
+                continue;
+            }
             for (decl_path, decl_location) in decls {
-                if ast_context.is_public_header(decl_path) == Some(true) {
-                    continue;
-                }
-
                 violations.push(self.violation(
                     decl_path,
                     decl_location.line,
@@ -313,6 +340,22 @@ impl Rule for DeadCode {
                     location.line,
                     location.column,
                     format!("Type '{}' is defined but never used", type_name),
+                ));
+            }
+        }
+
+        // ── Step 5: Report unused enum values ──────────────────────────────────
+
+        for (value_name, defs) in &enum_value_defs {
+            if function_references.contains(value_name) {
+                continue;
+            }
+            for (def_path, location) in defs {
+                violations.push(self.violation(
+                    def_path,
+                    location.line,
+                    location.column,
+                    format!("Enum value '{}' is defined but never used", value_name),
                 ));
             }
         }
@@ -596,4 +639,56 @@ fn collect_function_references(
             extract_function_calls_from_text(value, refs);
         }
     });
+}
+
+// ── Enum value collection
+// ──────────────────────────────────────────────────────
+
+/// Scan enum value initialiser expressions for identifier references.
+/// This prevents false positives for flag combinations like
+/// `FOO_AB = FOO_A | FOO_B` where `FOO_A` would otherwise look unused.
+fn collect_enum_value_expr_refs(items: &[TopLevelItem], refs: &mut HashSet<String>) {
+    for item in items {
+        match item {
+            TopLevelItem::TypeDefinition(TypeDefItem::Enum { enum_info }) => {
+                for value in &enum_info.values {
+                    if let Some(expr) = &value.value_expr {
+                        refs.extend(expr.collect_identifiers());
+                    }
+                }
+            }
+            TopLevelItem::Preprocessor(
+                PreprocessorDirective::Conditional { body, .. }
+                | PreprocessorDirective::GObjectDeclsBlock { body, .. },
+            ) => collect_enum_value_expr_refs(body, refs),
+            _ => {}
+        }
+    }
+}
+
+/// Collect enum value definitions (excluding sentinels) from a slice of items.
+fn collect_enum_values_from_items<'a>(
+    items: &'a [TopLevelItem],
+    path: &'a std::path::Path,
+    defs: &mut HashMap<String, Vec<(&'a std::path::Path, gobject_ast::SourceLocation)>>,
+) {
+    for item in items {
+        match item {
+            TopLevelItem::TypeDefinition(TypeDefItem::Enum { enum_info }) => {
+                for value in &enum_info.values {
+                    if value.is_prop_0() || value.is_prop_last() || value.is_signal_last() {
+                        continue;
+                    }
+                    defs.entry(value.name.clone())
+                        .or_default()
+                        .push((path, value.location));
+                }
+            }
+            TopLevelItem::Preprocessor(
+                PreprocessorDirective::Conditional { body, .. }
+                | PreprocessorDirective::GObjectDeclsBlock { body, .. },
+            ) => collect_enum_values_from_items(body, path, defs),
+            _ => {}
+        }
+    }
 }

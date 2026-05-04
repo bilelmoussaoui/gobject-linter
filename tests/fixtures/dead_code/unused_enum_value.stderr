@@ -1,0 +1,2 @@
+unused_enum_value.c:4:5: dead_code: Enum value 'FOO_MODE_MINI' is defined but never used
+unused_enum_value.c:7:1: dead_code: Static function 'set_mode' is never used

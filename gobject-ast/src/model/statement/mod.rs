@@ -107,9 +107,23 @@ impl Statement {
         match self {
             Statement::Expression(expr_stmt) => vec![&expr_stmt.expr],
             Statement::Return(ret) => ret.value.as_ref().into_iter().collect(),
-            Statement::Declaration(decl) => decl.initializer.as_ref().into_iter().collect(),
+            Statement::Declaration(decl) => {
+                let mut exprs: Vec<&Expression> = decl.initializer.as_ref().into_iter().collect();
+                if let Some(size) = &decl.array_size {
+                    exprs.push(size);
+                }
+                exprs
+            }
             Statement::If(if_stmt) => vec![&if_stmt.condition],
-            Statement::Switch(switch) => vec![&switch.condition],
+            Statement::Switch(switch) => {
+                let mut exprs = vec![&switch.condition];
+                for case in &switch.cases {
+                    if let Some(label_expr) = &case.label.value {
+                        exprs.push(label_expr);
+                    }
+                }
+                exprs
+            }
             Statement::For(for_stmt) => {
                 let mut exprs = Vec::new();
                 if let Some(init) = &for_stmt.initializer {
