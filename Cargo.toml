@@ -1,3 +1,7 @@
+[workspace]
+members = ["gobject-ast", "tree-sitter-c-gobject"]
+resolver = "2"
+
 [package]
 name = "goblint"
 version = "0.1.0"
