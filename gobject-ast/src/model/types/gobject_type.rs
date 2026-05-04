@@ -13,7 +13,8 @@ pub struct GObjectType {
                                       * "G_TYPE_FLAG_ABSTRACT" */
     pub kind: GObjectTypeKind,
     pub interfaces: Vec<InterfaceImplementation>, // G_IMPLEMENT_INTERFACE
-    pub has_private: bool,                        /* G_ADD_PRIVATE in *_WITH_CODE, or *_WITH_PRIVATE */
+    pub has_private: bool,                        /* G_ADD_PRIVATE in *_WITH_CODE, or
+                                                   * *_WITH_PRIVATE */
     pub code_block_statements: Vec<super::super::Statement>, // Statements from *_WITH_CODE macros
     pub export_macros: Vec<String>,                          // e.g., ["CLUTTER_EXPORT"]
     pub location: SourceLocation,
