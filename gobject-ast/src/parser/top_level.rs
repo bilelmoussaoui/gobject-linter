@@ -392,10 +392,17 @@ impl Parser {
 
                     if !name.is_empty() {
                         let fields = self.extract_struct_fields_from_body(body, source);
+                        let bare = name.trim_start_matches('_');
+                        let vfuncs = if bare.ends_with("Class") || bare.ends_with("Interface") {
+                            self.extract_vfuncs(body, source)
+                        } else {
+                            vec![]
+                        };
                         return Some(TopLevelItem::TypeDefinition(TypeDefItem::Struct {
                             name,
                             has_body: true,
                             fields,
+                            vfuncs,
                             location: self.node_location(node),
                         }));
                     }
@@ -566,11 +573,18 @@ impl Parser {
                     }
 
                     let fields = self.extract_struct_fields_from_body(body, source);
+                    let bare = name.trim_start_matches('_');
+                    let vfuncs = if bare.ends_with("Class") || bare.ends_with("Interface") {
+                        self.extract_vfuncs(body, source)
+                    } else {
+                        vec![]
+                    };
 
                     return Some(TopLevelItem::TypeDefinition(TypeDefItem::Struct {
                         name,
                         has_body: true,
                         fields,
+                        vfuncs,
                         location: self.node_location(declaration_node),
                     }));
                 }

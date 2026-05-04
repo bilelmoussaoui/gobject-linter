@@ -211,7 +211,7 @@ impl TypeInfo {
     /// Return the base type with GLib C aliases normalized to their C
     /// equivalents (e.g. `gint` → `int`). Types without a GLib alias are
     /// returned unchanged.
-    fn normalized_base_type(&self) -> &str {
+    pub fn normalized_base_type(&self) -> &str {
         match self.base_type.as_str() {
             "gint" => "int",
             "guint" => "unsigned int",

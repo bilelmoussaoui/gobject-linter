@@ -143,6 +143,10 @@ pub enum TypeDefItem {
         has_body: bool,
         #[serde(default)]
         fields: Vec<StructField>,
+        /// Virtual functions (function pointer fields) extracted from class
+        /// structs (structs whose name ends with `Class`).
+        #[serde(default)]
+        vfuncs: Vec<super::types::VirtualFunction>,
         location: SourceLocation,
     },
     Enum {

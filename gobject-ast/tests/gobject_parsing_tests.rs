@@ -145,20 +145,23 @@ fn test_class_struct_with_vfuncs() {
 
     assert_eq!(extract_gobject_types(file).len(), 1);
     let gobj = &extract_gobject_types(file)[0];
-
     assert_eq!(gobj.type_name, "MyObject");
 
-    let class_struct = gobj.class_struct.as_ref().expect("No class struct parsed");
+    let cs = file
+        .find_class_struct_for(gobj)
+        .expect("No class struct parsed");
+    let gobject_ast::top_level::TypeDefItem::Struct { name, vfuncs, .. } = cs else {
+        panic!("Expected Struct variant");
+    };
 
-    assert_eq!(class_struct.name, "_MyObjectClass");
+    assert_eq!(name, "_MyObjectClass");
     assert!(
-        class_struct.vfuncs.len() >= 2,
+        vfuncs.len() >= 2,
         "Expected at least 2 vfuncs, got {}",
-        class_struct.vfuncs.len()
+        vfuncs.len()
     );
 
-    // Check for specific vfuncs
-    let vfunc_names: Vec<_> = class_struct.vfuncs.iter().map(|v| &v.name).collect();
+    let vfunc_names: Vec<_> = vfuncs.iter().map(|v| &v.name).collect();
     assert!(
         vfunc_names.contains(&&"do_something".to_string()),
         "Missing vfunc 'do_something'"
@@ -194,11 +197,15 @@ fn test_vfunc_parameters_and_return_types() {
     let file = project.files.values().next().expect("No files parsed");
 
     let gobj = &extract_gobject_types(file)[0];
-    let class_struct = gobj.class_struct.as_ref().expect("No class struct");
+    let cs = file
+        .find_class_struct_for(gobj)
+        .expect("No class struct parsed");
+    let gobject_ast::top_level::TypeDefItem::Struct { vfuncs, .. } = cs else {
+        panic!("Expected Struct variant");
+    };
 
     // Find the do_something vfunc
-    let do_something = class_struct
-        .vfuncs
+    let do_something = vfuncs
         .iter()
         .find(|v| v.name == "do_something")
         .expect("Missing do_something vfunc");
@@ -214,8 +221,7 @@ fn test_vfunc_parameters_and_return_types() {
     assert_eq!(do_something.parameters[1].name, Some("value".to_string()));
 
     // Find the get_value vfunc
-    let get_value = class_struct
-        .vfuncs
+    let get_value = vfuncs
         .iter()
         .find(|v| v.name == "get_value")
         .expect("Missing get_value vfunc");

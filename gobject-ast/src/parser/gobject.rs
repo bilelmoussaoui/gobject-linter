@@ -3,7 +3,7 @@ use tree_sitter::Node;
 use super::Parser;
 use crate::model::{
     Expression,
-    types::{ClassStruct, DeclareKind, DefineKind, GObjectType, GObjectTypeKind, VirtualFunction},
+    types::{DeclareKind, DefineKind, GObjectType, GObjectTypeKind, VirtualFunction},
 };
 
 impl Parser {
@@ -96,7 +96,6 @@ impl Parser {
                     module_prefix: module_prefix.to_owned(),
                     type_prefix: type_prefix.to_owned(),
                 },
-                class_struct: None,
                 interfaces: Vec::new(),
                 has_private: false,
                 code_block_statements: Vec::new(),
@@ -134,7 +133,6 @@ impl Parser {
                     copy_func: copy_func.to_owned(),
                     free_func: free_func.to_owned(),
                 },
-                class_struct: None,
                 interfaces,
                 has_private,
                 code_block_statements,
@@ -215,7 +213,6 @@ impl Parser {
                 },
                 flags: extended_flags,
                 kind,
-                class_struct: None,
                 interfaces,
                 has_private: has_private_from_macro || has_private_from_code,
                 code_block_statements,
@@ -227,49 +224,7 @@ impl Parser {
         None
     }
 
-    pub(super) fn extract_class_structs_from_ast(
-        &self,
-        node: Node,
-        source: &[u8],
-        gobject_types: &mut Vec<&mut GObjectType>,
-    ) {
-        // Look for struct_specifier nodes
-        if node.kind() == "struct_specifier" {
-            if let Some(name_node) = node.child_by_field_name("name") {
-                if let Ok(struct_name) = std::str::from_utf8(&source[name_node.byte_range()]) {
-                    // Check if this is a class struct (ends with "Class" and starts with "_")
-                    if struct_name.starts_with("_") && struct_name.ends_with("Class") {
-                        // Extract the type name: _CoglWinsysClass -> CoglWinsys
-                        let type_name = &struct_name[1..struct_name.len() - 5]; // Remove leading "_" and trailing "Class"
-
-                        // Find matching GObjectType
-                        if let Some(gobject_type) = gobject_types
-                            .iter_mut()
-                            .find(|gt| gt.type_name == type_name)
-                        {
-                            // Extract virtual functions from this struct
-                            if let Some(body) = node.child_by_field_name("body") {
-                                let vfuncs = self.extract_vfuncs(body, source);
-
-                                gobject_type.class_struct = Some(ClassStruct {
-                                    name: struct_name.to_owned(),
-                                    vfuncs,
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Recurse
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            self.extract_class_structs_from_ast(child, source, gobject_types);
-        }
-    }
-
-    pub(super) fn extract_vfuncs(&self, body_node: Node, source: &[u8]) -> Vec<VirtualFunction> {
+    pub(crate) fn extract_vfuncs(&self, body_node: Node, source: &[u8]) -> Vec<VirtualFunction> {
         let mut vfuncs = Vec::new();
 
         let mut cursor = body_node.walk();

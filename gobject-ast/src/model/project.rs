@@ -153,6 +153,38 @@ impl FileModel {
             })
     }
 
+    /// Find the class or interface struct for a given `GObjectType`.
+    /// Returns `None` for final types (no class struct) and when the struct
+    /// was not found in this file.
+    pub fn find_class_struct_for(
+        &self,
+        gobject_type: &super::types::GObjectType,
+    ) -> Option<&crate::top_level::TypeDefItem> {
+        let name = gobject_type.class_struct_name()?;
+        self.iter_class_structs().find(|td| {
+            if let crate::top_level::TypeDefItem::Struct { name: n, .. } = td {
+                n.trim_start_matches('_') == name
+            } else {
+                false
+            }
+        })
+    }
+
+    /// Iterate through all class structs (structs ending with `Class` or
+    /// `Interface` that have at least one vfunc).
+    pub fn iter_class_structs(&self) -> impl Iterator<Item = &crate::top_level::TypeDefItem> + '_ {
+        use crate::top_level::TypeDefItem;
+        self.iter_items_recursive(&self.top_level_items)
+            .filter_map(|item| match item {
+                TopLevelItem::TypeDefinition(td @ TypeDefItem::Struct { vfuncs, .. })
+                    if !vfuncs.is_empty() =>
+                {
+                    Some(td)
+                }
+                _ => None,
+            })
+    }
+
     /// Iterate through all enum definitions (including those in #ifdef blocks)
     pub fn iter_all_enums(&self) -> impl Iterator<Item = &super::types::EnumInfo> + '_ {
         self.iter_items_recursive(&self.top_level_items)

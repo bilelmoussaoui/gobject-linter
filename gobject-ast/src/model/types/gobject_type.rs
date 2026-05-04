@@ -12,10 +12,8 @@ pub struct GObjectType {
     pub flags: Option<String>,       /* G_DEFINE_TYPE_EXTENDED flags arg, e.g.
                                       * "G_TYPE_FLAG_ABSTRACT" */
     pub kind: GObjectTypeKind,
-    pub class_struct: Option<ClassStruct>, // For derivable types
     pub interfaces: Vec<InterfaceImplementation>, // G_IMPLEMENT_INTERFACE
-    pub has_private: bool,                 /* G_ADD_PRIVATE in *_WITH_CODE, or *_WITH_PRIVATE
-                                            * macros */
+    pub has_private: bool,                        /* G_ADD_PRIVATE in *_WITH_CODE, or *_WITH_PRIVATE */
     pub code_block_statements: Vec<super::super::Statement>, // Statements from *_WITH_CODE macros
     pub export_macros: Vec<String>,                          // e.g., ["CLUTTER_EXPORT"]
     pub location: SourceLocation,
@@ -46,6 +44,29 @@ impl GObjectType {
     /// Get the expected default_init function name for interfaces
     pub fn default_init_function_name(&self) -> String {
         format!("{}_default_init", self.function_prefix)
+    }
+
+    /// Returns the expected name of the class or interface struct for this
+    /// type, without the leading underscore. Returns `None` for final types,
+    /// which have no separate class struct.
+    ///
+    /// - Derivable types → `"{TypeName}Class"`
+    /// - Interface types → `"{TypeName}Interface"`
+    pub fn class_struct_name(&self) -> Option<String> {
+        match &self.kind {
+            GObjectTypeKind::Declare {
+                kind: DeclareKind::Final,
+                ..
+            } => None,
+            GObjectTypeKind::Declare {
+                kind: DeclareKind::Interface,
+                ..
+            }
+            | GObjectTypeKind::Define(DefineKind::Interface | DefineKind::InterfaceWithCode) => {
+                Some(format!("{}Interface", self.type_name))
+            }
+            _ => Some(format!("{}Class", self.type_name)),
+        }
     }
 
     /// Check if this is an interface type
@@ -83,12 +104,6 @@ impl GObjectType {
             .filter_map(|call| Signal::from_g_signal_new_call(call, source))
             .collect()
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClassStruct {
-    pub name: String, // e.g., "CoglWinsysClass"
-    pub vfuncs: Vec<VirtualFunction>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

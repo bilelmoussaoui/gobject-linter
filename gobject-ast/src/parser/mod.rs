@@ -127,49 +127,8 @@ impl Parser {
         // Store the source for detailed pattern matching by rules
         file_model.source = source.clone();
 
-        // Post-processing: populate class_struct fields on GObjectType items
-        self.populate_class_structs(tree.root_node(), &source, &mut file_model);
-
         project.files.insert(path.to_path_buf(), file_model);
         Ok(())
-    }
-
-    fn populate_class_structs(&self, root: Node, source: &[u8], file_model: &mut FileModel) {
-        // Collect all GObjectType items (mutable references)
-        let mut gobject_types = Vec::new();
-        self.collect_gobject_types_mut(&mut file_model.top_level_items, &mut gobject_types);
-
-        // Extract class structs for each GObjectType
-        if !gobject_types.is_empty() {
-            self.extract_class_structs_from_ast(root, source, &mut gobject_types);
-        }
-    }
-
-    fn collect_gobject_types_mut<'a>(
-        &self,
-        items: &'a mut [crate::top_level::TopLevelItem],
-        gobject_types: &mut Vec<&'a mut crate::model::types::GObjectType>,
-    ) {
-        use crate::top_level::{PreprocessorDirective, TopLevelItem};
-
-        for item in items {
-            match item {
-                TopLevelItem::Preprocessor(PreprocessorDirective::GObjectType {
-                    gobject_type,
-                    ..
-                }) => {
-                    gobject_types.push(gobject_type.as_mut());
-                }
-                TopLevelItem::Preprocessor(PreprocessorDirective::Conditional { body, .. })
-                | TopLevelItem::Preprocessor(PreprocessorDirective::GObjectDeclsBlock {
-                    body,
-                    ..
-                }) => {
-                    self.collect_gobject_types_mut(body, gobject_types);
-                }
-                _ => {}
-            }
-        }
     }
 
     fn find_export_macros_in_declaration<'a>(
