@@ -127,7 +127,8 @@ pub struct StructField {
     pub field_name: Option<String>,
     pub location: super::SourceLocation,
     /// Non-empty for anonymous struct/union fields: the members of the
-    /// embedded aggregate (e.g. `union { A a; B b; } d` → inner_fields = [a, b]).
+    /// embedded aggregate (e.g. `union { A a; B b; } d` → inner_fields = [a,
+    /// b]).
     #[serde(default)]
     pub inner_fields: Vec<StructField>,
 }
