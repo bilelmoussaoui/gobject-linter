@@ -571,27 +571,27 @@ impl PropertyEnumConvention {
         };
 
         match item {
-            TopLevelItem::Declaration(Statement::Declaration(decl))
-                // Check if this is a GParamSpec pointer array
-                if decl.type_info.is_base_type("GParamSpec") && decl.type_info.is_pointer()
-                => {
+            TopLevelItem::Declaration(stmt) => {
+                if let Statement::Declaration(decl) = stmt.as_ref()
+                    // Check if this is a GParamSpec pointer array
+                    && decl.type_info.is_base_type("GParamSpec") && decl.type_info.is_pointer()
                     // Check if it's an array declaration using N_PROPS
-                    if let Some(Expression::Identifier(size_id)) = &decl.array_size
-                        && size_id.name == n_props_name
-                    {
-                        // Found it! This is a GParamSpec array using N_PROPS
-                        // Fix: Replace N_PROPS with LAST_PROP + 1
-                        let replacement = format!("{} + 1", last_prop_name);
-                        fixes.push(Fix::new(
-                            size_id.location.start_byte,
-                            size_id.location.end_byte,
-                            replacement,
-                        ));
+                    && let Some(Expression::Identifier(size_id)) = &decl.array_size
+                    && size_id.name == n_props_name
+                {
+                    // Found it! This is a GParamSpec array using N_PROPS
+                    // Fix: Replace N_PROPS with LAST_PROP + 1
+                    let replacement = format!("{} + 1", last_prop_name);
+                    fixes.push(Fix::new(
+                        size_id.location.start_byte,
+                        size_id.location.end_byte,
+                        replacement,
+                    ));
 
-                        // Remember this array name
-                        array_names.push(&decl.name);
-                    }
+                    // Remember this array name
+                    array_names.push(&decl.name);
                 }
+            }
             TopLevelItem::Preprocessor(PreprocessorDirective::Conditional { body, .. }) => {
                 // Recursively search in conditional blocks
                 for nested_item in body {

@@ -221,16 +221,14 @@ fn find_goto_recursive(statements: &[Statement]) -> bool {
                 if find_goto_recursive(&if_stmt.then_body) {
                     return true;
                 }
-                if let Some(else_body) = &if_stmt.else_body {
-                    if find_goto_recursive(else_body) {
-                        return true;
-                    }
-                }
-            }
-            Statement::Compound(compound) => {
-                if find_goto_recursive(&compound.statements) {
+                if let Some(else_body) = &if_stmt.else_body
+                    && find_goto_recursive(else_body)
+                {
                     return true;
                 }
+            }
+            Statement::Compound(compound) if find_goto_recursive(&compound.statements) => {
+                return true;
             }
             _ => {}
         }
@@ -269,10 +267,9 @@ fn test_statement_order() {
             expr: Expression::Call(call2),
             ..
         }) = &func.body_statements[i + 1]
+            && call2.is_function("g_bytes_unref")
         {
-            if call2.is_function("g_bytes_unref") {
-                found_pattern = true;
-            }
+            found_pattern = true;
         }
     }
 

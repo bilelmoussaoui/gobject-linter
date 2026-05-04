@@ -21,10 +21,10 @@ impl MacroCallExpression {
     /// Extract string literal from first argument if present
     /// Common pattern: I_("string"), N_("string")
     pub fn extract_string_literal(&self) -> Option<&str> {
-        if let Some(Argument::Expression(expr)) = self.arguments.first() {
-            if let Expression::StringLiteral(lit) = expr.as_ref() {
-                return Some(lit.value.trim_matches('"'));
-            }
+        if let Some(Argument::Expression(expr)) = self.arguments.first()
+            && let Expression::StringLiteral(lit) = expr.as_ref()
+        {
+            return Some(lit.value.trim_matches('"'));
         }
         None
     }

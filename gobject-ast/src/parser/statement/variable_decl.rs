@@ -42,10 +42,10 @@ impl Parser {
                     declarator = Some(child);
                 }
                 // Declarations without initializer: int x;  or  int *x;
-                "pointer_declarator" | "identifier" | "array_declarator" => {
-                    if declarator.is_none() {
-                        declarator = Some(child);
-                    }
+                "pointer_declarator" | "identifier" | "array_declarator"
+                    if declarator.is_none() =>
+                {
+                    declarator = Some(child);
                 }
                 _ => {}
             }

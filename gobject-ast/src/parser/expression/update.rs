@@ -9,7 +9,7 @@ impl Parser {
     pub(crate) fn parse_update_expression(&self, node: Node, source: &[u8]) -> Option<Expression> {
         let operator_node = node.child_by_field_name("operator")?;
         let operator_str = std::str::from_utf8(&source[operator_node.byte_range()]).ok()?;
-        let operator = UpdateOp::from_str(operator_str)?;
+        let operator = UpdateOp::parse(operator_str)?;
 
         let argument_node = node.child_by_field_name("argument")?;
         let operand = self.parse_expression(argument_node, source)?;

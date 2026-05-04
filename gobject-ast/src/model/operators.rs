@@ -32,7 +32,7 @@ pub enum BinaryOp {
 
 impl BinaryOp {
     /// Parse from operator string
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "+" => Some(Self::Add),
             "-" => Some(Self::Subtract),
@@ -111,7 +111,7 @@ pub enum UnaryOp {
 
 impl UnaryOp {
     /// Parse from operator string
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "!" => Some(Self::Not),
             "~" => Some(Self::BitwiseNot),
@@ -149,7 +149,7 @@ pub enum UpdateOp {
 
 impl UpdateOp {
     /// Parse from operator string
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "++" => Some(Self::Increment),
             "--" => Some(Self::Decrement),
@@ -184,7 +184,7 @@ pub enum AssignmentOp {
 
 impl AssignmentOp {
     /// Parse from operator string
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "=" => Some(Self::Assign),
             "+=" => Some(Self::AddAssign),
@@ -228,7 +228,7 @@ pub enum FieldAccessOp {
 
 impl FieldAccessOp {
     /// Parse from operator string
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "->" => Some(Self::Arrow),
             "." => Some(Self::Dot),

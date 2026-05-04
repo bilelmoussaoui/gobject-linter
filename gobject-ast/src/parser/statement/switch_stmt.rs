@@ -98,10 +98,9 @@ impl Parser {
                         && case_child.kind() != "default"
                         && case_child.kind() != ":"
                         && !case_child.kind().ends_with("_expression")
+                        && let Some(stmt) = self.parse_statement(case_child, source)
                     {
-                        if let Some(stmt) = self.parse_statement(case_child, source) {
-                            case_body.push(stmt);
-                        }
+                        case_body.push(stmt);
                     }
                 }
 
@@ -115,10 +114,12 @@ impl Parser {
             }
         } else if let Some((_, body)) = current_case {
             // Statement belongs to the current case
-            if child.is_named() && child.kind() != "{" && child.kind() != "}" {
-                if let Some(stmt) = self.parse_statement(child, source) {
-                    body.push(stmt);
-                }
+            if child.is_named()
+                && child.kind() != "{"
+                && child.kind() != "}"
+                && let Some(stmt) = self.parse_statement(child, source)
+            {
+                body.push(stmt);
             }
         }
     }

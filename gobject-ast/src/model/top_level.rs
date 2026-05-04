@@ -14,7 +14,7 @@ pub enum TopLevelItem {
     /// Function definition (with body)
     FunctionDefinition(FunctionDefItem),
     /// Standalone declaration (variables, etc.)
-    Declaration(Statement),
+    Declaration(Box<Statement>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -241,7 +241,7 @@ impl FunctionDefItem {
         self.body_statements
             .iter()
             .flat_map(|s| s.iter_calls())
-            .filter(|call| call.function_name_str().is_some_and(|n| predicate(n)))
+            .filter(|call| call.function_name_str().is_some_and(&predicate))
             .collect()
     }
 
@@ -293,19 +293,18 @@ impl FunctionDefItem {
 
         for stmt in &self.body_statements {
             for call in stmt.iter_calls() {
-                if call.is_cleanup_call() {
-                    if let Some(arg) = call.get_arg(0)
-                        && let Expression::Identifier(id) = arg
-                    {
-                        // Find the declaration of this identifier
-                        for body_stmt in &self.body_statements {
-                            for decl in body_stmt.iter_declarations() {
-                                if decl.name == id.name
-                                    && decl.type_info.base_type == type_info.base_type
-                                    && decl.type_info.is_pointer() == type_info.is_pointer()
-                                {
-                                    return true;
-                                }
+                if call.is_cleanup_call()
+                    && let Some(arg) = call.get_arg(0)
+                    && let Expression::Identifier(id) = arg
+                {
+                    // Find the declaration of this identifier
+                    for body_stmt in &self.body_statements {
+                        for decl in body_stmt.iter_declarations() {
+                            if decl.name == id.name
+                                && decl.type_info.base_type == type_info.base_type
+                                && decl.type_info.is_pointer() == type_info.is_pointer()
+                            {
+                                return true;
                             }
                         }
                     }
@@ -327,19 +326,18 @@ impl FunctionDefItem {
 
         for stmt in &self.body_statements {
             for call in stmt.iter_calls() {
-                if call.is_function(func_name) {
-                    if let Some(arg) = call.get_arg(arg_index)
-                        && let Expression::Identifier(id) = arg
-                    {
-                        // Find the declaration of this identifier
-                        for body_stmt in &self.body_statements {
-                            for decl in body_stmt.iter_declarations() {
-                                if decl.name == id.name
-                                    && decl.type_info.base_type == type_info.base_type
-                                    && decl.type_info.is_pointer() == type_info.is_pointer()
-                                {
-                                    return true;
-                                }
+                if call.is_function(func_name)
+                    && let Some(arg) = call.get_arg(arg_index)
+                    && let Expression::Identifier(id) = arg
+                {
+                    // Find the declaration of this identifier
+                    for body_stmt in &self.body_statements {
+                        for decl in body_stmt.iter_declarations() {
+                            if decl.name == id.name
+                                && decl.type_info.base_type == type_info.base_type
+                                && decl.type_info.is_pointer() == type_info.is_pointer()
+                            {
+                                return true;
                             }
                         }
                     }
@@ -477,7 +475,7 @@ impl FunctionDefItem {
                                             array_name,
                                             enum_value,
                                             property_name: property.name.clone(),
-                                            statement_location: s.location().clone(),
+                                            statement_location: *s.location(),
                                             call: param_call.clone(),
                                             property,
                                             install_call: None,
@@ -495,7 +493,7 @@ impl FunctionDefItem {
                                     assignments.push(ParamSpecAssignment::Variable {
                                         variable_name: var_name,
                                         property_name: property.name.clone(),
-                                        statement_location: s.location().clone(),
+                                        statement_location: *s.location(),
                                         call: param_call.clone(),
                                         property,
                                         install_call: None,
@@ -505,19 +503,18 @@ impl FunctionDefItem {
                         }
                         // Direct call: g_object_class_override_property(class, PROP_X, "name")
                         Expression::Call(call) => {
-                            if call.function_contains("override_property") {
-                                if let Some(property) = Property::from_override_property_call(call)
-                                    && let Some(enum_arg) = call.get_arg(1)
-                                    && let Some(enum_value) = enum_arg.to_source_string(source)
-                                {
-                                    assignments.push(ParamSpecAssignment::OverrideProperty {
-                                        enum_value,
-                                        property_name: property.name.clone(),
-                                        statement_location: s.location().clone(),
-                                        call: call.clone(),
-                                        property,
-                                    });
-                                }
+                            if call.function_contains("override_property")
+                                && let Some(property) = Property::from_override_property_call(call)
+                                && let Some(enum_arg) = call.get_arg(1)
+                                && let Some(enum_value) = enum_arg.to_source_string(source)
+                            {
+                                assignments.push(ParamSpecAssignment::OverrideProperty {
+                                    enum_value,
+                                    property_name: property.name.clone(),
+                                    statement_location: *s.location(),
+                                    call: call.clone(),
+                                    property,
+                                });
                             }
                         }
                         _ => {}
@@ -549,17 +546,16 @@ impl FunctionDefItem {
                         }
                     }
                     // g_object_class_install_property(class, PROP_X, spec)
-                    else if call.function_contains("install_property") {
-                        if let Some(spec_arg) = call.get_arg(2)
-                            && let Some(var_name) = spec_arg.to_source_string(source)
-                            && let Some(indices) = variable_assignments.get(&var_name)
-                        {
-                            for &idx in indices {
-                                if let ParamSpecAssignment::Variable { install_call, .. } =
-                                    &mut assignments[idx]
-                                {
-                                    *install_call = Some(call.clone());
-                                }
+                    else if call.function_contains("install_property")
+                        && let Some(spec_arg) = call.get_arg(2)
+                        && let Some(var_name) = spec_arg.to_source_string(source)
+                        && let Some(indices) = variable_assignments.get(&var_name)
+                    {
+                        for &idx in indices {
+                            if let ParamSpecAssignment::Variable { install_call, .. } =
+                                &mut assignments[idx]
+                            {
+                                *install_call = Some(call.clone());
                             }
                         }
                     }

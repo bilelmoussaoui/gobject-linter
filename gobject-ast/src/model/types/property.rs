@@ -345,10 +345,10 @@ fn extract_int_arg(arg: &Argument) -> Option<i64> {
             Expression::NumberLiteral(num) => num.value.parse().ok(),
             Expression::Unary(unary) => {
                 // Handle negative numbers like -1
-                if matches!(unary.operator, UnaryOp::Negate) {
-                    if let Expression::NumberLiteral(num) = &*unary.operand {
-                        return num.value.parse::<i64>().ok().map(|v| -v);
-                    }
+                if matches!(unary.operator, UnaryOp::Negate)
+                    && let Expression::NumberLiteral(num) = &*unary.operand
+                {
+                    return num.value.parse::<i64>().ok().map(|v| -v);
                 }
                 None
             }
@@ -371,10 +371,10 @@ fn extract_float_arg(arg: &Argument) -> Option<f64> {
         Argument::Expression(boxed_expr) => match &**boxed_expr {
             Expression::NumberLiteral(num) => num.value.parse().ok(),
             Expression::Unary(unary) => {
-                if matches!(unary.operator, UnaryOp::Negate) {
-                    if let Expression::NumberLiteral(num) = &*unary.operand {
-                        return num.value.parse::<f64>().ok().map(|v| -v);
-                    }
+                if matches!(unary.operator, UnaryOp::Negate)
+                    && let Expression::NumberLiteral(num) = &*unary.operand
+                {
+                    return num.value.parse::<f64>().ok().map(|v| -v);
                 }
                 None
             }

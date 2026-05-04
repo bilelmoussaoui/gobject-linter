@@ -270,10 +270,10 @@ impl Expression {
     pub fn contains_identifier(&self, name: &str) -> bool {
         let mut found = false;
         self.walk(&mut |e| {
-            if let Expression::Identifier(id) = e {
-                if id.name == name {
-                    found = true;
-                }
+            if let Expression::Identifier(id) = e
+                && id.name == name
+            {
+                found = true;
             }
         });
         found

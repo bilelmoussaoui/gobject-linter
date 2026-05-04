@@ -22,11 +22,11 @@ impl Parser {
             if child.kind() == "statement_identifier" || child.kind() == ":" {
                 continue;
             }
-            if child.is_named() {
-                if let Some(s) = self.parse_statement(child, source) {
-                    statement = Some(s);
-                    break;
-                }
+            if child.is_named()
+                && let Some(s) = self.parse_statement(child, source)
+            {
+                statement = Some(s);
+                break;
             }
         }
 

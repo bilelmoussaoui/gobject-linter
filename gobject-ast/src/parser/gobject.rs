@@ -367,19 +367,19 @@ impl Parser {
         result: &mut Vec<&'a str>,
     ) {
         // Direct identifier or type_identifier nodes
-        if node.kind() == "identifier" || node.kind() == "type_identifier" {
-            if let Ok(text) = std::str::from_utf8(&source[node.byte_range()]) {
-                result.push(text);
-                return;
-            }
+        if (node.kind() == "identifier" || node.kind() == "type_identifier")
+            && let Ok(text) = std::str::from_utf8(&source[node.byte_range()])
+        {
+            result.push(text);
+            return;
         }
 
         // Only parse if this is actually an expression node
-        if Parser::is_expression_node(&node) {
-            if let Some(expr) = self.parse_expression(node, source) {
-                collect_identifiers_from_expr(&expr, source, result);
-                return;
-            }
+        if Parser::is_expression_node(&node)
+            && let Some(expr) = self.parse_expression(node, source)
+        {
+            collect_identifiers_from_expr(&expr, source, result);
+            return;
         }
 
         // If not an expression, recurse into ALL children (not just named ones)
@@ -423,12 +423,11 @@ fn collect_identifiers_from_expr<'a>(
     result: &mut Vec<&'a str>,
 ) {
     expr.walk(&mut |e| {
-        if let Expression::Identifier(id) = e {
-            if let Ok(text) =
+        if let Expression::Identifier(id) = e
+            && let Ok(text) =
                 std::str::from_utf8(&source[id.location.start_byte..id.location.end_byte])
-            {
-                result.push(text);
-            }
+        {
+            result.push(text);
         }
     });
 }

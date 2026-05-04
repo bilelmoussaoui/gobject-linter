@@ -158,10 +158,10 @@ fn extract_signal_flags(expr: &Expression) -> Vec<SignalFlag> {
     // This handles simple cases like G_SIGNAL_RUN_LAST
     // and complex cases like G_SIGNAL_RUN_FIRST | G_SIGNAL_ACTION
     expr.walk(&mut |e| {
-        if let Expression::Identifier(id) = e {
-            if id.name.starts_with("G_SIGNAL_") {
-                flags.push(SignalFlag::from_identifier(&id.name));
-            }
+        if let Expression::Identifier(id) = e
+            && id.name.starts_with("G_SIGNAL_")
+        {
+            flags.push(SignalFlag::from_identifier(&id.name));
         }
     });
 

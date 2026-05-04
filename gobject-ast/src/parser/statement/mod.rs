@@ -29,10 +29,9 @@ impl Parser {
                 && child.kind() != ";"
                 && child.kind() != "("
                 && child.kind() != ")"
+                && let Some(stmt) = self.parse_statement(child, source)
             {
-                if let Some(stmt) = self.parse_statement(child, source) {
-                    body_statements.push(stmt);
-                }
+                body_statements.push(stmt);
             }
         }
 
@@ -192,10 +191,11 @@ impl Parser {
             }
 
             // Parse any statements inside the preprocessor block
-            if child.is_named() && child.kind() != "#" {
-                if let Some(stmt) = self.parse_statement(child, source) {
-                    body_statements.push(stmt);
-                }
+            if child.is_named()
+                && child.kind() != "#"
+                && let Some(stmt) = self.parse_statement(child, source)
+            {
+                body_statements.push(stmt);
             }
         }
 
@@ -210,6 +210,7 @@ impl Parser {
             "declaration" => {
                 // Variable declaration
                 self.parse_variable_decl(node, source)
+                    .map(Box::new)
                     .map(Statement::Declaration)
             }
             "expression_statement" => {
@@ -332,12 +333,12 @@ impl Parser {
                 // BUT: tree-sitter sometimes mist parses "else if" inside #ifdef as
                 // function_definition In that case, try to extract the body
                 // compound_statement
-                if let Some(body) = node.child_by_field_name("body") {
-                    if body.kind() == "compound_statement" {
-                        return self
-                            .parse_compound_statement(body, source)
-                            .map(Statement::Compound);
-                    }
+                if let Some(body) = node.child_by_field_name("body")
+                    && body.kind() == "compound_statement"
+                {
+                    return self
+                        .parse_compound_statement(body, source)
+                        .map(Statement::Compound);
                 }
                 None
             }
@@ -346,10 +347,11 @@ impl Parser {
                 // Parse the underlying statement, skip the attributes
                 let mut cursor = node.walk();
                 for child in node.children(&mut cursor) {
-                    if child.kind() != "attribute_specifier" && child.is_named() {
-                        if let Some(stmt) = self.parse_statement(child, source) {
-                            return Some(stmt);
-                        }
+                    if child.kind() != "attribute_specifier"
+                        && child.is_named()
+                        && let Some(stmt) = self.parse_statement(child, source)
+                    {
+                        return Some(stmt);
                     }
                 }
                 None
@@ -380,10 +382,9 @@ impl Parser {
                         && child.kind() != "default"
                         && child.kind() != ":"
                         && !child.kind().ends_with("_expression")
+                        && let Some(stmt) = self.parse_statement(child, source)
                     {
-                        if let Some(stmt) = self.parse_statement(child, source) {
-                            statements.push(stmt);
-                        }
+                        statements.push(stmt);
                     }
                 }
 

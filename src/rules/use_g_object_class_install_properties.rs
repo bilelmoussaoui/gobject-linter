@@ -382,7 +382,8 @@ impl UseGObjectClassInstallProperties {
 
         // Check if "props" is already used as a GParamSpec array
         for item in &file.top_level_items {
-            if let TopLevelItem::Declaration(Statement::Declaration(decl)) = item
+            if let TopLevelItem::Declaration(stmt) = item
+                && let Statement::Declaration(decl) = stmt.as_ref()
                 && decl.name == "props"
                 && decl.type_info.full_text.contains("GParamSpec")
             {

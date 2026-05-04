@@ -25,13 +25,12 @@ impl Project {
     /// Check if a function is declared in any header
     pub fn is_function_declared_in_header(&self, name: &str) -> bool {
         for file in self.files.values() {
-            if file.path.extension().map_or(false, |ext| ext == "h") {
-                if file
+            if file.path.extension().is_some_and(|ext| ext == "h")
+                && file
                     .iter_function_declarations()
                     .any(|decl| decl.name == name)
-                {
-                    return true;
-                }
+            {
+                return true;
             }
         }
         false
@@ -248,24 +247,26 @@ impl FileModel {
         };
 
         match item {
-            TopLevelItem::Declaration(Statement::Declaration(decl))
-                if decl.type_info.is_base_type(base_type)
-                    && decl.type_info.is_pointer() == is_pointer =>
-            {
-                let matches = match &decl.array_size {
-                    Some(Expression::Identifier(size_id)) => {
-                        sentinel_name.map_or(true, |s| size_id.name == s)
+            TopLevelItem::Declaration(stmt) => {
+                if let Statement::Declaration(decl) = stmt.as_ref()
+                    && decl.type_info.is_base_type(base_type)
+                    && decl.type_info.is_pointer() == is_pointer
+                {
+                    let matches = match &decl.array_size {
+                        Some(Expression::Identifier(size_id)) => {
+                            sentinel_name.is_none_or(|s| size_id.name == s)
+                        }
+                        Some(Expression::Binary(_)) => {
+                            // Binary expressions like PROP_X + 1 - match if no specific sentinel
+                            // requested
+                            sentinel_name.is_none()
+                        }
+                        Some(_) => sentinel_name.is_none(),
+                        None => false,
+                    };
+                    if matches {
+                        arrays.push(decl);
                     }
-                    Some(Expression::Binary(_)) => {
-                        // Binary expressions like PROP_X + 1 - match if no specific sentinel
-                        // requested
-                        sentinel_name.is_none()
-                    }
-                    Some(_) => sentinel_name.is_none(),
-                    None => false,
-                };
-                if matches {
-                    arrays.push(decl);
                 }
             }
             TopLevelItem::Preprocessor(PreprocessorDirective::Conditional { body, .. }) => {

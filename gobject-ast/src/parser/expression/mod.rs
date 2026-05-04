@@ -34,10 +34,12 @@ impl Parser {
                 // Unwrap the parentheses and parse the inner expression
                 let mut cursor = node.walk();
                 for child in node.children(&mut cursor) {
-                    if child.is_named() && child.kind() != "(" && child.kind() != ")" {
-                        if Parser::is_expression_node(&child) {
-                            return self.parse_expression(child, source);
-                        }
+                    if child.is_named()
+                        && child.kind() != "("
+                        && child.kind() != ")"
+                        && Parser::is_expression_node(&child)
+                    {
+                        return self.parse_expression(child, source);
                     }
                 }
                 None
@@ -58,7 +60,7 @@ impl Parser {
 
                 let operator_node = node.child_by_field_name("operator")?;
                 let operator_str = std::str::from_utf8(&source[operator_node.byte_range()]).ok()?;
-                let operator = FieldAccessOp::from_str(operator_str)?;
+                let operator = FieldAccessOp::parse(operator_str)?;
 
                 let field_node = node.child_by_field_name("field")?;
                 let field = std::str::from_utf8(&source[field_node.byte_range()])
@@ -157,10 +159,9 @@ impl Parser {
                 let mut cursor = node.walk();
                 let mut last_expr = None;
                 for child in node.children(&mut cursor) {
-                    if child.is_named() && child.kind() != "," {
-                        if Parser::is_expression_node(&child) {
-                            last_expr = self.parse_expression(child, source);
-                        }
+                    if child.is_named() && child.kind() != "," && Parser::is_expression_node(&child)
+                    {
+                        last_expr = self.parse_expression(child, source);
                     }
                 }
                 last_expr
@@ -258,14 +259,14 @@ impl Parser {
                                 // Parse the expression inside the brackets
                                 let mut sub_cursor = pair_child.walk();
                                 for sub_child in pair_child.children(&mut sub_cursor) {
-                                    if sub_child.kind() != "[" && sub_child.kind() != "]" {
-                                        if let Some(index_expr) =
+                                    if sub_child.kind() != "["
+                                        && sub_child.kind() != "]"
+                                        && let Some(index_expr) =
                                             self.parse_expression(sub_child, source)
-                                        {
-                                            designator =
-                                                Some(Designator::Subscript(Box::new(index_expr)));
-                                            break;
-                                        }
+                                    {
+                                        designator =
+                                            Some(Designator::Subscript(Box::new(index_expr)));
+                                        break;
                                     }
                                 }
                             }
@@ -291,13 +292,13 @@ impl Parser {
                 }
                 _ => {
                     // Direct value (no designator): just an expression
-                    if Parser::is_expression_node(&child) {
-                        if let Some(expr) = self.parse_expression(child, source) {
-                            items.push(InitializerItem {
-                                designator: None,
-                                value: Box::new(expr),
-                            });
-                        }
+                    if Parser::is_expression_node(&child)
+                        && let Some(expr) = self.parse_expression(child, source)
+                    {
+                        items.push(InitializerItem {
+                            designator: None,
+                            value: Box::new(expr),
+                        });
                     }
                 }
             }

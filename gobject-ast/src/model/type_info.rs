@@ -170,11 +170,8 @@ impl TypeInfo {
             Some(AutoCleanupMacro::Autoslist(t))
         } else if let Some(t) = try_with_arg("g_autoqueue") {
             Some(AutoCleanupMacro::Autoqueue(t))
-        } else if let Some(t) = try_with_arg("g_auto") {
-            // Checked last — "g_auto" is a prefix of all the variants above.
-            Some(AutoCleanupMacro::Auto(t))
         } else {
-            None
+            try_with_arg("g_auto").map(AutoCleanupMacro::Auto)
         }
     }
 

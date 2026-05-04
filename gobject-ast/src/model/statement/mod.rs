@@ -30,7 +30,7 @@ use crate::model::{CallExpression, Expression, SourceLocation};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Statement {
-    Declaration(VariableDecl),
+    Declaration(Box<VariableDecl>),
     Expression(ExpressionStmt),
     If(IfStatement),
     Return(ReturnStatement),
@@ -234,10 +234,10 @@ impl Statement {
     ) -> impl Iterator<Item = &'s crate::model::Assignment> + 's {
         let mut results: Vec<&'s crate::model::Assignment> = Vec::new();
         self.walk(&mut |s| {
-            if let Statement::Expression(expr_stmt) = s {
-                if let Expression::Assignment(assign) = &expr_stmt.expr {
-                    results.push(assign);
-                }
+            if let Statement::Expression(expr_stmt) = s
+                && let Expression::Assignment(assign) = &expr_stmt.expr
+            {
+                results.push(assign);
             }
         });
         results.into_iter()
@@ -266,10 +266,10 @@ impl Statement {
     /// Extract the call expression if this is an expression statement with a
     /// call
     pub fn extract_call(&self) -> Option<&CallExpression> {
-        if let Statement::Expression(expr_stmt) = self {
-            if let Expression::Call(call) = &expr_stmt.expr {
-                return Some(call);
-            }
+        if let Statement::Expression(expr_stmt) = self
+            && let Expression::Call(call) = &expr_stmt.expr
+        {
+            return Some(call);
         }
         None
     }
@@ -280,27 +280,27 @@ impl Statement {
     where
         F: Fn(&Expression) -> bool,
     {
-        if let Statement::Expression(expr_stmt) = self {
-            if let Expression::Assignment(assign) = &expr_stmt.expr {
-                let lhs_text = match &*assign.lhs {
-                    Expression::Identifier(id) => id.name.as_str(),
-                    Expression::FieldAccess(field) => {
-                        return field.text() == target_var && value_check(&assign.rhs);
-                    }
-                    _ => return false,
-                };
-                return lhs_text.trim() == target_var.trim() && value_check(&assign.rhs);
-            }
+        if let Statement::Expression(expr_stmt) = self
+            && let Expression::Assignment(assign) = &expr_stmt.expr
+        {
+            let lhs_text = match &*assign.lhs {
+                Expression::Identifier(id) => id.name.as_str(),
+                Expression::FieldAccess(field) => {
+                    return field.text() == target_var && value_check(&assign.rhs);
+                }
+                _ => return false,
+            };
+            return lhs_text.trim() == target_var.trim() && value_check(&assign.rhs);
         }
         false
     }
 
     /// Extract the assignment expression if this is an assignment statement
     pub fn extract_assignment(&self) -> Option<&crate::model::Assignment> {
-        if let Statement::Expression(expr_stmt) = self {
-            if let Expression::Assignment(assign) = &expr_stmt.expr {
-                return Some(assign);
-            }
+        if let Statement::Expression(expr_stmt) = self
+            && let Expression::Assignment(assign) = &expr_stmt.expr
+        {
+            return Some(assign);
         }
         None
     }

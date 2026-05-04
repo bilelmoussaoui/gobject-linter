@@ -93,7 +93,7 @@ impl Parser {
             .filter(|e| {
                 e.path()
                     .extension()
-                    .map_or(false, |ext| ext == "h" || ext == "c")
+                    .is_some_and(|ext| ext == "h" || ext == "c")
             })
         {
             self.parse_single_file(entry.path(), &mut project)?;
@@ -220,10 +220,10 @@ impl Parser {
         }
 
         // For pointer/abstract declarators, look in the declarator field
-        if let Some(declarator) = node.child_by_field_name("declarator") {
-            if let Some(found) = self.find_function_declarator(declarator) {
-                return Some(found);
-            }
+        if let Some(declarator) = node.child_by_field_name("declarator")
+            && let Some(found) = self.find_function_declarator(declarator)
+        {
+            return Some(found);
         }
 
         // Recursively search children
@@ -254,10 +254,10 @@ impl Parser {
         comments: &mut Vec<(Node<'a>, CommentKind, String)>,
     ) {
         // If this node is a comment, extract it
-        if node.kind() == "comment" {
-            if let Some((kind, content)) = self.extract_comment_text(node, source) {
-                comments.push((node, kind, content));
-            }
+        if node.kind() == "comment"
+            && let Some((kind, content)) = self.extract_comment_text(node, source)
+        {
+            comments.push((node, kind, content));
         }
 
         // Recurse into children
@@ -271,8 +271,8 @@ impl Parser {
         let text = std::str::from_utf8(&source[node.byte_range()]).ok()?;
 
         // Determine comment kind and extract text without delimiters
-        if text.starts_with("//") {
-            Some((CommentKind::Line, text[2..].trim_start().to_string()))
+        if let Some(rest) = text.strip_prefix("//") {
+            Some((CommentKind::Line, rest.trim_start().to_string()))
         } else if text.starts_with("/*") && text.ends_with("*/") {
             let inner = &text[2..text.len() - 2];
             Some((CommentKind::Block, inner.trim().to_string()))

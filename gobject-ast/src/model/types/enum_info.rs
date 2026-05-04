@@ -48,7 +48,7 @@ impl EnumInfo {
             let is_bit_shift = value
                 .value_expr
                 .as_ref()
-                .map(|expr| is_bit_shift_expr(expr))
+                .map(is_bit_shift_expr)
                 .unwrap_or(false);
 
             // Check if the evaluated value is a power of 2 (or 0)

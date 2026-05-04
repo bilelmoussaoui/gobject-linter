@@ -14,17 +14,15 @@ impl Parser {
         // Now that grammar is fixed, macro_modifier will be a separate node we can skip
         for child in node.children(&mut cursor) {
             match child.kind() {
-                "type_identifier" => {
-                    if type_node.is_none() {
+                "type_identifier"
+                    if type_node.is_none() => {
                         type_node = Some(child);
                     }
-                }
-                "primitive_type" | "sized_type_specifier" | "struct_specifier" => {
+                "primitive_type" | "sized_type_specifier" | "struct_specifier"
                     // Found the type
-                    if type_node.is_none() {
+                    if type_node.is_none() => {
                         type_node = Some(child);
                     }
-                }
                 "type_qualifier" => {
                     // Check if it's const
                     let text = std::str::from_utf8(&source[child.byte_range()]).unwrap_or("");
@@ -93,10 +91,10 @@ impl Parser {
     /// Find a function_declarator node within a declaration
     fn find_function_declarator_in_node<'a>(&self, node: Node<'a>) -> Option<Node<'a>> {
         // Direct declarator field
-        if let Some(declarator) = node.child_by_field_name("declarator") {
-            if let Some(func_decl) = self.find_function_declarator(declarator) {
-                return Some(func_decl);
-            }
+        if let Some(declarator) = node.child_by_field_name("declarator")
+            && let Some(func_decl) = self.find_function_declarator(declarator)
+        {
+            return Some(func_decl);
         }
 
         // Search all children
@@ -343,17 +341,17 @@ impl Parser {
                         let parameters = {
                             let mut params = Vec::new();
                             let mut cursor = func_decl.walk();
-                            for child in func_decl.children_by_field_name("parameters", &mut cursor)
+                            if let Some(child) = func_decl
+                                .children_by_field_name("parameters", &mut cursor)
+                                .next()
                             {
                                 params = self.extract_parameters(child, source);
-                                break;
                             }
-                            if params.is_empty() {
-                                if let Some(params_node) =
+                            if params.is_empty()
+                                && let Some(params_node) =
                                     self.find_node_by_kind(func_decl, "parameter_list")
-                                {
-                                    params = self.extract_parameters(params_node, source);
-                                }
+                            {
+                                params = self.extract_parameters(params_node, source);
                             }
                             params
                         };
@@ -374,7 +372,7 @@ impl Parser {
 
                 // Variable or type declaration - parse as statement
                 if let Some(stmt) = self.parse_statement(node, source) {
-                    return Some(TopLevelItem::Declaration(stmt));
+                    return Some(TopLevelItem::Declaration(Box::new(stmt)));
                 }
                 None
             }
@@ -426,9 +424,11 @@ impl Parser {
                     // Find parameter_list recursively in the declarator tree
                     let mut params = Vec::new();
                     let mut cursor = declarator.walk();
-                    for child in declarator.children_by_field_name("parameters", &mut cursor) {
+                    if let Some(child) = declarator
+                        .children_by_field_name("parameters", &mut cursor)
+                        .next()
+                    {
                         params = self.extract_parameters(child, source);
-                        break;
                     }
                     if params.is_empty() {
                         // Try finding it recursively
@@ -465,6 +465,7 @@ impl Parser {
             }
             "expression_statement" => self
                 .parse_statement(node, source)
+                .map(Box::new)
                 .map(TopLevelItem::Declaration),
             "gobject_type_macro" => {
                 let full_text = std::str::from_utf8(&source[node.byte_range()]).unwrap_or("");
@@ -557,37 +558,37 @@ impl Parser {
 
         let mut cursor = declaration_node.walk();
         for child in declaration_node.children(&mut cursor) {
-            if matches!(child.kind(), "struct_specifier" | "union_specifier") {
-                if let Some(body) = child.child_by_field_name("body") {
-                    let name = child
-                        .child_by_field_name("name")
-                        .and_then(|n| std::str::from_utf8(&source[n.byte_range()]).ok())
-                        .unwrap_or("")
-                        .to_owned();
+            if matches!(child.kind(), "struct_specifier" | "union_specifier")
+                && let Some(body) = child.child_by_field_name("body")
+            {
+                let name = child
+                    .child_by_field_name("name")
+                    .and_then(|n| std::str::from_utf8(&source[n.byte_range()]).ok())
+                    .unwrap_or("")
+                    .to_owned();
 
-                    // Skip anonymous structs (e.g. `static const struct { … } arr[];`).
-                    // We already checked for declarator above, but an anonymous struct
-                    // with no declarator is an unusual edge case — skip it too.
-                    if name.is_empty() {
-                        return None;
-                    }
-
-                    let fields = self.extract_struct_fields_from_body(body, source);
-                    let bare = name.trim_start_matches('_');
-                    let vfuncs = if bare.ends_with("Class") || bare.ends_with("Interface") {
-                        self.extract_vfuncs(body, source)
-                    } else {
-                        vec![]
-                    };
-
-                    return Some(TopLevelItem::TypeDefinition(TypeDefItem::Struct {
-                        name,
-                        has_body: true,
-                        fields,
-                        vfuncs,
-                        location: self.node_location(declaration_node),
-                    }));
+                // Skip anonymous structs (e.g. `static const struct { … } arr[];`).
+                // We already checked for declarator above, but an anonymous struct
+                // with no declarator is an unusual edge case — skip it too.
+                if name.is_empty() {
+                    return None;
                 }
+
+                let fields = self.extract_struct_fields_from_body(body, source);
+                let bare = name.trim_start_matches('_');
+                let vfuncs = if bare.ends_with("Class") || bare.ends_with("Interface") {
+                    self.extract_vfuncs(body, source)
+                } else {
+                    vec![]
+                };
+
+                return Some(TopLevelItem::TypeDefinition(TypeDefItem::Struct {
+                    name,
+                    has_body: true,
+                    fields,
+                    vfuncs,
+                    location: self.node_location(declaration_node),
+                }));
             }
         }
         None
@@ -742,83 +743,80 @@ impl Parser {
         }
 
         // Handle direct enum_specifier node
-        if node.kind() == "enum_specifier" {
-            if let Some(body) = node.child_by_field_name("body") {
+        if node.kind() == "enum_specifier"
+            && let Some(body) = node.child_by_field_name("body")
+        {
+            let values = self.extract_enum_values(body, source);
+
+            // Try to get the name from the name field
+            let name = node.child_by_field_name("name").and_then(|name_node| {
+                std::str::from_utf8(&source[name_node.byte_range()])
+                    .ok()
+                    .map(|s| s.to_owned())
+            });
+
+            return Some(EnumInfo {
+                name,
+                location: self.node_location(node),
+                values,
+                body_location: self.node_location(body),
+                attributes: Vec::new(), // No attributes in direct enum_specifier
+            });
+        }
+
+        // Handle typedef enum { ... } Name;
+        if node.kind() == "type_definition" {
+            if let Some(type_node) = node.child_by_field_name("type")
+                && type_node.kind() == "enum_specifier"
+                && let Some(body) = type_node.child_by_field_name("body")
+            {
+                // Collect type_identifiers (attribute macros like G_GNUC_FLAG_ENUM)
+                // and the actual typedef name from type_definition children.
+                // When a macro attribute precedes the name, tree-sitter records
+                // the macro as type_identifier and the actual name as an ERROR node.
+                let mut attributes = Vec::new();
+                let mut error_name: Option<String> = None;
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "type_identifier" {
+                        if let Ok(text) = std::str::from_utf8(&source[child.byte_range()]) {
+                            attributes.push(text.to_owned());
+                        }
+                    } else if child.kind() == "ERROR" {
+                        // The real typedef name got pushed into an ERROR node
+                        // because the grammar didn't expect two identifiers after }.
+                        error_name = std::str::from_utf8(&source[child.byte_range()])
+                            .ok()
+                            .map(|s| s.trim().to_owned())
+                            .filter(|s| !s.is_empty());
+                    }
+                }
+
+                // If we found an ERROR child, all type_identifiers are attributes
+                // and the ERROR text is the name.  Otherwise fall back to the
+                // previous heuristic: last type_identifier is the name.
+                let name = if error_name.is_some() {
+                    error_name
+                } else if let Some(next) = node.next_sibling() {
+                    if next.kind() == "type_identifier" {
+                        std::str::from_utf8(&source[next.byte_range()])
+                            .ok()
+                            .map(|s| s.to_owned())
+                    } else {
+                        attributes.pop()
+                    }
+                } else {
+                    attributes.pop()
+                };
+
                 let values = self.extract_enum_values(body, source);
-
-                // Try to get the name from the name field
-                let name = node.child_by_field_name("name").and_then(|name_node| {
-                    std::str::from_utf8(&source[name_node.byte_range()])
-                        .ok()
-                        .map(|s| s.to_owned())
-                });
-
                 return Some(EnumInfo {
                     name,
                     location: self.node_location(node),
                     values,
                     body_location: self.node_location(body),
-                    attributes: Vec::new(), // No attributes in direct enum_specifier
+                    attributes,
                 });
-            }
-        }
-
-        // Handle typedef enum { ... } Name;
-        if node.kind() == "type_definition" {
-            if let Some(type_node) = node.child_by_field_name("type") {
-                if type_node.kind() == "enum_specifier" {
-                    if let Some(body) = type_node.child_by_field_name("body") {
-                        // Collect type_identifiers (attribute macros like G_GNUC_FLAG_ENUM)
-                        // and the actual typedef name from type_definition children.
-                        // When a macro attribute precedes the name, tree-sitter records
-                        // the macro as type_identifier and the actual name as an ERROR node.
-                        let mut attributes = Vec::new();
-                        let mut error_name: Option<String> = None;
-                        let mut cursor = node.walk();
-                        for child in node.children(&mut cursor) {
-                            if child.kind() == "type_identifier" {
-                                if let Some(text) =
-                                    std::str::from_utf8(&source[child.byte_range()]).ok()
-                                {
-                                    attributes.push(text.to_owned());
-                                }
-                            } else if child.kind() == "ERROR" {
-                                // The real typedef name got pushed into an ERROR node
-                                // because the grammar didn't expect two identifiers after }.
-                                error_name = std::str::from_utf8(&source[child.byte_range()])
-                                    .ok()
-                                    .map(|s| s.trim().to_owned())
-                                    .filter(|s| !s.is_empty());
-                            }
-                        }
-
-                        // If we found an ERROR child, all type_identifiers are attributes
-                        // and the ERROR text is the name.  Otherwise fall back to the
-                        // previous heuristic: last type_identifier is the name.
-                        let name = if error_name.is_some() {
-                            error_name
-                        } else if let Some(next) = node.next_sibling() {
-                            if next.kind() == "type_identifier" {
-                                std::str::from_utf8(&source[next.byte_range()])
-                                    .ok()
-                                    .map(|s| s.to_owned())
-                            } else {
-                                attributes.pop()
-                            }
-                        } else {
-                            attributes.pop()
-                        };
-
-                        let values = self.extract_enum_values(body, source);
-                        return Some(EnumInfo {
-                            name,
-                            location: self.node_location(node),
-                            values,
-                            body_location: self.node_location(body),
-                            attributes,
-                        });
-                    }
-                }
             }
             return None;
         }
@@ -828,25 +826,25 @@ impl Parser {
         if let Some(Statement::Declaration(_)) = self.parse_statement(node, source) {
             let mut cursor = node.walk();
             for child in node.children(&mut cursor) {
-                if child.kind() == "enum_specifier" {
-                    if let Some(body) = child.child_by_field_name("body") {
-                        let values = self.extract_enum_values(body, source);
+                if child.kind() == "enum_specifier"
+                    && let Some(body) = child.child_by_field_name("body")
+                {
+                    let values = self.extract_enum_values(body, source);
 
-                        // Try to get the name from the name field
-                        let name = child.child_by_field_name("name").and_then(|name_node| {
-                            std::str::from_utf8(&source[name_node.byte_range()])
-                                .ok()
-                                .map(|s| s.to_owned())
-                        });
+                    // Try to get the name from the name field
+                    let name = child.child_by_field_name("name").and_then(|name_node| {
+                        std::str::from_utf8(&source[name_node.byte_range()])
+                            .ok()
+                            .map(|s| s.to_owned())
+                    });
 
-                        return Some(EnumInfo {
-                            name,
-                            location: self.node_location(child),
-                            values,
-                            body_location: self.node_location(body),
-                            attributes: Vec::new(), // No attributes in standalone enum
-                        });
-                    }
+                    return Some(EnumInfo {
+                        name,
+                        location: self.node_location(child),
+                        values,
+                        body_location: self.node_location(body),
+                        attributes: Vec::new(), // No attributes in standalone enum
+                    });
                 }
             }
         }
@@ -858,15 +856,15 @@ impl Parser {
 
         let mut cursor = body_node.walk();
         for child in body_node.children(&mut cursor) {
-            if child.kind() == "enumerator" {
-                if let Some(name_node) = child.child_by_field_name("name") {
-                    let name = std::str::from_utf8(&source[name_node.byte_range()])
-                        .unwrap_or("")
-                        .to_owned();
+            if child.kind() == "enumerator"
+                && let Some(name_node) = child.child_by_field_name("name")
+            {
+                let name = std::str::from_utf8(&source[name_node.byte_range()])
+                    .unwrap_or("")
+                    .to_owned();
 
-                    let (value, value_expr, value_location) = if let Some(value_node) =
-                        child.child_by_field_name("value")
-                    {
+                let (value, value_expr, value_location) =
+                    if let Some(value_node) = child.child_by_field_name("value") {
                         // Parse as expression (only if it's actually an expression node)
                         let expr = if Parser::is_expression_node(&value_node) {
                             self.parse_expression(value_node, source)
@@ -885,15 +883,14 @@ impl Parser {
                         (None, None, None)
                     };
 
-                    values.push(EnumValue {
-                        name,
-                        value,
-                        value_expr,
-                        location: self.node_location(child),
-                        name_location: self.node_location(name_node),
-                        value_location,
-                    });
-                }
+                values.push(EnumValue {
+                    name,
+                    value,
+                    value_expr,
+                    location: self.node_location(child),
+                    name_location: self.node_location(name_node),
+                    value_location,
+                });
             }
         }
 
@@ -1000,13 +997,11 @@ impl Parser {
                 if text == "__attribute__" {
                     let mut cursor = declarator.walk();
                     for child in declarator.children(&mut cursor) {
-                        if child.kind() == "call_expression" {
-                            if let Some(func_node) = child.child_by_field_name("function") {
-                                if func_node.kind() == "identifier" {
-                                    return std::str::from_utf8(&source[func_node.byte_range()])
-                                        .ok();
-                                }
-                            }
+                        if child.kind() == "call_expression"
+                            && let Some(func_node) = child.child_by_field_name("function")
+                            && func_node.kind() == "identifier"
+                        {
+                            return std::str::from_utf8(&source[func_node.byte_range()]).ok();
                         }
                     }
                     return None;
@@ -1018,7 +1013,7 @@ impl Parser {
 
         if declarator.kind() == "identifier" {
             let name = &source[declarator.byte_range()];
-            return Some(std::str::from_utf8(name).ok()?);
+            return std::str::from_utf8(name).ok();
         }
 
         // Handle parenthesized declarators like (function_name) used to prevent macro
@@ -1028,7 +1023,7 @@ impl Parser {
             for child in declarator.children(&mut cursor) {
                 if child.kind() == "identifier" {
                     let name = &source[child.byte_range()];
-                    return Some(std::str::from_utf8(name).ok()?);
+                    return std::str::from_utf8(name).ok();
                 }
             }
         }
@@ -1063,11 +1058,11 @@ impl Parser {
             if args.contains("ignored") {
                 // Extract warning name from quotes
                 // Format: "GCC diagnostic ignored \"-Wwarning-name\""
-                if let Some(start) = args.find('"') {
-                    if let Some(end) = args[start + 1..].find('"') {
-                        let warning = args[start + 1..start + 1 + end].to_string();
-                        return PragmaKind::DiagnosticIgnored { warning };
-                    }
+                if let Some(start) = args.find('"')
+                    && let Some(end) = args[start + 1..].find('"')
+                {
+                    let warning = args[start + 1..start + 1 + end].to_string();
+                    return PragmaKind::DiagnosticIgnored { warning };
                 }
             }
         }
