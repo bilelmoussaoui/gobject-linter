@@ -768,9 +768,12 @@ impl Parser {
             if let Some(type_node) = node.child_by_field_name("type") {
                 if type_node.kind() == "enum_specifier" {
                     if let Some(body) = type_node.child_by_field_name("body") {
-                        // Collect type_identifiers from type_definition children (these are
-                        // attributes)
+                        // Collect type_identifiers (attribute macros like G_GNUC_FLAG_ENUM)
+                        // and the actual typedef name from type_definition children.
+                        // When a macro attribute precedes the name, tree-sitter records
+                        // the macro as type_identifier and the actual name as an ERROR node.
                         let mut attributes = Vec::new();
+                        let mut error_name: Option<String> = None;
                         let mut cursor = node.walk();
                         for child in node.children(&mut cursor) {
                             if child.kind() == "type_identifier" {
@@ -779,22 +782,30 @@ impl Parser {
                                 {
                                     attributes.push(text.to_owned());
                                 }
+                            } else if child.kind() == "ERROR" {
+                                // The real typedef name got pushed into an ERROR node
+                                // because the grammar didn't expect two identifiers after }.
+                                error_name = std::str::from_utf8(&source[child.byte_range()])
+                                    .ok()
+                                    .map(|s| s.trim().to_owned())
+                                    .filter(|s| !s.is_empty());
                             }
                         }
 
-                        // The actual type name is the next sibling after type_definition
-                        // (tree-sitter quirk)
-                        let name = if let Some(next) = node.next_sibling() {
+                        // If we found an ERROR child, all type_identifiers are attributes
+                        // and the ERROR text is the name.  Otherwise fall back to the
+                        // previous heuristic: last type_identifier is the name.
+                        let name = if error_name.is_some() {
+                            error_name
+                        } else if let Some(next) = node.next_sibling() {
                             if next.kind() == "type_identifier" {
                                 std::str::from_utf8(&source[next.byte_range()])
                                     .ok()
                                     .map(|s| s.to_owned())
                             } else {
-                                // No sibling type_identifier, last child is the name
                                 attributes.pop()
                             }
                         } else {
-                            // No sibling, last child is the name
                             attributes.pop()
                         };
 
