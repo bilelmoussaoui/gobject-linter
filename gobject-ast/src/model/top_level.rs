@@ -125,6 +125,20 @@ pub struct StructField {
     pub field_type: super::TypeInfo,
     /// Field name, if present (anonymous bitfields have none)
     pub field_name: Option<String>,
+    pub location: super::SourceLocation,
+}
+
+impl StructField {
+    /// True for future-use padding fields that should never be flagged as dead
+    /// code: names starting with `rfu`, `reserved`, `padding`, or `_padding`.
+    pub fn is_reserved(&self) -> bool {
+        self.field_name.as_deref().is_some_and(|n| {
+            n.starts_with("rfu")
+                || n.starts_with("reserved")
+                || n.starts_with("padding")
+                || n.starts_with("_padding")
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -152,6 +166,22 @@ pub enum TypeDefItem {
     Enum {
         enum_info: Box<super::types::EnumInfo>,
     },
+}
+
+impl TypeDefItem {
+    /// True for GObject class/interface vtable structs whose fields should not
+    /// be checked for dead code: any struct with vfuncs, or any type whose
+    /// bare name ends with `Class` or `Interface`.
+    pub fn is_vtable_struct(&self) -> bool {
+        match self {
+            Self::Struct { name, vfuncs, .. } => {
+                let bare = name.trim_start_matches('_');
+                bare.ends_with("Class") || bare.ends_with("Interface") || !vfuncs.is_empty()
+            }
+            Self::Typedef { name, .. } => name.ends_with("Class") || name.ends_with("Interface"),
+            Self::Enum { .. } => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

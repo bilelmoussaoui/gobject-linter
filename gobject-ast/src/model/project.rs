@@ -378,6 +378,32 @@ impl FileModel {
         None
     }
 
+    /// Iterate through all top-level items recursively (including items inside
+    /// `#ifdef`/`#if` and `G_BEGIN_DECLS` blocks). Conditional container items
+    /// themselves are also yielded before their children.
+    pub fn iter_all_items(&self) -> impl Iterator<Item = &TopLevelItem> + '_ {
+        self.iter_items_recursive(&self.top_level_items)
+    }
+
+    /// Iterate typedef forward-alias declarations of the form
+    /// `typedef [struct|union] _Foo Foo` (i.e., typedefs that have no inline
+    /// struct body). Yields `(typedef_name, target_TypeInfo)` so callers can
+    /// inspect `target_type.base_type`, `.is_struct`, and `.is_union`.
+    pub fn iter_typedef_pairs(&self) -> impl Iterator<Item = (&str, &super::TypeInfo)> + '_ {
+        use crate::top_level::TypeDefItem;
+        self.iter_all_items().filter_map(|item| match item {
+            TopLevelItem::TypeDefinition(TypeDefItem::Typedef {
+                name,
+                target_type,
+                struct_fields,
+                ..
+            }) if struct_fields.is_empty() && !target_type.base_type.is_empty() => {
+                Some((name.as_str(), target_type))
+            }
+            _ => None,
+        })
+    }
+
     /// Recursively iterate through all items (including those in #ifdef blocks)
     fn iter_items_recursive<'a>(
         &'a self,

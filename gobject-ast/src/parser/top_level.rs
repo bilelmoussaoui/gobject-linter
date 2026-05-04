@@ -644,6 +644,7 @@ impl Parser {
                     fields.push(StructField {
                         field_type,
                         field_name,
+                        location: self.node_location(child),
                     });
                 }
                 // Recurse into nested anonymous struct/union bodies

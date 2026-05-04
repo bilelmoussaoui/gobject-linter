@@ -123,6 +123,21 @@ impl AstContext {
             .map(|(path, file)| (path.as_path(), file))
     }
 
+    /// Iterate over all files that are not part of the public API: all `.c`
+    /// files and any `.h` files that meson does not mark as installed/public.
+    pub fn iter_private_files(&self) -> impl Iterator<Item = (&Path, &gobject_ast::FileModel)> {
+        self.project.files.iter().filter_map(|(path, file)| {
+            let p = path.as_path();
+            if path.extension().is_some_and(|ext| ext == "c") {
+                return Some((p, file));
+            }
+            if self.is_public_header(p) == Some(true) {
+                return None;
+            }
+            Some((p, file))
+        })
+    }
+
     /// Check if a file path is a public header.
     /// When GIR headers are available, only those count as public.
     /// Otherwise falls back to the installed headers set.
