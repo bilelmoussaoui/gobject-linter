@@ -783,8 +783,8 @@ impl Parser {
                             attributes.push(text.to_owned());
                         }
                     } else if child.kind() == "ERROR" {
-                        // The real typedef name got pushed into an ERROR node
-                        // because the grammar didn't expect two identifiers after }.
+                        // Without includes the grammar records the real typedef name as an ERROR
+                        // node inside the type_definition.
                         error_name = std::str::from_utf8(&source[child.byte_range()])
                             .ok()
                             .map(|s| s.trim().to_owned())
@@ -792,9 +792,7 @@ impl Parser {
                     }
                 }
 
-                // If we found an ERROR child, all type_identifiers are attributes
-                // and the ERROR text is the name.  Otherwise fall back to the
-                // previous heuristic: last type_identifier is the name.
+                // The name placement varies by parse context; try in order.
                 let name = if error_name.is_some() {
                     error_name
                 } else if let Some(next) = node.next_sibling() {
@@ -802,6 +800,11 @@ impl Parser {
                         std::str::from_utf8(&source[next.byte_range()])
                             .ok()
                             .map(|s| s.to_owned())
+                    } else if next.kind() == "expression_statement" {
+                        std::str::from_utf8(&source[next.byte_range()])
+                            .ok()
+                            .map(|s| s.trim().trim_end_matches(';').trim().to_owned())
+                            .filter(|s| !s.is_empty() && !s.contains(' '))
                     } else {
                         attributes.pop()
                     }
