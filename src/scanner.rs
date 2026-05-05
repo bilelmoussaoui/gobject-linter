@@ -185,7 +185,7 @@ macro_rules! impl_create_all_rules {
                             let default_level = if $opt_in {
                                 crate::config::RuleLevel::Ignore
                             } else {
-                                crate::config::RuleLevel::Warn
+                                config.default_level.unwrap_or(crate::config::RuleLevel::Warn)
                             };
                             let configured = config.rules.$config_field.level.unwrap_or(default_level);
                             apply_msvc_compatibility(config, stringify!($config_field), $requires_auto_cleanup, configured)
