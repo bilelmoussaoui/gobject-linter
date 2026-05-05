@@ -9,7 +9,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 
 #[derive(Parser, Debug)]
 #[command(name = "gobject-linter")]
-#[command(about = "A fast linter for GObject/C code", long_about = None)]
+#[command(about = "A fast tree-sitter-based linter for GObject/C code", long_about = None)]
 struct Args {
     /// Directory to scan for C files
     #[arg(value_name = "DIRECTORY", default_value = ".")]
