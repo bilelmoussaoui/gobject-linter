@@ -167,12 +167,20 @@ impl Parser {
                 last_expr
             }
             "offsetof_expression" => {
-                // offsetof(struct, field)
-                let text = std::str::from_utf8(&source[node.byte_range()])
+                // offsetof(StructType, field)
+                let type_node = node.child_by_field_name("type")?;
+                let struct_type = std::str::from_utf8(&source[type_node.byte_range()])
                     .ok()?
+                    .trim()
                     .to_owned();
-                Some(Expression::Generic(GenericExpression {
-                    text,
+                let designator_node = node.child_by_field_name("designator")?;
+                let field = std::str::from_utf8(&source[designator_node.byte_range()])
+                    .ok()?
+                    .trim_start_matches('.')
+                    .trim()
+                    .to_owned();
+                Some(Expression::OffsetOf(OffsetOfExpression {
+                    struct_field: StructField { struct_type, field },
                     location: self.node_location(node),
                 }))
             }

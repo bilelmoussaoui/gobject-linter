@@ -8,6 +8,7 @@ mod identifier;
 mod initializer_list;
 mod literal;
 mod macro_call;
+mod offsetof;
 mod sizeof;
 mod subscript;
 mod unary;
@@ -26,6 +27,7 @@ pub use literal::{
     NumberLiteralExpression, StringLiteralExpression,
 };
 pub use macro_call::MacroCallExpression;
+pub use offsetof::{OffsetOfExpression, StructField};
 use serde::{Deserialize, Serialize};
 pub use sizeof::{SizeofExpression, SizeofOperand};
 pub use subscript::SubscriptExpression;
@@ -55,6 +57,7 @@ pub enum Expression {
     CharLiteral(CharLiteralExpression),
     Update(UpdateExpression),
     Comment(CommentExpression),
+    OffsetOf(OffsetOfExpression),
     Generic(GenericExpression),
 }
 
@@ -80,6 +83,7 @@ impl Expression {
             Expression::CharLiteral(c) => &c.location,
             Expression::Update(u) => &u.location,
             Expression::Comment(c) => &c.location,
+            Expression::OffsetOf(o) => &o.location,
             Expression::Generic(g) => &g.location,
         }
     }
@@ -156,6 +160,7 @@ impl Expression {
             | Expression::Sizeof(_)
             | Expression::CharLiteral(_)
             | Expression::Comment(_)
+            | Expression::OffsetOf(_)
             | Expression::Generic(_) => {}
         }
     }

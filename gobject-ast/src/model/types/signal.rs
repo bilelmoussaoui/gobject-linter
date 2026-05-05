@@ -1,14 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::model::expression::{CallExpression, Expression};
-
-/// Parsed `G_STRUCT_OFFSET(StructType, field)` — identifies the vtable slot
-/// for a signal's default handler.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ClassOffset {
-    pub struct_type: String, // e.g. "GtkWidgetClass"
-    pub field: String,       // e.g. "measure"
-}
+use crate::model::expression::{CallExpression, Expression, StructField};
 
 /// Represents a GObject signal registration
 ///
@@ -30,7 +22,7 @@ pub struct Signal {
     pub name: String,
     pub itype: Option<String>, // G_TYPE_FROM_CLASS(klass), G_OBJECT_TYPE, etc.
     pub flags: Vec<SignalFlag>,
-    pub class_offset: Option<ClassOffset>, // None when 0 (no default handler)
+    pub class_offset: Option<StructField>, // None when 0 (no default handler)
     pub accumulator: Option<String>,       // function name or NULL
     pub accu_data: Option<String>,         // data or NULL
     pub c_marshaller: Option<String>,      // marshaller or NULL
@@ -134,7 +126,7 @@ impl Signal {
                         None
                     }
                 })?;
-                Some(ClassOffset { struct_type, field })
+                Some(StructField { struct_type, field })
             }
             _ => None, // 0, NULL, or any other form → no vtable slot
         });

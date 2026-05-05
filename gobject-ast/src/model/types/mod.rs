@@ -11,4 +11,4 @@ pub use gobject_type::{
 };
 pub use include::Include;
 pub use property::{ParamFlag, ParamSpecAssignment, Property, PropertyType};
-pub use signal::{ClassOffset, Signal, SignalFlag};
+pub use signal::{Signal, SignalFlag};

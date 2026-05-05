@@ -13,8 +13,8 @@ pub use expression::{
     Argument, Assignment, BinaryExpression, BooleanExpression, CallExpression, CastExpression,
     CharLiteralExpression, CommentExpression, ConditionalExpression, Expression,
     FieldAccessExpression, GenericExpression, IdentifierExpression, InitializerListExpression,
-    NullExpression, NumberLiteralExpression, SizeofExpression, StringLiteralExpression,
-    SubscriptExpression, UnaryExpression, UpdateExpression,
+    NullExpression, NumberLiteralExpression, OffsetOfExpression, SizeofExpression,
+    StringLiteralExpression, StructField, SubscriptExpression, UnaryExpression, UpdateExpression,
 };
 pub use operators::{AssignmentOp, BinaryOp, FieldAccessOp, UnaryOp, UpdateOp};
 pub use project::{FileModel, Project};
