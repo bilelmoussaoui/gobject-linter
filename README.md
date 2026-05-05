@@ -1,48 +1,48 @@
-# goblint
+# gobject-linter
 
-A tree-sitter-based linter for GObject/C applications.
+A fast tree-sitter-based linter for GObject/C code.
 
-**goblint** = **G**Object **L**inter
+Previously known as **goblint**.
 
 ## Usage
 
 ```bash
 # Lint current directory with default config
-goblint
+gobject-linter
 
 # Lint specific directory
-goblint /path/to/project
+gobject-linter /path/to/project
 
 # Use custom config file
-goblint --config my-lint.toml /path/to/project
+gobject-linter --config my-lint.toml /path/to/project
 
 # Verbose output
-goblint -v
+gobject-linter -v
 
 # List all available rules with their enabled/disabled status
-goblint --list-rules
+gobject-linter --list-rules
 
 # Run only specific rules (overrides config)
-goblint --only use_g_strcmp0 --only use_clear_functions
+gobject-linter --only use_g_strcmp0 --only use_clear_functions
 
 # Add custom ignore patterns
-goblint --ignore "build/**" --ignore "tests/**"
+gobject-linter --ignore "build/**" --ignore "tests/**"
 ```
 
 ## Available Rules
 
-Browse all available rules at **https://bilelmoussaoui.github.io/goblint/** with descriptions, examples, and configuration options.
+Browse all available rules at **https://bilelmoussaoui.github.io/gobject-linter/** with descriptions, examples, and configuration options.
 
-Run `goblint --list-rules` to see the current status of all rules in your terminal.
+Run `gobject-linter --list-rules` to see the current status of all rules in your terminal.
 
 ## Configuration
 
-Create a `goblint.toml` file in your project root to configure rules, set minimum GLib version, and define per-rule ignore patterns.
+Create a `gobject-linter.toml` file in your project root to configure rules, set minimum GLib version, and define per-rule ignore patterns.
 
 You can also use inline comments to suppress specific violations:
 
 ```c
-/* goblint-ignore-next-line: use_g_strlcpy */
+/* gobject-linter-ignore-next-line: use_g_strlcpy */
 strcpy(dst, src);
 ```
 
@@ -52,10 +52,10 @@ See [CONFIG.md](CONFIG.md) for complete configuration documentation.
 
 ### Container Image
 
-goblint is available as a container image for easy CI/CD integration:
+gobject-linter is available as a container image for easy CI/CD integration:
 
 ```bash
-podman run --rm -v "$PWD:/workspace:Z" ghcr.io/bilelmoussaoui/goblint:latest
+podman run --rm -v "$PWD:/workspace:Z" ghcr.io/bilelmoussaoui/gobject-linter:latest
 ```
 
 ### GitHub Actions
@@ -75,21 +75,21 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/bilelmoussaoui/goblint:latest
+      image: ghcr.io/bilelmoussaoui/gobject-linter:latest
     permissions:
       security-events: write  # Required for uploading SARIF results
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run goblint
-        run: goblint --format sarif > goblint.sarif
+      - name: Run gobject-linter
+        run: gobject-linter --format sarif > gobject-linter.sarif
 
       - name: Upload SARIF results
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: goblint.sarif
-          category: goblint
+          sarif_file: gobject-linter.sarif
+          category: gobject-linter
 ```
 
 The results will appear in the "Security" tab under "Code scanning alerts" for your repository, and as inline comments on pull requests.
@@ -99,23 +99,23 @@ The results will appear in the "Security" tab under "Code scanning alerts" for y
 Using the container image with GitLab's SARIF ingestion or CodeQuality report:
 
 ```yaml
-goblint:
+gobject-linter:
   stage: lint
   image:
-    name: "ghcr.io/bilelmoussaoui/goblint:latest"
+    name: "ghcr.io/bilelmoussaoui/gobject-linter:latest"
     entrypoint: [""]
   script:
     # Only available in Enterprise Edition
-    - goblint --format sarif > goblint.sarif
+    - gobject-linter --format sarif > gobject-linter.sarif
     # Available in the Community Edition
-    - goblint --format gitlab-codequality > goblint-codequality.json
+    - gobject-linter --format gitlab-codequality > gobject-linter-codequality.json
   artifacts:
     expire_in: "1 week"
     reports:
       # Only available in Enterprise Edition
-      sarif: goblint.sarif
+      sarif: gobject-linter.sarif
       # Available in the Community Edition
-      codequality: goblint-codequality.json
+      codequality: gobject-linter-codequality.json
 ```
 
 The results will appear in the merge request's security report and as inline comments.
@@ -129,16 +129,16 @@ and only new or modified lines are checked.
 **GitHub Actions:**
 
 ```yaml
-- name: Run goblint (PR changes only)
+- name: Run gobject-linter (PR changes only)
   if: github.event_name == 'pull_request'
   run: |
-    git diff origin/${{ github.base_ref }}...HEAD | goblint --diff -
+    git diff origin/${{ github.base_ref }}...HEAD | gobject-linter --diff -
 ```
 
 **GitLab CI:**
 
 ```yaml
-- git diff origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME...HEAD | goblint --diff -
+- git diff origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME...HEAD | gobject-linter --diff -
 ```
 
 ### Installation Alternative
@@ -146,7 +146,7 @@ and only new or modified lines are checked.
 If you prefer installing locally instead of using containers:
 
 ```bash
-cargo install --git https://github.com/bilelmoussaoui/goblint goblint
+cargo install --git https://github.com/bilelmoussaoui/gobject-linter gobject-linter
 ```
 
 ## LSP Server
@@ -154,34 +154,34 @@ cargo install --git https://github.com/bilelmoussaoui/goblint goblint
 For real-time linting in your editor:
 
 ```bash
-cargo build --release --bin goblint-lsp
+cargo build --release --bin gobject-linter-lsp
 ```
 
 **Neovim** (nvim-lspconfig):
 ```lua
 require('lspconfig.configs').gobject_lsp = {
   default_config = {
-    cmd = {'goblint-lsp'},
+    cmd = {"gobject-linter-lsp"},
     filetypes = {'c', 'h'},
-    root_dir = require('lspconfig.util').root_pattern('goblint.toml', '.git'),
+    root_dir = require('lspconfig.util').root_pattern('gobject-linter.toml', 'goblint.toml', '.git'),
   },
 }
 require('lspconfig').gobject_lsp.setup{}
 ```
 
-**VS Code**: Use a generic LSP client extension pointing to `goblint-lsp`
+**VS Code**: Use a generic LSP client extension pointing to `gobject-linter-lsp`
 
 **Helix** (`~/.config/helix/languages.toml`):
 ```toml
 [[language]]
 name = "c"
-language-servers = ["clangd", "goblint-lsp"]
+language-servers = ["clangd", "gobject-linter-lsp"]
 
-[language-server.goblint-lsp]
-command = "goblint-lsp"
+[language-server.gobject-linter-lsp]
+command = "gobject-linter-lsp"
 ```
 
-## Projects using goblint
+## Projects using gobject-linter
 
 - [fwupd](https://github.com/fwupd/fwupd) - A system daemon to allow session software to update firmware ([workflow](https://github.com/fwupd/fwupd/actions/workflows/goblint.yml))
 - [xdg-desktop-portal](https://github.com/flatpak/xdg-desktop-portal) - Desktop integration portal ([workflow](https://github.com/flatpak/xdg-desktop-portal/blob/main/.github/workflows/build-and-test.yml#L15))

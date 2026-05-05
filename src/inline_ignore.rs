@@ -10,10 +10,10 @@ pub fn parse_ignore_directives(file_model: &FileModel) -> HashMap<usize, Vec<Str
     // We need to parse the source to find comments
     // For now, we'll scan the raw source text for comment patterns
     // This is a simple implementation that looks for:
-    // /* goblint-ignore: rule_name */
-    // /* goblint-ignore-next-line: rule_name */
-    // // goblint-ignore: rule_name
-    // // goblint-ignore-next-line: rule_name
+    // /* gobject-linter-ignore: rule_name */
+    // /* gobject-linter-ignore-next-line: rule_name */
+    // // gobject-linter-ignore: rule_name
+    // // gobject-linter-ignore-next-line: rule_name
 
     if let Ok(source_str) = std::str::from_utf8(&file_model.source) {
         let lines: Vec<&str> = source_str.lines().collect();
@@ -41,34 +41,32 @@ pub fn parse_ignore_directives(file_model: &FileModel) -> HashMap<usize, Vec<Str
 /// Parse a single line for ignore directive
 /// Returns Some(rules) if found, None otherwise
 fn parse_ignore_comment(line: &str, next_line: bool) -> Option<Vec<String>> {
-    let directive = if next_line {
-        "goblint-ignore-next-line:"
+    // Accept both the current name and the legacy "goblint" prefix
+    let directives: &[&str] = if next_line {
+        &[
+            "gobject-linter-ignore-next-line:",
+            "goblint-ignore-next-line:",
+        ]
     } else {
-        "goblint-ignore:"
+        &["gobject-linter-ignore:", "goblint-ignore:"]
     };
 
-    // Look for the directive in comments
-    if let Some(idx) = line.find(directive) {
-        // Extract everything after the directive
-        let rest = &line[idx + directive.len()..];
+    let (directive, idx) = directives
+        .iter()
+        .find_map(|d| line.find(d).map(|i| (*d, i)))?;
 
-        // Remove trailing comment markers
-        let rest = rest.trim();
-        let rest = rest.trim_end_matches("*/").trim();
+    let rest = line[idx + directive.len()..]
+        .trim()
+        .trim_end_matches("*/")
+        .trim();
 
-        // Parse comma-separated rule names
-        let rules: Vec<String> = rest
-            .split(',')
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .collect();
+    let rules: Vec<String> = rest
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
 
-        if !rules.is_empty() {
-            return Some(rules);
-        }
-    }
-
-    None
+    if !rules.is_empty() { Some(rules) } else { None }
 }
 
 /// Check if a violation should be ignored based on inline directives
@@ -101,25 +99,25 @@ mod tests {
     fn test_parse_ignore_comment() {
         // Same line ignore
         assert_eq!(
-            parse_ignore_comment("  /* goblint-ignore: rule_name */", false),
+            parse_ignore_comment("  /* gobject-linter-ignore: rule_name */", false),
             Some(vec!["rule_name".to_string()])
         );
 
         // Multiple rules
         assert_eq!(
-            parse_ignore_comment("  /* goblint-ignore: rule1, rule2 */", false),
+            parse_ignore_comment("  /* gobject-linter-ignore: rule1, rule2 */", false),
             Some(vec!["rule1".to_string(), "rule2".to_string()])
         );
 
         // Next line ignore
         assert_eq!(
-            parse_ignore_comment("  /* goblint-ignore-next-line: rule_name */", true),
+            parse_ignore_comment("  /* gobject-linter-ignore-next-line: rule_name */", true),
             Some(vec!["rule_name".to_string()])
         );
 
         // C++ style comment
         assert_eq!(
-            parse_ignore_comment("  // goblint-ignore: rule_name", false),
+            parse_ignore_comment("  // gobject-linter-ignore: rule_name", false),
             Some(vec!["rule_name".to_string()])
         );
 

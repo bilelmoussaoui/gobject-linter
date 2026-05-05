@@ -10,7 +10,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ${{ github.repository_owner }}/gobject-linter
+  LEGACY_IMAGE_NAME: ${{ github.repository_owner }}/goblint
 
 jobs:
   build-and-push:
@@ -34,22 +35,33 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
+      - name: Extract metadata (gobject-linter)
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            # Tag with 'latest' on main branch
             type=raw,value=latest,enable={{is_default_branch}}
-            # Tag with commit SHA
             type=sha,prefix={{branch}}-
-            # Tag with version on git tags
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
 
-      - name: Build and push container image
+      - name: Extract metadata (goblint legacy)
+        id: meta-legacy
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.LEGACY_IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix={{branch}}-
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+          labels: |
+            org.opencontainers.image.description=DEPRECATED: use ghcr.io/${{ env.IMAGE_NAME }} instead
+
+      - name: Build and push gobject-linter image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -58,3 +70,13 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Push deprecated goblint image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta-legacy.outputs.tags }}
+          labels: ${{ steps.meta-legacy.outputs.labels }}
+          cache-from: type=gha

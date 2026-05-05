@@ -12,15 +12,15 @@ void test_inline_ignore(const char *input) {
     strcpy(data.name, input);
 
     // This strcpy should be ignored - C-style comment
-    /* goblint-ignore-next-line: use_g_strlcpy */
+    /* gobject-linter-ignore-next-line: use_g_strlcpy */
     strcpy(data.name, input);
 
     // This strcpy should also be ignored - C++ style comment
-    // goblint-ignore-next-line: use_g_strlcpy
+    // gobject-linter-ignore-next-line: use_g_strlcpy
     strcpy(data.name, input);
 
     // Multiple rules can be ignored (comma-separated)
-    /* goblint-ignore-next-line: use_g_strlcpy, some_other_rule */
+    /* gobject-linter-ignore-next-line: use_g_strlcpy, some_other_rule */
     strcpy(data.name, input);
 
     // This one should be flagged again

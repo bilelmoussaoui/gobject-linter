@@ -2,7 +2,7 @@
 
 ## Config File
 
-Create a `goblint.toml` file in your project root:
+Create a `gobject-linter.toml` file in your project root:
 
 ```toml
 # Set minimum GLib version (disables rules that require newer versions)
@@ -64,7 +64,7 @@ ignore = [
 ]
 ```
 
-**Note:** goblint automatically respects `.gitignore` files. Files/directories ignored by git are also ignored by the linter.
+**Note:** gobject-linter automatically respects `.gitignore` files. Files/directories ignored by git are also ignored by the linter.
 
 ### Per-Rule Ignores
 
@@ -82,7 +82,7 @@ ignore = [
 
 ### Per-Rule Configuration Options
 
-Some rules accept additional configuration that are documented in https://bilelmoussaoui.github.io/goblint/.
+Some rules accept additional configuration that are documented in https://bilelmoussaoui.github.io/gobject-linter/.
 
 ## Inline Ignore Directives
 
@@ -90,19 +90,19 @@ Suppress violations on a specific line using comments:
 
 ```c
 // Ignore next line for a specific rule
-/* goblint-ignore-next-line: use_g_strlcpy */
+/* gobject-linter-ignore-next-line: use_g_strlcpy */
 strcpy(dst, src);
 
 // Ignore multiple rules (comma-separated)
-/* goblint-ignore-next-line: use_g_new, use_g_strlcpy */
+/* gobject-linter-ignore-next-line: use_g_new, use_g_strlcpy */
 char *ptr = malloc(100);
 
 // Ignore all rules with wildcard
-/* goblint-ignore-next-line: all */
+/* gobject-linter-ignore-next-line: all */
 strcpy(dst, src);
 
 // C++ style comments work too
-// goblint-ignore-next-line: use_g_strlcpy
+// gobject-linter-ignore-next-line: use_g_strlcpy
 strcpy(dst, src);
 ```
 
@@ -111,7 +111,7 @@ strcpy(dst, src);
 ## List All Rules
 
 ```bash
-goblint --list-rules
+gobject-linter --list-rules
 ```
 
 This shows all available rules with their current status (error/warn/ignore) based on your config.

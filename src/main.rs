@@ -2,13 +2,13 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::Parser;
-use goblint::{
+use gobject_linter::{
     ast_context, config, config::OutputFormat, fixer, output, reporter, rules::Category, scanner,
 };
 use indicatif::{ProgressBar, ProgressStyle};
 
 #[derive(Parser, Debug)]
-#[command(name = "goblint")]
+#[command(name = "gobject-linter")]
 #[command(about = "A fast linter for GObject/C code", long_about = None)]
 struct Args {
     /// Directory to scan for C files
@@ -92,7 +92,18 @@ fn main() -> Result<()> {
         .init();
 
     // Load configuration
-    let mut config = config::Config::load(&args.config)?;
+    let config_path =
+        if !args.config.exists() && args.config == std::path::Path::new("gobject-linter.toml") {
+            let legacy = std::path::Path::new("goblint.toml");
+            if legacy.exists() {
+                legacy.to_path_buf()
+            } else {
+                args.config.clone()
+            }
+        } else {
+            args.config.clone()
+        };
+    let mut config = config::Config::load(&config_path)?;
 
     let format = args.format.or(config.format).unwrap_or_default();
 
@@ -178,9 +189,10 @@ fn main() -> Result<()> {
     if let Some(ref sp) = spinner {
         sp.set_message("Running meson introspection...");
     }
-    let meson_headers = goblint::meson::get_header_sets(&project_root, config.build_dir.as_deref())
-        .ok()
-        .flatten();
+    let meson_headers =
+        gobject_linter::meson::get_header_sets(&project_root, config.build_dir.as_deref())
+            .ok()
+            .flatten();
 
     if args.verbose {
         if let Some(ref h) = meson_headers {

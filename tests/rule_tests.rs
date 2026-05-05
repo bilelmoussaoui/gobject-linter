@@ -1,7 +1,9 @@
 use std::{collections::HashSet, fs, path::Path};
 
 use globset::GlobSetBuilder;
-use goblint::{ast_context::AstContext, config::Config, fixer, meson::MesonHeaders, rules::Rule};
+use gobject_linter::{
+    ast_context::AstContext, config::Config, fixer, meson::MesonHeaders, rules::Rule,
+};
 
 /// Build an AstContext from a single fixture file copied into a temp directory.
 /// Also copies any sibling .h files from the fixture directory.
@@ -57,7 +59,10 @@ fn build_context_for_file(
 }
 
 /// Format violations as `filename:line:col: rule: message`, sorted.
-fn format_violations(violations: &[goblint::rules::Violation], strip_prefix: &Path) -> String {
+fn format_violations(
+    violations: &[gobject_linter::rules::Violation],
+    strip_prefix: &Path,
+) -> String {
     let lines: Vec<String> = violations
         .iter()
         .map(|v| {
@@ -285,130 +290,178 @@ macro_rules! rule_test {
     };
 }
 
-rule_test!(deprecated_add_private, goblint::rules::DeprecatedAddPrivate);
-rule_test!(g_error_init, goblint::rules::GErrorInit);
-rule_test!(g_error_leak, goblint::rules::GErrorLeak);
-rule_test!(g_source_id_not_stored, goblint::rules::GSourceIdNotStored);
+rule_test!(
+    deprecated_add_private,
+    gobject_linter::rules::DeprecatedAddPrivate
+);
+rule_test!(g_error_init, gobject_linter::rules::GErrorInit);
+rule_test!(g_error_leak, gobject_linter::rules::GErrorLeak);
+rule_test!(
+    g_source_id_not_stored,
+    gobject_linter::rules::GSourceIdNotStored
+);
 rule_test!(
     g_object_virtual_methods_chain_up,
-    goblint::rules::GObjectVirtualMethodsChainUp
+    gobject_linter::rules::GObjectVirtualMethodsChainUp
 );
 rule_test!(
     g_param_spec_null_nick_blurb,
-    goblint::rules::GParamSpecNullNickBlurb
+    gobject_linter::rules::GParamSpecNullNickBlurb
 );
 rule_test!(
     property_canonical_name,
-    goblint::rules::PropertyCanonicalName
+    gobject_linter::rules::PropertyCanonicalName
 );
 rule_test!(
     g_param_spec_static_strings,
-    goblint::rules::GParamSpecStaticStrings
+    gobject_linter::rules::GParamSpecStaticStrings
 );
-rule_test!(g_task_source_tag, goblint::rules::GTaskSourceTag);
-rule_test!(include_order, goblint::rules::IncludeOrder);
+rule_test!(g_task_source_tag, gobject_linter::rules::GTaskSourceTag);
+rule_test!(include_order, gobject_linter::rules::IncludeOrder);
 rule_test!(
     inconsistent_function_signature,
-    goblint::rules::InconsistentFunctionSignature
+    gobject_linter::rules::InconsistentFunctionSignature
 );
 rule_test!(
     matching_declare_define,
-    goblint::rules::MatchingDeclareDefine
+    gobject_linter::rules::MatchingDeclareDefine
 );
 rule_test!(
     missing_autoptr_cleanup,
-    goblint::rules::MissingAutoptrCleanup
+    gobject_linter::rules::MissingAutoptrCleanup
 );
 rule_test!(
     missing_implementation,
-    goblint::rules::MissingImplementation
+    gobject_linter::rules::MissingImplementation
 );
-rule_test!(no_g_auto_macros, goblint::rules::NoGAutoMacros);
+rule_test!(no_g_auto_macros, gobject_linter::rules::NoGAutoMacros);
 rule_test!(
     property_enum_convention,
-    goblint::rules::PropertyEnumConvention
+    gobject_linter::rules::PropertyEnumConvention
 );
-rule_test!(property_enum_coverage, goblint::rules::PropertyEnumCoverage);
+rule_test!(
+    property_enum_coverage,
+    gobject_linter::rules::PropertyEnumCoverage
+);
 rule_test!(
     property_switch_exhaustiveness,
-    goblint::rules::PropertySwitchExhaustiveness
+    gobject_linter::rules::PropertySwitchExhaustiveness
 );
-rule_test!(signal_canonical_name, goblint::rules::SignalCanonicalName);
-rule_test!(signal_enum_coverage, goblint::rules::SignalEnumCoverage);
+rule_test!(
+    signal_canonical_name,
+    gobject_linter::rules::SignalCanonicalName
+);
+rule_test!(
+    signal_enum_coverage,
+    gobject_linter::rules::SignalEnumCoverage
+);
 rule_test!(
     use_g_object_new_with_properties,
-    goblint::rules::UseGObjectNewWithProperties
+    gobject_linter::rules::UseGObjectNewWithProperties
 );
-rule_test!(use_g_autofree, goblint::rules::UseGAutofree);
-rule_test!(use_g_autolist, goblint::rules::UseGAutolist);
+rule_test!(use_g_autofree, gobject_linter::rules::UseGAutofree);
+rule_test!(use_g_autolist, gobject_linter::rules::UseGAutolist);
 rule_test!(
     use_g_bytes_unref_to_data,
-    goblint::rules::UseGBytesUnrefToData
+    gobject_linter::rules::UseGBytesUnrefToData
 );
-rule_test!(use_g_autoptr_error, goblint::rules::UseGAutoptrError);
+rule_test!(use_g_autoptr_error, gobject_linter::rules::UseGAutoptrError);
 rule_test!(
     use_g_autoptr_goto_cleanup,
-    goblint::rules::UseGAutoptrGotoCleanup
+    gobject_linter::rules::UseGAutoptrGotoCleanup
 );
 rule_test!(
     use_g_autoptr_inline_cleanup,
-    goblint::rules::UseGAutoptrInlineCleanup
+    gobject_linter::rules::UseGAutoptrInlineCleanup
 );
-rule_test!(use_g_file_load_bytes, goblint::rules::UseGFileLoadBytes);
-rule_test!(use_g_gnuc_flag_enum, goblint::rules::UseGGnucFlagEnum);
-rule_test!(use_g_new, goblint::rules::UseGNew);
+rule_test!(
+    use_g_file_load_bytes,
+    gobject_linter::rules::UseGFileLoadBytes
+);
+rule_test!(
+    use_g_gnuc_flag_enum,
+    gobject_linter::rules::UseGGnucFlagEnum
+);
+rule_test!(use_g_new, gobject_linter::rules::UseGNew);
 rule_test!(
     use_g_object_class_install_properties,
-    goblint::rules::UseGObjectClassInstallProperties
+    gobject_linter::rules::UseGObjectClassInstallProperties
 );
-rule_test!(use_g_source_once, goblint::rules::UseGSourceOnce);
+rule_test!(use_g_source_once, gobject_linter::rules::UseGSourceOnce);
 rule_test!(
     use_g_clear_signal_handler,
-    goblint::rules::UseGClearSignalHandler
+    gobject_linter::rules::UseGClearSignalHandler
 );
-rule_test!(unnecessary_null_check, goblint::rules::UnnecessaryNullCheck);
-rule_test!(use_clear_functions, goblint::rules::UseClearFunctions);
+rule_test!(
+    unnecessary_null_check,
+    gobject_linter::rules::UnnecessaryNullCheck
+);
+rule_test!(
+    use_clear_functions,
+    gobject_linter::rules::UseClearFunctions
+);
 rule_test!(
     use_explicit_default_flags,
-    goblint::rules::UseExplicitDefaultFlags
+    gobject_linter::rules::UseExplicitDefaultFlags
 );
-rule_test!(use_g_clear_handle_id, goblint::rules::UseGClearHandleId);
-rule_test!(use_g_clear_list, goblint::rules::UseGClearList);
+rule_test!(
+    use_g_clear_handle_id,
+    gobject_linter::rules::UseGClearHandleId
+);
+rule_test!(use_g_clear_list, gobject_linter::rules::UseGClearList);
 rule_test!(
     use_g_clear_weak_pointer,
-    goblint::rules::UseGClearWeakPointer
+    gobject_linter::rules::UseGClearWeakPointer
 );
 rule_test!(
     use_g_object_notify_by_pspec,
-    goblint::rules::UseGObjectNotifyByPspec
+    gobject_linter::rules::UseGObjectNotifyByPspec
 );
-rule_test!(use_g_set_object, goblint::rules::UseGSetObject);
-rule_test!(use_g_set_str, goblint::rules::UseGSetStr);
-rule_test!(use_g_settings_typed, goblint::rules::UseGSettingsTyped);
-rule_test!(use_g_source_constants, goblint::rules::UseGSourceConstants);
-rule_test!(use_g_steal_pointer, goblint::rules::UseGStealPointer);
+rule_test!(use_g_set_object, gobject_linter::rules::UseGSetObject);
+rule_test!(use_g_set_str, gobject_linter::rules::UseGSetStr);
+rule_test!(
+    use_g_settings_typed,
+    gobject_linter::rules::UseGSettingsTyped
+);
+rule_test!(
+    use_g_source_constants,
+    gobject_linter::rules::UseGSourceConstants
+);
+rule_test!(use_g_steal_pointer, gobject_linter::rules::UseGStealPointer);
 rule_test!(
     use_g_str_has_prefix_suffix,
-    goblint::rules::UseGStrHasPrefixSuffix
+    gobject_linter::rules::UseGStrHasPrefixSuffix
 );
-rule_test!(use_g_ascii_functions, goblint::rules::UseGAsciiFunctions);
-rule_test!(use_g_strlcpy, goblint::rules::UseGStrlcpy);
+rule_test!(
+    use_g_ascii_functions,
+    gobject_linter::rules::UseGAsciiFunctions
+);
+rule_test!(use_g_strlcpy, gobject_linter::rules::UseGStrlcpy);
 rule_test!(
     strcmp_explicit_comparison,
-    goblint::rules::StrcmpExplicitComparison
+    gobject_linter::rules::StrcmpExplicitComparison
 );
-rule_test!(use_g_strcmp0, goblint::rules::UseGStrcmp0);
+rule_test!(use_g_strcmp0, gobject_linter::rules::UseGStrcmp0);
 rule_test!(
     use_g_string_free_and_steal,
-    goblint::rules::UseGStringFreeAndSteal
+    gobject_linter::rules::UseGStringFreeAndSteal
 );
 rule_test!(
     use_g_value_set_static_string,
-    goblint::rules::UseGValueSetStaticString
+    gobject_linter::rules::UseGValueSetStaticString
 );
-rule_test!(use_g_variant_new_typed, goblint::rules::UseGVariantNewTyped);
-rule_test!(untranslated_string, goblint::rules::UntranslatedString);
-rule_test!(use_pragma_once, goblint::rules::UsePragmaOnce);
-rule_test!(dead_code, goblint::rules::DeadCode);
-rule_test!(missing_export_macro, goblint::rules::MissingExportMacro);
-rule_test!(type_style, goblint::rules::TypeStyle);
+rule_test!(
+    use_g_variant_new_typed,
+    gobject_linter::rules::UseGVariantNewTyped
+);
+rule_test!(
+    untranslated_string,
+    gobject_linter::rules::UntranslatedString
+);
+rule_test!(use_pragma_once, gobject_linter::rules::UsePragmaOnce);
+rule_test!(dead_code, gobject_linter::rules::DeadCode);
+rule_test!(
+    missing_export_macro,
+    gobject_linter::rules::MissingExportMacro
+);
+rule_test!(type_style, gobject_linter::rules::TypeStyle);

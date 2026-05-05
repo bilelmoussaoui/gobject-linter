@@ -1,7 +1,7 @@
 use std::{fs, path::Path};
 
 use globset::GlobSetBuilder;
-use goblint::{ast_context::AstContext, config::Config, scanner};
+use gobject_linter::{ast_context::AstContext, config::Config, scanner};
 
 #[test]
 fn test_inline_ignore() {
@@ -135,7 +135,7 @@ fn test_inline_ignore_invalid_rule() {
 
 void test(void) {
     char buf[100];
-    /* goblint-ignore-next-line: invalid_rule_name */
+    /* gobject-linter-ignore-next-line: invalid_rule_name */
     strcpy(buf, "test");
 }
 "#,

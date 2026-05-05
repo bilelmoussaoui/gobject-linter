@@ -29,11 +29,11 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Build CLI
-        run: cargo build --release --bin goblint
+        run: cargo build --release --bin gobject-linter
 
       - name: Generate rules.json
         run: |
-          ./target/release/goblint --list-rules --format=json > website/rules.json
+          ./target/release/gobject-linter --list-rules --format=json > website/rules.json
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

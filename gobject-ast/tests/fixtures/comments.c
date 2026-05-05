@@ -3,6 +3,6 @@
 
 int main() {
     // TODO: implement this
-    int x = 42; // goblint-ignore: rule_name
+    int x = 42; // gobject-linter-ignore: rule_name
     return 0;
 }

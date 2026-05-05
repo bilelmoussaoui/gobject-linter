@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
-use goblint::{ast_context::AstContext, config::Config, scanner};
+use gobject_linter::{ast_context::AstContext, config::Config, scanner};
 use tokio::sync::Mutex;
 use tower_lsp::{Client, LanguageServer, jsonrpc::Result, lsp_types::*};
 
@@ -45,11 +45,15 @@ impl GObjectBackend {
 
     /// Initialize workspace (find root, load config, build AST context)
     async fn initialize_workspace(&self, file_path: &std::path::Path) -> Result<()> {
-        // Find workspace root by looking for goblint.toml
+        // Find workspace root
         let mut current = file_path;
         let mut root = None;
         while let Some(parent) = current.parent() {
-            let config_path = parent.join("goblint.toml");
+            let config_path = parent
+                .join("gobject-linter.toml")
+                .exists()
+                .then(|| parent.join("gobject-linter.toml"))
+                .unwrap_or_else(|| parent.join("goblint.toml"));
             if config_path.exists() {
                 root = Some(parent.to_path_buf());
                 break;
@@ -61,7 +65,11 @@ impl GObjectBackend {
             root.unwrap_or_else(|| file_path.parent().unwrap_or(file_path).to_path_buf());
 
         // Load config
-        let config_path = workspace_root.join("goblint.toml");
+        let config_path = if workspace_root.join("gobject-linter.toml").exists() {
+            workspace_root.join("gobject-linter.toml")
+        } else {
+            workspace_root.join("goblint.toml")
+        };
         let config = if config_path.exists() {
             match Config::load(&config_path) {
                 Ok(c) => c,
@@ -92,7 +100,7 @@ impl GObjectBackend {
 
         // Get header visibility from meson introspection (for dead code analysis)
         let meson_headers =
-            goblint::meson::get_header_sets(&workspace_root, config.build_dir.as_deref())
+            gobject_linter::meson::get_header_sets(&workspace_root, config.build_dir.as_deref())
                 .ok()
                 .flatten();
 
@@ -280,7 +288,7 @@ impl LanguageServer for GObjectBackend {
         let mut actions: CodeActionResponse = Vec::new();
 
         for diagnostic in &params.context.diagnostics {
-            let fixes: Vec<goblint::rules::Fix> = match &diagnostic.data {
+            let fixes: Vec<gobject_linter::rules::Fix> = match &diagnostic.data {
                 Some(data) => match serde_json::from_value(data.clone()) {
                     Ok(f) => f,
                     Err(_) => continue,

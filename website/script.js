@@ -93,7 +93,7 @@ function renderDetail(rule) {
       <div class="config-example">
         <div class="config-example-header">
           <span class="config-example-title">Example Configuration</span>
-          <span class="config-example-file">goblint.toml</span>
+          <span class="config-example-file">gobject-linter.toml</span>
         </div>
         <pre class="config-example-code">[rules.${rule.name}]
 ${rule.config_options.map((opt) => `${opt.name} = ${opt.example_value}`).join("\n")}</pre>

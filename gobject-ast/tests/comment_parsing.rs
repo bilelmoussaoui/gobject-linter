@@ -99,7 +99,7 @@ fn test_comment_helpers() {
     let ignore_comment = file
         .comments
         .iter()
-        .find(|c| c.contains("goblint-ignore"))
+        .find(|c| c.contains("gobject-linter-ignore"))
         .expect("Should find goblint-ignore comment");
 
     let rules = ignore_comment

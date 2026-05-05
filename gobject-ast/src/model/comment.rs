@@ -52,15 +52,17 @@ impl Comment {
         self.text.to_lowercase().contains(&pattern.to_lowercase())
     }
 
-    /// Extract goblint-ignore rule names from comment
+    /// Extract gobject-linter-ignore rule names from comment
     /// Returns Some(vec![rule_names]) if this is an ignore directive
     pub fn extract_ignore_rules(&self) -> Option<Vec<String>> {
         let text = self.text.trim();
 
-        // Match: goblint-ignore: rule1, rule2
-        // Or: goblint-ignore-next-line: rule1
+        // Match: gobject-linter-ignore: rule1, rule2
+        // Or: gobject-linter-ignore-next-line: rule1
         if let Some(after_prefix) = text
-            .strip_prefix("goblint-ignore:")
+            .strip_prefix("gobject-linter-ignore:")
+            .or_else(|| text.strip_prefix("gobject-linter-ignore-next-line:"))
+            .or_else(|| text.strip_prefix("goblint-ignore:"))
             .or_else(|| text.strip_prefix("goblint-ignore-next-line:"))
         {
             let rules: Vec<String> = after_prefix

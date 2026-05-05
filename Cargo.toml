@@ -3,21 +3,21 @@ members = ["gobject-ast", "tree-sitter-c-gobject"]
 resolver = "2"
 
 [package]
-name = "goblint"
+name = "gobject-linter"
 version = "0.1.0"
 edition = "2024"
-repository = "https://github.com/bilelmoussaoui/goblint"
+repository = "https://github.com/bilelmoussaoui/gobject-linter"
 license = "MIT"
 
 [features]
 lsp = ["dep:tower-lsp", "dep:tokio"]
 
 [[bin]]
-name = "goblint"
+name = "gobject-linter"
 path = "src/main.rs"
 
 [[bin]]
-name = "goblint-lsp"
+name = "gobject-linter-lsp"
 path = "src/lsp/main.rs"
 required-features = ["lsp"]
 
