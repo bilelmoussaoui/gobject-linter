@@ -129,16 +129,16 @@ and only new or modified lines are checked.
 **GitHub Actions:**
 
 ```yaml
-      - name: Run goblint (PR changes only)
-        if: github.event_name == 'pull_request'
-        run: |
-          git diff origin/${{ github.base_ref }}...HEAD | goblint --diff -
+- name: Run goblint (PR changes only)
+  if: github.event_name == 'pull_request'
+  run: |
+    git diff origin/${{ github.base_ref }}...HEAD | goblint --diff -
 ```
 
 **GitLab CI:**
 
 ```yaml
-      - git diff origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME...HEAD | goblint --diff -
+- git diff origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME...HEAD | goblint --diff -
 ```
 
 ### Installation Alternative
