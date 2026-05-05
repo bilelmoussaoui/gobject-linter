@@ -346,6 +346,7 @@ impl FunctionDefItem {
     /// at a specific argument position
     pub fn is_var_passed_to_function(
         &self,
+        var_name: &str,
         type_info: &crate::TypeInfo,
         func_name: &str,
         arg_index: usize,
@@ -357,8 +358,8 @@ impl FunctionDefItem {
                 if call.is_function(func_name)
                     && let Some(arg) = call.get_arg(arg_index)
                     && let Expression::Identifier(id) = arg
+                    && id.name == var_name
                 {
-                    // Find the declaration of this identifier
                     for body_stmt in &self.body_statements {
                         for decl in body_stmt.iter_declarations() {
                             if decl.name == id.name

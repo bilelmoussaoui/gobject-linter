@@ -51,14 +51,14 @@ impl UseGAutolist {
 
         // For each list variable, check if it's freed with
         // g_list_free_full/g_slist_free_full
-        for (type_info, location) in list_vars.values() {
+        for (name, (type_info, location)) in &list_vars {
             let free_func = if type_info.base_type == "GList" {
                 "g_list_free_full"
             } else {
                 "g_slist_free_full"
             };
 
-            if func.is_var_passed_to_function(type_info, free_func, 0) {
+            if func.is_var_passed_to_function(name, type_info, free_func, 0) {
                 // Skip if using basic free functions (g_free, free) as those indicate
                 // primitive types (char*, etc.) that don't support g_autoptr
                 if self.uses_basic_destructor(func, free_func) {

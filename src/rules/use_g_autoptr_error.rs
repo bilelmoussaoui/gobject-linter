@@ -48,7 +48,7 @@ impl UseGAutoptrError {
 
         // For each GError* variable, check if it's manually freed
         for (var_name, (type_info, location)) in &gerror_vars {
-            if func.is_var_passed_to_function(type_info, "g_error_free", 0) {
+            if func.is_var_passed_to_function(var_name, type_info, "g_error_free", 0) {
                 violations.push(self.violation(
                     file_path,
                     location.line,

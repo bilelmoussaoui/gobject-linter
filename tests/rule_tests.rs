@@ -411,3 +411,4 @@ rule_test!(untranslated_string, goblint::rules::UntranslatedString);
 rule_test!(use_pragma_once, goblint::rules::UsePragmaOnce);
 rule_test!(dead_code, goblint::rules::DeadCode);
 rule_test!(missing_export_macro, goblint::rules::MissingExportMacro);
+rule_test!(type_style, goblint::rules::TypeStyle);

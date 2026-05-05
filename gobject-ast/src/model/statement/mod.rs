@@ -259,6 +259,11 @@ impl Statement {
             if let Statement::Declaration(decl) = s {
                 results.push(decl);
             }
+            if let Statement::For(for_stmt) = s
+                && let Some(ForInit::Decl(decl)) = &for_stmt.initializer
+            {
+                results.push(decl);
+            }
         });
         results.into_iter()
     }

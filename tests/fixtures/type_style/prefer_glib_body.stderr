@@ -1,0 +1,9 @@
+prefer_glib_body.c:4:5: type_style: use `gint` instead of `int`
+prefer_glib_body.c:5:5: type_style: use `guint` instead of `unsigned int`
+prefer_glib_body.c:6:5: type_style: use `gchar` instead of `char`
+prefer_glib_body.c:7:5: type_style: use `gfloat` instead of `float`
+prefer_glib_body.c:10:1: type_style: use `gint` instead of `int`
+prefer_glib_body.c:11:8: type_style: use `gint` instead of `int`
+prefer_glib_body.c:11:15: type_style: use `gint` instead of `int`
+prefer_glib_body.c:13:4: type_style: use `gint` instead of `int`
+prefer_glib_body.c:15:9: type_style: use `gint` instead of `int`
