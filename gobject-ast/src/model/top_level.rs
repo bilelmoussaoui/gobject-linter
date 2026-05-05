@@ -575,15 +575,34 @@ impl FunctionDefItem {
                     }
                     // g_object_class_install_property(class, PROP_X, spec)
                     else if call.function_contains("install_property")
-                        && let Some(spec_arg) = call.get_arg(2)
-                        && let Some(var_name) = spec_arg.to_source_string(source)
-                        && let Some(indices) = variable_assignments.get(&var_name)
+                        && let Some(spec_expr) = call.get_arg(2)
                     {
-                        for &idx in indices {
-                            if let ParamSpecAssignment::Variable { install_call, .. } =
-                                &mut assignments[idx]
-                            {
-                                *install_call = Some(call.clone());
+                        if let Expression::Call(spec_call) = spec_expr
+                            && spec_call.function_name().contains("_param_spec_")
+                            && let Some(enum_arg) = call.get_arg(1)
+                            && let Some(enum_value) = enum_arg.to_source_string(source)
+                            && let Some(property) = Property::from_param_spec_call(spec_call)
+                        {
+                            // Inline param_spec: g_object_class_install_property(class, PROP_X,
+                            // g_param_spec_*(...))
+                            assignments.push(ParamSpecAssignment::DirectInstall {
+                                enum_value,
+                                property_name: property.name.clone(),
+                                statement_location: *s.location(),
+                                call: spec_call.clone(),
+                                property,
+                                install_call: call.clone(),
+                            });
+                        } else if let Some(var_name) = spec_expr.to_source_string(source)
+                            && let Some(indices) = variable_assignments.get(&var_name)
+                        {
+                            let indices = indices.clone();
+                            for idx in indices {
+                                if let ParamSpecAssignment::Variable { install_call, .. } =
+                                    &mut assignments[idx]
+                                {
+                                    *install_call = Some(call.clone());
+                                }
                             }
                         }
                     }

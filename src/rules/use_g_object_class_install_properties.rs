@@ -29,26 +29,25 @@ impl Rule for UseGObjectClassInstallProperties {
         violations: &mut Vec<Violation>,
     ) {
         for (path, file) in ast_context.iter_all_files() {
-            for func in file.iter_class_init_functions() {
-                let install_property_calls = func.find_calls(&["g_object_class_install_property"]);
+            for enum_info in file.iter_property_enums() {
+                let Some((func, assignments)) = file.find_class_init_for_property_enum(enum_info)
+                else {
+                    continue;
+                };
 
+                let install_property_calls = func.find_calls(&["g_object_class_install_property"]);
                 if install_property_calls.is_empty() {
                     continue;
                 }
 
-                let fixes = if let Some(enum_info) =
-                    self.find_property_enum(file, &install_property_calls, &file.source)
-                {
-                    self.generate_fixes(
-                        file,
-                        func,
-                        &install_property_calls,
-                        enum_info,
-                        &file.source,
-                    )
-                } else {
-                    Vec::new()
-                };
+                let fixes = self.generate_fixes(
+                    file,
+                    func,
+                    &install_property_calls,
+                    &assignments,
+                    enum_info,
+                    &file.source,
+                );
 
                 let first_call = install_property_calls[0];
                 let message = if fixes.is_empty() {
@@ -76,49 +75,20 @@ impl Rule for UseGObjectClassInstallProperties {
 }
 
 impl UseGObjectClassInstallProperties {
-    fn find_property_enum<'a>(
-        &self,
-        file: &'a gobject_ast::FileModel,
-        install_calls: &[&gobject_ast::CallExpression],
-        source: &[u8],
-    ) -> Option<&'a gobject_ast::EnumInfo> {
-        let prop_ids: Vec<String> = install_calls
-            .iter()
-            .filter_map(|call| call.get_arg(1).and_then(|arg| arg.to_source_string(source)))
-            .collect();
-
-        file.iter_property_enums()
-            .filter_map(|enum_info| {
-                let enum_value_names: Vec<_> =
-                    enum_info.values.iter().map(|v| v.name.as_str()).collect();
-                let matches = prop_ids
-                    .iter()
-                    .filter(|pid| enum_value_names.contains(&pid.as_str()))
-                    .count();
-                if matches > 0 {
-                    Some((matches, enum_info))
-                } else {
-                    None
-                }
-            })
-            .max_by_key(|(matches, _)| *matches)
-            .map(|(_, enum_info)| enum_info)
-    }
-
     fn generate_fixes(
         &self,
         file: &gobject_ast::FileModel,
         class_init: &gobject_ast::top_level::FunctionDefItem,
         install_calls: &[&gobject_ast::CallExpression],
+        assignments: &[gobject_ast::ParamSpecAssignment],
         property_enum: &gobject_ast::EnumInfo,
         source: &[u8],
     ) -> Vec<Fix> {
         let mut fixes = Vec::new();
 
-        // Pre-collect all param_spec assignments (variable pattern)
-        let param_spec_assignments: Vec<_> = class_init
-            .find_param_spec_assignments(source)
-            .into_iter()
+        // Pre-collect variable-pattern assignments for lookup during fix generation
+        let param_spec_assignments: Vec<_> = assignments
+            .iter()
             .filter_map(|a| {
                 if let gobject_ast::ParamSpecAssignment::Variable {
                     variable_name,
@@ -192,8 +162,10 @@ impl UseGObjectClassInstallProperties {
 
         // Find the GObjectClass declaration to get object_class variable name and
         // indentation
-        let object_class_var = self
-            .find_object_class_variable(class_init)
+        let object_class_var = class_init
+            .iter_local_declarations()
+            .find(|decl| decl.type_info.base_type == "GObjectClass")
+            .map(|decl| decl.name.clone())
             .unwrap_or_else(|| "object_class".to_string());
 
         // Get indentation for the install_properties call
@@ -256,7 +228,7 @@ impl UseGObjectClassInstallProperties {
                 let assignment = param_spec_assignments
                     .iter()
                     .filter(|(name, _, stmt_loc, _)| {
-                        name == &var_name && stmt_loc.start_byte < call.location.start_byte
+                        name.as_str() == var_name && stmt_loc.start_byte < call.location.start_byte
                     })
                     .max_by_key(|(_, _, stmt_loc, _)| stmt_loc.start_byte);
 
@@ -273,7 +245,7 @@ impl UseGObjectClassInstallProperties {
                     let target_column = assignment_indent.len() + new_line_prefix.len();
 
                     let Some(param_spec_text) =
-                        Expression::Call(g_param_spec_call.clone()).to_source_string(source)
+                        Expression::Call((*g_param_spec_call).clone()).to_source_string(source)
                     else {
                         continue;
                     };
@@ -325,8 +297,11 @@ impl UseGObjectClassInstallProperties {
 
         // Remove GParamSpec variable declarations
         for var_name in param_spec_vars {
-            if let Some(decl) =
-                self.find_param_spec_declaration(&class_init.body_statements, &var_name)
+            if let Some(decl) = class_init
+                .body_statements
+                .iter()
+                .flat_map(|s| s.iter_declarations())
+                .find(|decl| decl.name == var_name && decl.type_info.base_type == "GParamSpec")
             {
                 fixes.push(Fix::delete_line(&decl.location, source));
             }
@@ -408,17 +383,6 @@ impl UseGObjectClassInstallProperties {
         None
     }
 
-    /// Find the GObjectClass variable name
-    fn find_object_class_variable(
-        &self,
-        class_init: &gobject_ast::top_level::FunctionDefItem,
-    ) -> Option<String> {
-        class_init
-            .iter_local_declarations()
-            .find(|decl| decl.type_info.base_type == "GObjectClass")
-            .map(|decl| decl.name.clone())
-    }
-
     /// Re-indent multiline text to align continuation lines to a specific
     /// column
     fn reindent_multiline(&self, text: &str, target_column: usize) -> String {
@@ -441,17 +405,5 @@ impl UseGObjectClassInstallProperties {
         }
 
         result
-    }
-
-    /// Find the GParamSpec variable declaration in the function body
-    fn find_param_spec_declaration<'a>(
-        &self,
-        statements: &'a [Statement],
-        var_name: &str,
-    ) -> Option<&'a gobject_ast::VariableDecl> {
-        statements
-            .iter()
-            .flat_map(|s| s.iter_declarations())
-            .find(|decl| decl.name == var_name && decl.type_info.base_type == "GParamSpec")
     }
 }

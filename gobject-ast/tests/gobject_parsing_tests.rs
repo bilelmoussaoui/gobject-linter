@@ -276,7 +276,7 @@ fn test_property_extraction() {
         .expect("class_init function not found");
 
     // Extract properties
-    let properties = gobject_type.extract_properties(class_init);
+    let properties = class_init.find_param_spec_assignments(&file.source);
 
     // Should have extracted 2 properties: name and value
     assert!(
@@ -286,9 +286,9 @@ fn test_property_extraction() {
     );
 
     // Find the "name" property
-    let name_prop = properties.iter().find(|p| p.name == "name");
+    let name_prop = properties.iter().find(|a| a.property().name == "name");
     assert!(name_prop.is_some(), "Property 'name' not found");
-    let name_prop = name_prop.unwrap();
+    let name_prop = name_prop.unwrap().property();
 
     use gobject_ast::model::types::{ParamFlag, PropertyType};
     assert!(matches!(name_prop.property_type, PropertyType::String));
@@ -297,9 +297,9 @@ fn test_property_extraction() {
     assert!(name_prop.flags.contains(&ParamFlag::ReadWrite));
 
     // Find the "value" property
-    let value_prop = properties.iter().find(|p| p.name == "value");
+    let value_prop = properties.iter().find(|a| a.property().name == "value");
     assert!(value_prop.is_some(), "Property 'value' not found");
-    let value_prop = value_prop.unwrap();
+    let value_prop = value_prop.unwrap().property();
 
     match &value_prop.property_type {
         PropertyType::Int { min, max, default } => {
@@ -586,12 +586,12 @@ fn test_custom_param_spec() {
         .find(|f| f.name == class_init_name)
         .expect("class_init function not found");
 
-    let properties = gobject_type.extract_properties(class_init);
+    let properties = class_init.find_param_spec_assignments(&file.source);
 
     // Should have extracted the custom color property
     assert_eq!(properties.len(), 1, "Expected 1 property");
 
-    let color_prop = &properties[0];
+    let color_prop = properties[0].property();
     assert_eq!(color_prop.name, "color");
     assert_eq!(color_prop.nick, Some("Color".to_string()));
     assert_eq!(color_prop.blurb, Some("The object color".to_string()));

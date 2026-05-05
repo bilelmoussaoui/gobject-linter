@@ -1,1 +1,1 @@
-basic.c:8:3: use_g_object_class_install_properties: Consider using g_object_class_install_properties() instead of 2 g_object_class_install_property() calls
+basic.c:14:3: use_g_object_class_install_properties: Use g_object_class_install_properties() instead of 2 g_object_class_install_property() calls

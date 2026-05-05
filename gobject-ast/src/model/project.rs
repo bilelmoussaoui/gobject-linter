@@ -328,6 +328,9 @@ impl FileModel {
                                 .is_some_and(|enum_val| property_names.contains(&enum_val.as_str()))
                         })
                 }
+                ParamSpecAssignment::DirectInstall { enum_value, .. } => {
+                    property_names.contains(&enum_value.as_str())
+                }
             });
 
             // Also check for install_properties calls (even without param_spec assignments)

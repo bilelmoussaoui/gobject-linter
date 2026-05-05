@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{Property, Signal, function::Parameter};
+use super::{Signal, function::Parameter};
 use crate::SourceLocation;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,18 +79,6 @@ impl GObjectType {
                 ..
             } | GObjectTypeKind::Define(DefineKind::Interface | DefineKind::InterfaceWithCode)
         )
-    }
-
-    /// Extract properties from a class_init function
-    pub fn extract_properties(
-        &self,
-        class_init_func: &crate::top_level::FunctionDefItem,
-    ) -> Vec<Property> {
-        class_init_func
-            .find_calls_matching(|name| name.contains("_param_spec_"))
-            .iter()
-            .filter_map(|call| Property::from_param_spec_call(call))
-            .collect()
     }
 
     /// Extract signals from a class_init function

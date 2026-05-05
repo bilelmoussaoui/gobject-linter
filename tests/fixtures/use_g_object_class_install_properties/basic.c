@@ -1,5 +1,11 @@
 #include <glib-object.h>
 
+enum {
+  PROP_0,
+  PROP_NAME,
+  PROP_VALUE
+};
+
 static void
 foo_class_init (FooClass *klass)
 {

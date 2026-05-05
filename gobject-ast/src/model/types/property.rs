@@ -455,6 +455,18 @@ pub enum ParamSpecAssignment {
         call: CallExpression,
         property: Property,
     },
+    /// Direct install: g_object_class_install_property(class, PROP_X,
+    /// g_param_spec_xxx(...))
+    DirectInstall {
+        enum_value: String,
+        property_name: String,
+        statement_location: SourceLocation,
+        /// The inline g_param_spec_* call
+        call: CallExpression,
+        property: Property,
+        /// The enclosing g_object_class_install_property call
+        install_call: CallExpression,
+    },
 }
 
 impl ParamSpecAssignment {
@@ -465,6 +477,7 @@ impl ParamSpecAssignment {
             ParamSpecAssignment::ArraySubscript { install_call, .. } => install_call.is_some(),
             ParamSpecAssignment::OverrideProperty { .. } => true,
             ParamSpecAssignment::Variable { install_call, .. } => install_call.is_some(),
+            ParamSpecAssignment::DirectInstall { .. } => true,
         }
     }
 
@@ -481,6 +494,7 @@ impl ParamSpecAssignment {
             ParamSpecAssignment::Variable { install_call, .. } => install_call
                 .as_ref()
                 .and_then(|call| call.get_arg(1).and_then(|arg| arg.to_source_string(source))),
+            ParamSpecAssignment::DirectInstall { enum_value, .. } => Some(enum_value.clone()),
         }
     }
 
@@ -490,14 +504,17 @@ impl ParamSpecAssignment {
             ParamSpecAssignment::ArraySubscript { property, .. } => property,
             ParamSpecAssignment::Variable { property, .. } => property,
             ParamSpecAssignment::OverrideProperty { property, .. } => property,
+            ParamSpecAssignment::DirectInstall { property, .. } => property,
         }
     }
 
-    /// Get the enum value (for ArraySubscript and OverrideProperty only)
+    /// Get the enum value (for ArraySubscript, OverrideProperty, and
+    /// DirectInstall)
     pub fn enum_value(&self) -> Option<&str> {
         match self {
             ParamSpecAssignment::ArraySubscript { enum_value, .. } => Some(enum_value.as_str()),
             ParamSpecAssignment::OverrideProperty { enum_value, .. } => Some(enum_value.as_str()),
+            ParamSpecAssignment::DirectInstall { enum_value, .. } => Some(enum_value.as_str()),
             ParamSpecAssignment::Variable { .. } => None,
         }
     }
