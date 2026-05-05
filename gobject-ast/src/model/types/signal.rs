@@ -2,6 +2,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::model::expression::{CallExpression, Expression};
 
+/// Parsed `G_STRUCT_OFFSET(StructType, field)` — identifies the vtable slot
+/// for a signal's default handler.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClassOffset {
+    pub struct_type: String, // e.g. "GtkWidgetClass"
+    pub field: String,       // e.g. "measure"
+}
+
 /// Represents a GObject signal registration
 ///
 /// Parsed from g_signal_new/g_signal_newv calls:
@@ -22,11 +30,11 @@ pub struct Signal {
     pub name: String,
     pub itype: Option<String>, // G_TYPE_FROM_CLASS(klass), G_OBJECT_TYPE, etc.
     pub flags: Vec<SignalFlag>,
-    pub class_offset: Option<String>, // G_STRUCT_OFFSET(...) or 0
-    pub accumulator: Option<String>,  // function name or NULL
-    pub accu_data: Option<String>,    // data or NULL
-    pub c_marshaller: Option<String>, // marshaller or NULL
-    pub return_type: Option<String>,  // G_TYPE_NONE, G_TYPE_BOOLEAN, etc.
+    pub class_offset: Option<ClassOffset>, // None when 0 (no default handler)
+    pub accumulator: Option<String>,       // function name or NULL
+    pub accu_data: Option<String>,         // data or NULL
+    pub c_marshaller: Option<String>,      // marshaller or NULL
+    pub return_type: Option<String>,       // G_TYPE_NONE, G_TYPE_BOOLEAN, etc.
     pub n_params: Option<i64>,
     pub param_types: Vec<String>, // List of parameter types
 }
@@ -109,8 +117,27 @@ impl Signal {
             .map(extract_signal_flags)
             .unwrap_or_default();
 
-        // Argument 3: class_offset (guint or G_STRUCT_OFFSET)
-        let class_offset = call.get_arg_text(3, source);
+        // Argument 3: class_offset — G_STRUCT_OFFSET(StructType, field) or 0
+        let class_offset = call.get_arg(3).and_then(|expr| match expr {
+            Expression::Call(offset_call) if offset_call.function_name() == "G_STRUCT_OFFSET" => {
+                let struct_type = offset_call.get_arg(0).and_then(|e| {
+                    if let Expression::Identifier(id) = e {
+                        Some(id.name.clone())
+                    } else {
+                        None
+                    }
+                })?;
+                let field = offset_call.get_arg(1).and_then(|e| {
+                    if let Expression::Identifier(id) = e {
+                        Some(id.name.clone())
+                    } else {
+                        None
+                    }
+                })?;
+                Some(ClassOffset { struct_type, field })
+            }
+            _ => None, // 0, NULL, or any other form → no vtable slot
+        });
 
         // Argument 4: accumulator (function pointer or NULL)
         let accumulator = call.get_arg_text(4, source);
