@@ -58,7 +58,7 @@ impl UseGAutolist {
                 "g_slist_free_full"
             };
 
-            if func.is_var_passed_to_function(name, type_info, free_func, 0) {
+            if func.is_var_passed_to_function(name, free_func, 0) {
                 // Skip if using basic free functions (g_free, free) as those indicate
                 // primitive types (char*, etc.) that don't support g_autoptr
                 if self.uses_basic_destructor(func, free_func) {

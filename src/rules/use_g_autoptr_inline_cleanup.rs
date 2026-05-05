@@ -106,8 +106,7 @@ impl UseGAutoptrInlineCleanup {
             let is_returned = func.is_var_returned(type_info);
 
             // Check if variable is freed with g_free (should use g_autofree instead)
-            let is_freed_with_g_free =
-                func.is_var_passed_to_function(var_name, type_info, "g_free", 0);
+            let is_freed_with_g_free = func.is_var_passed_to_function(var_name, "g_free", 0);
 
             // Suggest g_autoptr if:
             // 1. Variable is allocated

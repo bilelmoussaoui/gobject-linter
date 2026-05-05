@@ -48,8 +48,7 @@ impl Rule for UseGAutofree {
             });
 
             // Check if variable is manually freed
-            let is_manually_freed =
-                func.is_var_passed_to_function(var_name, type_info, "g_free", 0);
+            let is_manually_freed = func.is_var_passed_to_function(var_name, "g_free", 0);
 
             // Check if variable is returned
             let is_returned = func.is_var_returned(type_info);

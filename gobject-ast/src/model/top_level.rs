@@ -342,38 +342,24 @@ impl FunctionDefItem {
         false
     }
 
-    /// Check if any variable of the given type is passed to a specific function
-    /// at a specific argument position
+    /// Check if the named variable is passed to a specific function at a
+    /// specific argument position
     pub fn is_var_passed_to_function(
         &self,
         var_name: &str,
-        type_info: &crate::TypeInfo,
         func_name: &str,
         arg_index: usize,
     ) -> bool {
         use super::expression::Expression;
 
-        for stmt in &self.body_statements {
-            for call in stmt.iter_calls() {
-                if call.is_function(func_name)
-                    && let Some(arg) = call.get_arg(arg_index)
-                    && let Expression::Identifier(id) = arg
-                    && id.name == var_name
-                {
-                    for body_stmt in &self.body_statements {
-                        for decl in body_stmt.iter_declarations() {
-                            if decl.name == id.name
-                                && decl.type_info.base_type == type_info.base_type
-                                && decl.type_info.is_pointer() == type_info.is_pointer()
-                            {
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        false
+        self.body_statements.iter().any(|stmt| {
+            stmt.iter_calls().any(|call| {
+                call.is_function(func_name)
+                    && call.get_arg(arg_index).is_some_and(
+                        |arg| matches!(arg, Expression::Identifier(id) if id.name == var_name),
+                    )
+            })
+        })
     }
 
     /// Check if any variable of the given type is allocated via an allocation
