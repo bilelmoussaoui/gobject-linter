@@ -120,6 +120,27 @@ goblint:
 
 The results will appear in the merge request's security report and as inline comments.
 
+### Diff-scoped reporting
+
+Pass `--diff -` to restrict violations to lines changed in the current pull request.
+This is useful for incremental adoption: existing violations in untouched code are silenced,
+and only new or modified lines are checked.
+
+**GitHub Actions:**
+
+```yaml
+      - name: Run goblint (PR changes only)
+        if: github.event_name == 'pull_request'
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD | goblint --diff -
+```
+
+**GitLab CI:**
+
+```yaml
+      - git diff origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME...HEAD | goblint --diff -
+```
+
 ### Installation Alternative
 
 If you prefer installing locally instead of using containers:

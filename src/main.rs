@@ -64,6 +64,11 @@ struct Args {
     /// no_g_auto_macros)
     #[arg(long)]
     msvc_compatible: bool,
+
+    /// Only report violations on lines changed in this unified diff (use `-`
+    /// to read from stdin). Useful for CI to report only on PR changes.
+    #[arg(long, value_name = "FILE")]
+    diff: Option<PathBuf>,
 }
 
 /// Parse GLib version string for clap
@@ -203,11 +208,64 @@ fn main() -> Result<()> {
     )?;
 
     // Run AST-based rules
-    let violations =
+    let mut violations =
         scanner::scan_with_ast(&ast_context, &config, &project_root, spinner.as_ref())?;
 
     if let Some(sp) = spinner {
         sp.finish_and_clear();
+    }
+
+    // Filter violations to changed lines when a diff is provided
+    if let Some(diff_path) = &args.diff {
+        let diff_content = if diff_path == std::path::Path::new("-") {
+            use std::io::Read;
+            let mut buf = String::new();
+            std::io::stdin().read_to_string(&mut buf)?;
+            buf
+        } else {
+            std::fs::read_to_string(diff_path)?
+        };
+
+        use std::collections::{HashMap, HashSet};
+
+        use unidiff::PatchSet;
+        let mut patch = PatchSet::new();
+        let _ = patch.parse(&diff_content);
+
+        // Diff paths are relative to the git root, which may differ from project_root
+        let git_root = {
+            let mut dir = project_root.as_path();
+            loop {
+                if dir.join(".git").exists() {
+                    break dir.to_path_buf();
+                }
+                match dir.parent() {
+                    Some(p) => dir = p,
+                    None => break project_root.clone(),
+                }
+            }
+        };
+
+        let mut changed_lines: HashMap<std::path::PathBuf, HashSet<usize>> = HashMap::new();
+        for file in patch {
+            let path = git_root.join(file.path().trim_start_matches("b/"));
+            let lines = changed_lines.entry(path).or_default();
+            for hunk in file {
+                for line in hunk {
+                    if line.is_added()
+                        && let Some(line_no) = line.target_line_no
+                    {
+                        lines.insert(line_no);
+                    }
+                }
+            }
+        }
+
+        violations.retain(|v| {
+            changed_lines
+                .get(&v.file)
+                .is_some_and(|lines| lines.contains(&v.line))
+        });
     }
 
     if args.verbose {
