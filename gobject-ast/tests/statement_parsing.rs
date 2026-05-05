@@ -2,7 +2,10 @@ use std::path::PathBuf;
 
 use gobject_ast::{
     Expression, ExpressionStmt, Parser, Statement,
-    model::top_level::{TypeDefItem, TypedefTarget},
+    model::{
+        statement::ForInit,
+        top_level::{TypeDefItem, TypedefTarget},
+    },
 };
 
 fn parse_fixture(name: &str) -> gobject_ast::Project {
@@ -461,5 +464,57 @@ fn test_variadic_parameter_parsing() {
         baz.parameters
             .iter()
             .all(|p| !matches!(p, Parameter::Variadic))
+    );
+}
+
+#[test]
+fn test_for_statement_init_variants() {
+    let project = parse_fixture("for_init.c");
+    let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/for_init.c");
+    let file = project.get_file(&fixture_path).expect("file not parsed");
+
+    let func = file
+        .iter_function_definitions()
+        .next()
+        .expect("no function");
+
+    let for_stmts: Vec<_> = func
+        .body_statements
+        .iter()
+        .filter_map(|s| {
+            if let Statement::For(f) = s {
+                Some(f)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    assert_eq!(for_stmts.len(), 4, "expected 4 for loops");
+
+    // expression initializer: `for (i = 0; ...)`
+    assert!(
+        matches!(&for_stmts[0].initializer, Some(ForInit::Expr(_))),
+        "first loop should have Expr initializer"
+    );
+
+    // C99 int declaration: `for (int j = 0; ...)`
+    let Some(ForInit::Decl(decl)) = &for_stmts[1].initializer else {
+        panic!("second loop should have Decl initializer");
+    };
+    assert_eq!(decl.name, "j");
+    assert_eq!(decl.type_info.base_type, "int");
+
+    // pointer declaration: `for (GList *l = list; ...)`
+    let Some(ForInit::Decl(decl)) = &for_stmts[2].initializer else {
+        panic!("third loop should have Decl initializer");
+    };
+    assert_eq!(decl.name, "l");
+    assert_eq!(decl.type_info.base_type, "GList");
+
+    // no initializer: `for (; i < 20; ...)`
+    assert!(
+        for_stmts[3].initializer.is_none(),
+        "fourth loop should have no initializer"
     );
 }

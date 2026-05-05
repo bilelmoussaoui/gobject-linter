@@ -46,7 +46,7 @@ impl Parser {
         node: Node,
         source: &[u8],
     ) -> Option<crate::model::statement::ForStatement> {
-        use crate::model::statement::ForStatement;
+        use crate::model::statement::{ForInit, ForStatement};
 
         let mut initializer = None;
         let mut condition = None;
@@ -61,31 +61,33 @@ impl Parser {
                     semicolon_count += 1;
                 }
                 "declaration" => {
-                    // Initializer is a declaration - we don't track this as an
-                    // expression The declaration will be
-                    // parsed separately
+                    // C99 declaration initializer: `for (int i = 0; ...)` or
+                    // `for (GList *l = list; ...)`.
+                    // The declaration node absorbs its own semicolon, so the
+                    // next expression is the condition — advance semicolon_count
+                    // so it is not misidentified as a second initializer.
+                    if let Some(decl) = self.parse_variable_decl(child, source) {
+                        initializer = Some(ForInit::Decl(Box::new(decl)));
+                    }
+                    semicolon_count = 1;
                 }
                 "compound_statement" => {
                     body = self.parse_function_body(child, source);
                 }
-                "(" | ")" => {
-                    // Skip delimiters
-                }
+                "(" | ")" => {}
                 _ => {
                     if Parser::is_expression_node(&child) {
                         let expr = self.parse_expression(child, source)?;
-                        // Assign based on semicolon position
                         match semicolon_count {
-                            0 => initializer = Some(Box::new(expr)),
+                            0 => initializer = Some(ForInit::Expr(Box::new(expr))),
                             1 => condition = Some(Box::new(expr)),
                             2 => update = Some(Box::new(expr)),
                             _ => {}
                         }
-                    } else if child.is_named() {
-                        // Single statement body (not in compound_statement)
-                        if let Some(stmt) = self.parse_statement(child, source) {
-                            body.push(stmt);
-                        }
+                    } else if child.is_named()
+                        && let Some(stmt) = self.parse_statement(child, source)
+                    {
+                        body.push(stmt);
                     }
                 }
             }
@@ -232,7 +234,9 @@ impl Parser {
             "switch_statement" => self
                 .parse_switch_statement(node, source)
                 .map(Statement::Switch),
-            "for_statement" => self.parse_for_statement(node, source).map(Statement::For),
+            "for_statement" => self
+                .parse_for_statement(node, source)
+                .map(|f| Statement::For(Box::new(f))),
             "while_statement" => self
                 .parse_while_statement(node, source)
                 .map(Statement::While),

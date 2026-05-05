@@ -15,7 +15,7 @@ pub use break_stmt::BreakStatement;
 pub use compound_stmt::CompoundStatement;
 pub use continue_stmt::ContinueStatement;
 pub use expression_stmt::ExpressionStmt;
-pub use for_stmt::ForStatement;
+pub use for_stmt::{ForInit, ForStatement};
 pub use goto_stmt::GotoStatement;
 pub use if_stmt::IfStatement;
 pub use labeled_stmt::LabeledStatement;
@@ -38,7 +38,7 @@ pub enum Statement {
     Labeled(LabeledStatement),
     Compound(CompoundStatement),
     Switch(SwitchStatement),
-    For(ForStatement),
+    For(Box<ForStatement>),
     While(WhileStatement),
     DoWhile(DoWhileStatement),
     Break(BreakStatement),
@@ -168,8 +168,14 @@ impl Statement {
             }
             Statement::For(for_stmt) => {
                 let mut exprs = Vec::new();
-                if let Some(init) = &for_stmt.initializer {
-                    exprs.push(&**init);
+                match &for_stmt.initializer {
+                    Some(ForInit::Expr(init)) => exprs.push(&**init),
+                    Some(ForInit::Decl(decl)) => {
+                        if let Some(init) = &decl.initializer {
+                            exprs.push(init);
+                        }
+                    }
+                    None => {}
                 }
                 if let Some(cond) = &for_stmt.condition {
                     exprs.push(&**cond);
