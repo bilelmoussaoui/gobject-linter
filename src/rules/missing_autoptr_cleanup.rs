@@ -91,7 +91,7 @@ impl Rule for MissingAutoptrCleanup {
         let mut autoptr_cleanups: HashSet<String> = HashSet::new();
 
         for (_path, file) in ast_context.iter_all_files() {
-            for item in &file.top_level_items {
+            for item in file.iter_all_items() {
                 if let gobject_ast::model::top_level::TopLevelItem::Preprocessor(directive) = item
                     && let gobject_ast::model::top_level::PreprocessorDirective::AutoptrCleanupFunc {
                         type_name,
