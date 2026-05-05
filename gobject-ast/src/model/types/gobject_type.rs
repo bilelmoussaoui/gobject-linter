@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-use super::{Signal, function::Parameter};
+use super::{GType, Signal, function::Parameter};
 use crate::SourceLocation;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GObjectType {
     pub type_name: String,           // e.g., "ClutterInputDeviceTool"
-    pub type_macro: String,          // e.g., "CLUTTER_TYPE_INPUT_DEVICE_TOOL"
+    pub type_macro: Option<GType>,   // e.g., CLUTTER_TYPE_INPUT_DEVICE_TOOL; None for quarks
     pub function_prefix: String,     // e.g., "clutter_input_device_tool"
     pub parent_type: Option<String>, // e.g., "GObject"; None for boxed/pointer types
     pub flags: Option<String>,       /* G_DEFINE_TYPE_EXTENDED flags arg, e.g.
@@ -22,8 +22,8 @@ pub struct GObjectType {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InterfaceImplementation {
-    pub interface_type: String, // e.g., "GTK_TYPE_EDITABLE"
-    pub init_function: String,  // e.g., "mask_entry_editable_init"
+    pub interface_type: GType, // e.g., GTK_TYPE_EDITABLE
+    pub init_function: String, // e.g., "mask_entry_editable_init"
 }
 
 impl GObjectType {

@@ -6,6 +6,7 @@ use crate::model::{
     SourceLocation,
     expression::{Argument, CallExpression, Expression},
     operators::UnaryOp,
+    types::GType,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -136,7 +137,7 @@ pub enum PropertyType {
         default: u32,
     },
     Param {
-        param_type: String,
+        param_type: GType,
     },
     Boolean {
         default: bool,
@@ -152,22 +153,22 @@ pub enum PropertyType {
         default: f64,
     },
     Enum {
-        enum_type: String,
+        enum_type: GType,
         default: i32,
     },
     Flags {
-        flags_type: String,
+        flags_type: GType,
         default: u32,
     },
     Object {
-        object_type: String,
+        object_type: GType,
     },
     Boxed {
-        boxed_type: String,
+        boxed_type: GType,
     },
     Pointer,
     GType {
-        is_a_type: String,
+        is_a_type: GType,
     },
     Variant {
         variant_type: Option<String>,
@@ -290,11 +291,7 @@ impl Property {
             }
             "g_param_spec_enum" => {
                 // (name, nick, blurb, enum_type, default, flags)
-                let enum_type = if args.len() > 3 {
-                    extract_identifier_arg(&args[3]).unwrap_or_default()
-                } else {
-                    String::new()
-                };
+                let enum_type = args.get(3).and_then(extract_gtype_arg)?;
                 let default = if args.len() > 4 {
                     extract_int_arg::<i32>(&args[4]).unwrap_or(0)
                 } else {
@@ -304,11 +301,7 @@ impl Property {
             }
             "g_param_spec_flags" => {
                 // (name, nick, blurb, flags_type, default, flags)
-                let flags_type = if args.len() > 3 {
-                    extract_identifier_arg(&args[3]).unwrap_or_default()
-                } else {
-                    String::new()
-                };
+                let flags_type = args.get(3).and_then(extract_gtype_arg)?;
                 let default = if args.len() > 4 {
                     extract_uint_arg::<u32>(&args[4]).unwrap_or(0)
                 } else {
@@ -321,30 +314,18 @@ impl Property {
             }
             "g_param_spec_object" => {
                 // (name, nick, blurb, object_type, flags)
-                let object_type = if args.len() > 3 {
-                    extract_identifier_arg(&args[3]).unwrap_or_default()
-                } else {
-                    String::new()
-                };
+                let object_type = args.get(3).and_then(extract_gtype_arg)?;
                 PropertyType::Object { object_type }
             }
             "g_param_spec_boxed" => {
                 // (name, nick, blurb, boxed_type, flags)
-                let boxed_type = if args.len() > 3 {
-                    extract_identifier_arg(&args[3]).unwrap_or_default()
-                } else {
-                    String::new()
-                };
+                let boxed_type = args.get(3).and_then(extract_gtype_arg)?;
                 PropertyType::Boxed { boxed_type }
             }
             "g_param_spec_pointer" => PropertyType::Pointer,
             "g_param_spec_gtype" => {
                 // (name, nick, blurb, is_a_type, flags)
-                let is_a_type = if args.len() > 3 {
-                    extract_identifier_arg(&args[3]).unwrap_or_default()
-                } else {
-                    String::new()
-                };
+                let is_a_type = args.get(3).and_then(extract_gtype_arg)?;
                 PropertyType::GType { is_a_type }
             }
             "g_param_spec_int64" => {
@@ -472,20 +453,19 @@ impl Property {
             }
             "g_param_spec_param" => {
                 // (name, nick, blurb, param_type, flags)
-                let param_type = if args.len() > 3 {
-                    extract_identifier_arg(&args[3]).unwrap_or_default()
-                } else {
-                    String::new()
-                };
+                let param_type = args.get(3).and_then(extract_gtype_arg)?;
                 PropertyType::Param { param_type }
             }
             "g_param_spec_variant" => {
                 // (name, nick, blurb, type, default_value, flags)
-                let variant_type = if args.len() > 3 {
-                    extract_identifier_arg(&args[3])
-                } else {
-                    None
-                };
+                let variant_type = args.get(3).and_then(|arg| {
+                    let Argument::Expression(expr) = arg;
+                    match expr.as_ref() {
+                        Expression::Identifier(id) => Some(id.name.clone()),
+                        Expression::Call(call) => Some(call.function_name()),
+                        _ => None,
+                    }
+                });
                 let default_value = args.get(4).and_then(|arg| {
                     let Argument::Expression(e) = arg;
                     if matches!(e.as_ref(), Expression::Null(_)) {
@@ -629,17 +609,9 @@ fn extract_boolean_arg(arg: &Argument) -> Option<bool> {
     }
 }
 
-fn extract_identifier_arg(arg: &Argument) -> Option<String> {
-    match arg {
-        Argument::Expression(boxed_expr) => match &**boxed_expr {
-            Expression::Identifier(id) => Some(id.name.clone()),
-            Expression::Call(call) => {
-                // Handle macros like G_TYPE_STRING
-                Some(call.function_name())
-            }
-            _ => None,
-        },
-    }
+fn extract_gtype_arg(arg: &Argument) -> Option<GType> {
+    let Argument::Expression(expr) = arg;
+    GType::from_expression(expr)
 }
 
 fn extract_flags_arg(arg: &Argument) -> Vec<ParamFlag> {

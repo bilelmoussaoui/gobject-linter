@@ -25,7 +25,10 @@ fn test_g_declare_final_type() {
     let gobj = gobject_types[0];
 
     assert_eq!(gobj.type_name, "MyWidget");
-    assert_eq!(gobj.type_macro, "MY_TYPE_WIDGET");
+    assert_eq!(
+        gobj.type_macro,
+        Some(gobject_ast::GType::Identifier("MY_TYPE_WIDGET".to_owned()))
+    );
 
     match &gobj.kind {
         GObjectTypeKind::Declare {
@@ -52,7 +55,10 @@ fn test_g_declare_derivable_type() {
     let gobj = &extract_gobject_types(file)[0];
 
     assert_eq!(gobj.type_name, "MyObject");
-    assert_eq!(gobj.type_macro, "MY_TYPE_OBJECT");
+    assert_eq!(
+        gobj.type_macro,
+        Some(gobject_ast::GType::Identifier("MY_TYPE_OBJECT".to_owned()))
+    );
 
     match &gobj.kind {
         GObjectTypeKind::Declare {
@@ -79,7 +85,12 @@ fn test_g_declare_interface() {
     let gobj = &extract_gobject_types(file)[0];
 
     assert_eq!(gobj.type_name, "MyInterface");
-    assert_eq!(gobj.type_macro, "MY_TYPE_INTERFACE");
+    assert_eq!(
+        gobj.type_macro,
+        Some(gobject_ast::GType::Identifier(
+            "MY_TYPE_INTERFACE".to_owned()
+        ))
+    );
 
     match &gobj.kind {
         GObjectTypeKind::Declare {
@@ -106,7 +117,7 @@ fn test_g_define_type() {
     let gobj = &extract_gobject_types(file)[0];
 
     assert_eq!(gobj.type_name, "MyWidget");
-    assert_eq!(gobj.type_macro, "TYPE_MYWIDGET");
+    assert_eq!(gobj.type_macro, None);
 
     match &gobj.kind {
         GObjectTypeKind::Define(kind) => {
@@ -416,7 +427,10 @@ fn test_signal_extraction() {
         changed.flags[0],
         gobject_ast::model::types::SignalFlag::RunLast
     );
-    assert_eq!(changed.return_type, Some("G_TYPE_NONE".to_string()));
+    assert!(matches!(
+        changed.return_type,
+        Some(gobject_ast::GType::None)
+    ));
     assert_eq!(changed.n_params, Some(0));
     assert_eq!(changed.param_types.len(), 0);
 
@@ -429,9 +443,15 @@ fn test_signal_extraction() {
             .flags
             .contains(&gobject_ast::model::types::SignalFlag::RunFirst)
     );
-    assert_eq!(activated.return_type, Some("G_TYPE_NONE".to_string()));
+    assert!(matches!(
+        activated.return_type,
+        Some(gobject_ast::GType::None)
+    ));
     assert_eq!(activated.n_params, Some(1));
-    assert_eq!(activated.param_types, vec!["G_TYPE_INT"]);
+    assert_eq!(
+        activated.param_types,
+        vec![gobject_ast::GType::Identifier("G_TYPE_INT".to_string())]
+    );
 }
 
 #[test]
@@ -449,7 +469,10 @@ fn test_interface_implementation() {
         1,
         "Expected 1 interface implementation"
     );
-    assert_eq!(gobj.interfaces[0].interface_type, "MY_TYPE_INTERFACE");
+    assert_eq!(
+        gobj.interfaces[0].interface_type,
+        gobject_ast::GType::Identifier("MY_TYPE_INTERFACE".to_owned())
+    );
     assert_eq!(gobj.interfaces[0].init_function, "my_interface_init");
 
     // Should have the interface init function (definition)
@@ -487,10 +510,16 @@ fn test_interface_impl_multiple() {
         "Expected 2 interface implementations"
     );
 
-    assert_eq!(gobj.interfaces[0].interface_type, "GTK_TYPE_EDITABLE");
+    assert_eq!(
+        gobj.interfaces[0].interface_type,
+        gobject_ast::GType::Identifier("GTK_TYPE_EDITABLE".to_owned())
+    );
     assert_eq!(gobj.interfaces[0].init_function, "my_editable_init");
 
-    assert_eq!(gobj.interfaces[1].interface_type, "GTK_TYPE_SCROLLABLE");
+    assert_eq!(
+        gobj.interfaces[1].interface_type,
+        gobject_ast::GType::Identifier("GTK_TYPE_SCROLLABLE".to_owned())
+    );
     assert_eq!(gobj.interfaces[1].init_function, "my_scrollable_init");
 }
 

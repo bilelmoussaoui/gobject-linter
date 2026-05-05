@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::model::expression::{CallExpression, Expression, StructField};
+use crate::model::{
+    expression::{CallExpression, Expression, StructField},
+    types::GType,
+};
 
 /// Represents a GObject signal registration
 ///
@@ -26,9 +29,9 @@ pub struct Signal {
     pub accumulator: Option<String>,       // function name or NULL
     pub accu_data: Option<String>,         // data or NULL
     pub c_marshaller: Option<String>,      // marshaller or NULL
-    pub return_type: Option<String>,       // G_TYPE_NONE, G_TYPE_BOOLEAN, etc.
+    pub return_type: Option<GType>,
     pub n_params: Option<i64>,
-    pub param_types: Vec<String>, // List of parameter types
+    pub param_types: Vec<GType>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -141,7 +144,7 @@ impl Signal {
         let c_marshaller = call.get_arg_text(6, source);
 
         // Argument 7: return_type (GType)
-        let return_type = call.get_arg_text(7, source);
+        let return_type = call.get_arg(7).and_then(GType::from_expression);
 
         // Argument 8: n_params (guint)
         let n_params = call.get_arg(8).and_then(|expr| match expr {
@@ -151,7 +154,7 @@ impl Signal {
 
         // Arguments 9+: parameter types (variadic)
         let param_types = (9..call.arguments.len())
-            .filter_map(|i| call.get_arg_text(i, source))
+            .filter_map(|i| call.get_arg(i).and_then(GType::from_expression))
             .collect();
 
         Some(Signal {

@@ -3,7 +3,7 @@ use tree_sitter::Node;
 use super::Parser;
 use crate::model::{
     Expression,
-    types::{DeclareKind, DefineKind, GObjectType, GObjectTypeKind, VirtualFunction},
+    types::{DeclareKind, DefineKind, GObjectType, GObjectTypeKind, GType, VirtualFunction},
 };
 
 impl Parser {
@@ -76,7 +76,7 @@ impl Parser {
             let type_prefix = arg_values[3];
             let parent_type = arg_values[4];
 
-            let type_macro = format!("{}_TYPE_{}", module_prefix, type_prefix);
+            let type_macro = GType::Identifier(format!("{}_TYPE_{}", module_prefix, type_prefix));
 
             let declare_kind = match macro_name {
                 "G_DECLARE_FINAL_TYPE" => DeclareKind::Final,
@@ -87,7 +87,7 @@ impl Parser {
 
             return Some(GObjectType {
                 type_name: type_name.to_owned(),
-                type_macro,
+                type_macro: Some(type_macro),
                 function_prefix: function_prefix.to_owned(),
                 parent_type: Some(parent_type.to_owned()),
                 flags: None,
@@ -114,8 +114,6 @@ impl Parser {
             let copy_func = arg_values[2];
             let free_func = arg_values[3];
 
-            let type_macro = format!("TYPE_{}", type_name.to_uppercase());
-
             let (interfaces, has_private, code_block_statements) =
                 if macro_name.ends_with("_WITH_CODE") {
                     self.extract_code_block_info_from_parent(parent, source, &arg_values)
@@ -125,7 +123,7 @@ impl Parser {
 
             return Some(GObjectType {
                 type_name: type_name.to_owned(),
-                type_macro,
+                type_macro: None,
                 function_prefix: function_prefix.to_owned(),
                 parent_type: None,
                 flags: None,
@@ -165,7 +163,7 @@ impl Parser {
 
             return Some(GObjectType {
                 type_name: quark_name.clone(),
-                type_macro: String::new(),
+                type_macro: None,
                 function_prefix: func_prefix.clone(),
                 parent_type: None,
                 flags: None,
@@ -186,8 +184,6 @@ impl Parser {
             let type_name = arg_values[0];
             let function_prefix = arg_values[1];
             let parent_type = arg_values[2];
-
-            let type_macro = format!("TYPE_{}", type_name.to_uppercase());
 
             // _WITH_PRIVATE variants always have a private struct
             let has_private_from_macro = matches!(
@@ -244,7 +240,7 @@ impl Parser {
 
             return Some(GObjectType {
                 type_name: type_name.to_owned(),
-                type_macro,
+                type_macro: None,
                 function_prefix: function_prefix.to_owned(),
                 parent_type: if matches!(kind, GObjectTypeKind::Define(DefineKind::Pointer)) {
                     None
@@ -377,7 +373,7 @@ impl Parser {
                             self.collect_identifiers(args, source, &mut iface_args);
                             if iface_args.len() >= 2 {
                                 interfaces.push(InterfaceImplementation {
-                                    interface_type: iface_args[0].to_owned(),
+                                    interface_type: GType::Identifier(iface_args[0].to_owned()),
                                     init_function: iface_args[1].to_owned(),
                                 });
                             }
