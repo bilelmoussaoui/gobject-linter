@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::SourceLocation;
+use super::{SourceLocation, types::BasicType};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AutoCleanupMacro {
@@ -233,6 +233,55 @@ impl TypeInfo {
         self.normalized_base_type() == other.normalized_base_type()
             && self.pointer_depth == other.pointer_depth
             && self.is_const == other.is_const
+    }
+
+    /// Returns the `BasicType` if this C type is a primitive scalar.
+    /// Handles GLib names (`gint`), C equivalents (`int`), C99 fixed-width
+    /// types (`int32_t`), and C99 types (`long long`, `_Bool`).
+    /// `gchar *` / `char *` at pointer_depth 1 maps to `BasicType::String`.
+    pub fn as_basic(&self) -> Option<BasicType> {
+        match (self.base_type.as_str(), self.pointer_depth) {
+            ("gboolean", 0) => Some(BasicType::Boolean),
+            ("gchar" | "char", 0) => Some(BasicType::Char),
+            ("guchar" | "unsigned char", 0) => Some(BasicType::UChar),
+            ("gint" | "int" | "signed" | "signed int", 0) => Some(BasicType::Int),
+            ("guint" | "unsigned int" | "unsigned", 0) => Some(BasicType::UInt),
+            ("glong" | "long" | "signed long" | "long int" | "signed long int", 0) => {
+                Some(BasicType::Long)
+            }
+            ("gulong" | "unsigned long" | "unsigned long int", 0) => Some(BasicType::ULong),
+            ("gint64" | "int64_t", 0) => Some(BasicType::Int64),
+            ("guint64" | "uint64_t", 0) => Some(BasicType::UInt64),
+            ("gfloat" | "float", 0) => Some(BasicType::Float),
+            ("gdouble" | "double", 0) => Some(BasicType::Double),
+            ("gchar" | "char", 1) => Some(BasicType::String),
+            ("gpointer" | "void", 1) => Some(BasicType::Pointer),
+            // ── C types without a G_TYPE_* equivalent ───────────────────────
+            ("_Bool" | "bool", 0) => Some(BasicType::Bool),
+            ("gshort" | "short" | "signed short" | "short int" | "signed short int", 0) => {
+                Some(BasicType::Short)
+            }
+            ("gushort" | "unsigned short" | "unsigned short int", 0) => Some(BasicType::UShort),
+            ("long long" | "signed long long" | "long long int" | "signed long long int", 0) => {
+                Some(BasicType::LongLong)
+            }
+            ("unsigned long long" | "unsigned long long int", 0) => Some(BasicType::ULongLong),
+            ("long double", 0) => Some(BasicType::LongDouble),
+            ("gint8" | "int8_t" | "signed char", 0) => Some(BasicType::Int8),
+            ("guint8" | "uint8_t", 0) => Some(BasicType::UInt8),
+            ("gint16" | "int16_t", 0) => Some(BasicType::Int16),
+            ("guint16" | "uint16_t", 0) => Some(BasicType::UInt16),
+            ("gint32" | "int32_t", 0) => Some(BasicType::Int32),
+            ("guint32" | "uint32_t", 0) => Some(BasicType::UInt32),
+            ("gsize" | "size_t", 0) => Some(BasicType::Size),
+            ("gssize" | "ssize_t", 0) => Some(BasicType::SSize),
+            ("goffset", 0) => Some(BasicType::Offset),
+            ("gintptr" | "intptr_t", 0) => Some(BasicType::IntPtr),
+            ("guintptr" | "uintptr_t", 0) => Some(BasicType::UIntPtr),
+            // gconstpointer is const gpointer, maps to Pointer, is_const carries the qualifier
+            ("gconstpointer", 0) => Some(BasicType::Pointer),
+            _ => None,
+        }
     }
 }
 

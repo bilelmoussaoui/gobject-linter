@@ -26,7 +26,7 @@ pub use statement::{
 };
 pub use type_info::TypeInfo;
 pub use types::{
-    DeclareKind, DefineKind, EnumInfo, EnumValue, GObjectType, GObjectTypeKind, GType, Include,
-    InterfaceImplementation, ParamFlag, ParamSpecAssignment, Parameter, Property, PropertyType,
-    Signal, SignalFlag, VirtualFunction,
+    BasicType, DeclareKind, DefineKind, EnumInfo, EnumValue, GObjectType, GObjectTypeKind, GType,
+    Include, InterfaceImplementation, ParamFlag, ParamSpecAssignment, Parameter, Property,
+    PropertyType, Signal, SignalFlag, VirtualFunction,
 };

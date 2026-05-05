@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use super::BasicType;
 use crate::model::expression::Expression;
 
 /// A GLib GType reference — either a macro/define or a `_get_type()` call.
@@ -24,6 +25,30 @@ impl GType {
             Expression::Identifier(id) if id.name == "G_TYPE_NONE" => Some(GType::None),
             Expression::Identifier(id) => Some(GType::Identifier(id.name.clone())),
             Expression::Call(call) => Some(GType::Call(call.function_name())),
+            _ => None,
+        }
+    }
+
+    /// Returns the `BasicType` if this GType maps to a GLib primitive, `None`
+    /// for object/boxed/interface types and `_get_type()` calls.
+    pub fn as_basic(&self) -> Option<BasicType> {
+        let GType::Identifier(id) = self else {
+            return None;
+        };
+        match id.as_str() {
+            "G_TYPE_BOOLEAN" => Some(BasicType::Boolean),
+            "G_TYPE_CHAR" => Some(BasicType::Char),
+            "G_TYPE_UCHAR" => Some(BasicType::UChar),
+            "G_TYPE_INT" => Some(BasicType::Int),
+            "G_TYPE_UINT" => Some(BasicType::UInt),
+            "G_TYPE_LONG" => Some(BasicType::Long),
+            "G_TYPE_ULONG" => Some(BasicType::ULong),
+            "G_TYPE_INT64" => Some(BasicType::Int64),
+            "G_TYPE_UINT64" => Some(BasicType::UInt64),
+            "G_TYPE_FLOAT" => Some(BasicType::Float),
+            "G_TYPE_DOUBLE" => Some(BasicType::Double),
+            "G_TYPE_STRING" => Some(BasicType::String),
+            "G_TYPE_POINTER" => Some(BasicType::Pointer),
             _ => None,
         }
     }

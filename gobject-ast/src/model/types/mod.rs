@@ -1,3 +1,4 @@
+mod basic_type;
 mod enum_info;
 mod function;
 mod gobject_type;
@@ -5,6 +6,7 @@ mod gtype;
 mod include;
 mod property;
 mod signal;
+pub use basic_type::BasicType;
 pub use enum_info::{EnumInfo, EnumValue};
 pub use function::Parameter;
 pub use gobject_type::{
