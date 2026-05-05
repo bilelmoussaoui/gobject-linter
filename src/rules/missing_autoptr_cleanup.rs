@@ -72,6 +72,8 @@ impl Rule for MissingAutoptrCleanup {
                     GObjectTypeKind::Declare { .. } => {
                         // These have autoptr automatically, skip
                     }
+                    // Quarks define a function, not a type
+                    GObjectTypeKind::DefineQuark { .. } => {}
                 }
             }
         }

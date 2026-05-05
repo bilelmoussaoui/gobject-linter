@@ -158,6 +158,11 @@ pub enum GObjectTypeKind {
         copy_func: String,
         free_func: String,
     },
+    /// G_DEFINE_QUARK(quark-name, func_prefix) → generates func_prefix_quark()
+    DefineQuark {
+        quark_name: String,
+        func_prefix: String,
+    },
 }
 
 impl GObjectTypeKind {
@@ -185,6 +190,7 @@ impl GObjectTypeKind {
                 DefineKind::Pointer => "G_DEFINE_POINTER_TYPE",
             },
             Self::DefineBoxed { .. } => "G_DEFINE_BOXED_TYPE",
+            Self::DefineQuark { .. } => "G_DEFINE_QUARK",
         }
     }
 
@@ -195,7 +201,20 @@ impl GObjectTypeKind {
 
     /// Returns true if this is a G_DEFINE_* macro
     pub fn is_define(&self) -> bool {
-        matches!(self, Self::Define(_) | Self::DefineBoxed { .. })
+        matches!(
+            self,
+            Self::Define(_) | Self::DefineBoxed { .. } | Self::DefineQuark { .. }
+        )
+    }
+
+    /// For `DefineQuark`, returns the generated quark function name
+    /// (`func_prefix_quark`).
+    pub fn quark_function_name(&self) -> Option<String> {
+        if let Self::DefineQuark { func_prefix, .. } = self {
+            Some(format!("{func_prefix}_quark"))
+        } else {
+            None
+        }
     }
 
     /// Check if a declare kind is compatible with a define kind

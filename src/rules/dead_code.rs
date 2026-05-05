@@ -477,6 +477,10 @@ fn collect_gobject_implicit_refs(
             func_refs.insert(free_func.clone());
         }
 
+        if let Some(quark_fn) = gt.kind.quark_function_name() {
+            func_refs.insert(quark_fn);
+        }
+
         if gt.has_private {
             let priv_name = format!("{}Private", gt.type_name);
             type_refs.insert(priv_name.clone());

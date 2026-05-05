@@ -496,6 +496,33 @@ fn test_boxed_type() {
 }
 
 #[test]
+fn test_define_quark() {
+    let project = parse_fixture("define_quark.c");
+    let file = project.files.values().next().expect("No files parsed");
+
+    let types = extract_gobject_types(file);
+    assert_eq!(types.len(), 1);
+
+    let gobj = &types[0];
+    assert_eq!(gobj.function_prefix, "my_error");
+
+    let gobject_ast::model::types::GObjectTypeKind::DefineQuark {
+        quark_name,
+        func_prefix,
+    } = &gobj.kind
+    else {
+        panic!("Expected DefineQuark kind, got {:?}", gobj.kind);
+    };
+    assert_eq!(quark_name, "my-error");
+    assert_eq!(func_prefix, "my_error");
+
+    assert_eq!(
+        gobj.kind.quark_function_name().as_deref(),
+        Some("my_error_quark")
+    );
+}
+
+#[test]
 fn test_gtk_doc_comments() {
     let project = parse_fixture("annotations.h");
     let file = project.files.values().next().expect("No files parsed");

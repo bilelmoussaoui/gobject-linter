@@ -141,6 +141,46 @@ impl Parser {
             });
         }
 
+        // G_DEFINE_QUARK(quark-name, func_prefix) — 2 args; the first may expand
+        // into multiple identifiers (e.g. `my-error` → ["my", "error"]) so the
+        // function prefix is always the last collected identifier.
+        if macro_name == "G_DEFINE_QUARK" && !arg_values.is_empty() {
+            let func_prefix = (*arg_values.last().unwrap()).to_owned();
+
+            // Read the raw source text of the first argument from the argument_list
+            // node so we get "my-error" rather than ["my", "error"].
+            let quark_name = {
+                let mut cursor = parent.walk();
+                parent
+                    .children(&mut cursor)
+                    .find(|c| c.kind() == "argument_list")
+                    .and_then(|al| {
+                        let mut cursor = al.walk();
+                        al.children(&mut cursor).find(|c| c.is_named())
+                    })
+                    .and_then(|n| std::str::from_utf8(&source[n.byte_range()]).ok())
+                    .unwrap_or("")
+                    .to_owned()
+            };
+
+            return Some(GObjectType {
+                type_name: quark_name.clone(),
+                type_macro: String::new(),
+                function_prefix: func_prefix.clone(),
+                parent_type: None,
+                flags: None,
+                kind: GObjectTypeKind::DefineQuark {
+                    quark_name,
+                    func_prefix,
+                },
+                interfaces: Vec::new(),
+                has_private: false,
+                code_block_statements: Vec::new(),
+                export_macros: Vec::new(),
+                location: self.node_location(parent),
+            });
+        }
+
         // G_DEFINE_* needs 3 args
         if macro_name.starts_with("G_DEFINE_") && arg_values.len() >= 3 {
             let type_name = arg_values[0];
