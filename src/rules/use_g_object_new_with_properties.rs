@@ -85,37 +85,9 @@ impl UseGObjectNewWithProperties {
                 }
             }
 
-            // Recurse into nested statements
-            match &statements[i] {
-                Statement::If(if_stmt) => {
-                    self.check_statements(
-                        &if_stmt.then_body,
-                        empty_new_calls,
-                        file_path,
-                        violations,
-                    );
-                    if let Some(else_body) = &if_stmt.else_body {
-                        self.check_statements(else_body, empty_new_calls, file_path, violations);
-                    }
-                }
-                Statement::Compound(compound) => {
-                    self.check_statements(
-                        &compound.statements,
-                        empty_new_calls,
-                        file_path,
-                        violations,
-                    );
-                }
-                Statement::Labeled(labeled) => {
-                    self.check_statements(
-                        std::slice::from_ref(&labeled.statement),
-                        empty_new_calls,
-                        file_path,
-                        violations,
-                    );
-                }
-                _ => {}
-            }
+            statements[i].for_each_child_block(|body| {
+                self.check_statements(body, empty_new_calls, file_path, violations);
+            });
         }
     }
 

@@ -223,65 +223,32 @@ impl FileModel {
         is_pointer: bool,
         sentinel_name: Option<&str>,
     ) -> Vec<&super::statement::VariableDecl> {
-        let mut arrays = Vec::new();
+        use super::{Statement, expression::Expression};
 
-        for item in &self.top_level_items {
-            self.find_typed_arrays_in_item(item, base_type, is_pointer, sentinel_name, &mut arrays);
-        }
-
-        arrays
-    }
-
-    fn find_typed_arrays_in_item<'a>(
-        &self,
-        item: &'a TopLevelItem,
-        base_type: &str,
-        is_pointer: bool,
-        sentinel_name: Option<&str>,
-        arrays: &mut Vec<&'a super::statement::VariableDecl>,
-    ) {
-        use super::{
-            Statement,
-            expression::Expression,
-            top_level::{PreprocessorDirective, TopLevelItem},
-        };
-
-        match item {
-            TopLevelItem::Declaration(stmt) => {
-                if let Statement::Declaration(decl) = stmt.as_ref()
-                    && decl.type_info.is_base_type(base_type)
-                    && decl.type_info.is_pointer() == is_pointer
+        self.iter_all_items()
+            .filter_map(|item| {
+                let TopLevelItem::Declaration(stmt) = item else {
+                    return None;
+                };
+                let Statement::Declaration(decl) = stmt.as_ref() else {
+                    return None;
+                };
+                if !decl.type_info.is_base_type(base_type)
+                    || decl.type_info.is_pointer() != is_pointer
                 {
-                    let matches = match &decl.array_size {
-                        Some(Expression::Identifier(size_id)) => {
-                            sentinel_name.is_none_or(|s| size_id.name == s)
-                        }
-                        Some(Expression::Binary(_)) => {
-                            // Binary expressions like PROP_X + 1 - match if no specific sentinel
-                            // requested
-                            sentinel_name.is_none()
-                        }
-                        Some(_) => sentinel_name.is_none(),
-                        None => false,
-                    };
-                    if matches {
-                        arrays.push(decl);
+                    return None;
+                }
+                let matches = match &decl.array_size {
+                    Some(Expression::Identifier(size_id)) => {
+                        sentinel_name.is_none_or(|s| size_id.name == s)
                     }
-                }
-            }
-            TopLevelItem::Preprocessor(PreprocessorDirective::Conditional { body, .. }) => {
-                for nested_item in body {
-                    self.find_typed_arrays_in_item(
-                        nested_item,
-                        base_type,
-                        is_pointer,
-                        sentinel_name,
-                        arrays,
-                    );
-                }
-            }
-            _ => {}
-        }
+                    Some(Expression::Binary(_)) => sentinel_name.is_none(),
+                    Some(_) => sentinel_name.is_none(),
+                    None => false,
+                };
+                matches.then_some(decl.as_ref())
+            })
+            .collect()
     }
 
     /// Find the class_init function that corresponds to a property enum

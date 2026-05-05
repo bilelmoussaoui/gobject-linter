@@ -541,71 +541,35 @@ impl PropertyEnumConvention {
         last_prop_name: &str,
         fixes: &mut Vec<Fix>,
     ) -> Vec<&'a str> {
+        use gobject_ast::{Statement, top_level::TopLevelItem};
+
         let mut array_names = Vec::new();
 
-        // Walk through all top-level items looking for static GParamSpec declarations
-        for item in &file.top_level_items {
-            self.find_param_spec_arrays_in_item(
-                item,
-                n_props_name,
-                last_prop_name,
-                &mut array_names,
-                fixes,
-            );
+        for item in file.iter_all_items() {
+            let TopLevelItem::Declaration(stmt) = item else {
+                continue;
+            };
+            let Statement::Declaration(decl) = stmt.as_ref() else {
+                continue;
+            };
+            if !decl.type_info.is_base_type("GParamSpec") || !decl.type_info.is_pointer() {
+                continue;
+            }
+            let Some(Expression::Identifier(size_id)) = &decl.array_size else {
+                continue;
+            };
+            if size_id.name != n_props_name {
+                continue;
+            }
+            fixes.push(Fix::new(
+                size_id.location.start_byte,
+                size_id.location.end_byte,
+                format!("{} + 1", last_prop_name),
+            ));
+            array_names.push(decl.name.as_str());
         }
 
         array_names
-    }
-
-    fn find_param_spec_arrays_in_item<'a>(
-        &self,
-        item: &'a gobject_ast::top_level::TopLevelItem,
-        n_props_name: &str,
-        last_prop_name: &str,
-        array_names: &mut Vec<&'a str>,
-        fixes: &mut Vec<Fix>,
-    ) {
-        use gobject_ast::{
-            Statement,
-            top_level::{PreprocessorDirective, TopLevelItem},
-        };
-
-        match item {
-            TopLevelItem::Declaration(stmt) => {
-                if let Statement::Declaration(decl) = stmt.as_ref()
-                    // Check if this is a GParamSpec pointer array
-                    && decl.type_info.is_base_type("GParamSpec") && decl.type_info.is_pointer()
-                    // Check if it's an array declaration using N_PROPS
-                    && let Some(Expression::Identifier(size_id)) = &decl.array_size
-                    && size_id.name == n_props_name
-                {
-                    // Found it! This is a GParamSpec array using N_PROPS
-                    // Fix: Replace N_PROPS with LAST_PROP + 1
-                    let replacement = format!("{} + 1", last_prop_name);
-                    fixes.push(Fix::new(
-                        size_id.location.start_byte,
-                        size_id.location.end_byte,
-                        replacement,
-                    ));
-
-                    // Remember this array name
-                    array_names.push(&decl.name);
-                }
-            }
-            TopLevelItem::Preprocessor(PreprocessorDirective::Conditional { body, .. }) => {
-                // Recursively search in conditional blocks
-                for nested_item in body {
-                    self.find_param_spec_arrays_in_item(
-                        nested_item,
-                        n_props_name,
-                        last_prop_name,
-                        array_names,
-                        fixes,
-                    );
-                }
-            }
-            _ => {}
-        }
     }
 
     /// Add switch cast fix for a specific function

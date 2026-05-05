@@ -74,19 +74,19 @@ impl UseClearFunctions {
         // Check for if-statement pattern and recurse
         for stmt in statements {
             if let Statement::If(if_stmt) = stmt {
-                // Check if the if-statement itself matches the pattern
+                // check_if_statement returns true if it matched the pattern itself;
+                // only recurse into bodies when it didn't to avoid duplicate violations
                 let matched_if = self.check_if_statement(file_path, if_stmt, source, violations);
-
-                // Only recurse into if/else bodies if the if-statement didn't match
-                // (to avoid duplicate violations)
                 if !matched_if {
                     self.check_statements(file_path, &if_stmt.then_body, source, violations);
                     if let Some(else_body) = &if_stmt.else_body {
                         self.check_statements(file_path, else_body, source, violations);
                     }
                 }
-            } else if let Statement::Compound(compound) = stmt {
-                self.check_statements(file_path, &compound.statements, source, violations);
+            } else {
+                stmt.for_each_child_block(|body| {
+                    self.check_statements(file_path, body, source, violations);
+                });
             }
         }
     }

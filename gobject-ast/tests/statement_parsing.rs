@@ -140,8 +140,15 @@ fn test_parse_goto_statement() {
         .next()
         .expect("Should find a function");
 
-    // Should have a goto statement (either top-level or nested in if)
-    let has_goto = find_goto_recursive(&func.body_statements);
+    let has_goto = func.body_statements.iter().any(|s| {
+        let mut found = false;
+        s.walk(&mut |stmt| {
+            if matches!(stmt, Statement::Goto(_)) {
+                found = true;
+            }
+        });
+        found
+    });
 
     assert!(has_goto, "Should find goto statement");
 }
@@ -211,29 +218,6 @@ fn test_anonymous_union_field_types_collected() {
         ],
         "anonymous union inner fields mismatch"
     );
-}
-
-fn find_goto_recursive(statements: &[Statement]) -> bool {
-    for stmt in statements {
-        match stmt {
-            Statement::Goto(_) => return true,
-            Statement::If(if_stmt) => {
-                if find_goto_recursive(&if_stmt.then_body) {
-                    return true;
-                }
-                if let Some(else_body) = &if_stmt.else_body
-                    && find_goto_recursive(else_body)
-                {
-                    return true;
-                }
-            }
-            Statement::Compound(compound) if find_goto_recursive(&compound.statements) => {
-                return true;
-            }
-            _ => {}
-        }
-    }
-    false
 }
 
 #[test]

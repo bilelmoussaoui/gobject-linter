@@ -48,25 +48,19 @@ impl UseGClearHandleId {
 
         // Recurse into nested statements
         for stmt in statements {
-            match stmt {
-                Statement::If(if_stmt) => {
-                    // Check if we can simplify/remove the if itself
-                    // Returns true if it handled the then_body (found violations)
-                    let handled = self.check_if_statement(file_path, if_stmt, source, violations);
-
-                    // Only recurse into then_body if check_if_statement didn't handle it
-                    if !handled {
-                        self.check_statements(file_path, &if_stmt.then_body, source, violations);
-                    }
-
-                    if let Some(else_body) = &if_stmt.else_body {
-                        self.check_statements(file_path, else_body, source, violations);
-                    }
+            if let Statement::If(if_stmt) = stmt {
+                // check_if_statement returns true if it handled then_body itself
+                let handled = self.check_if_statement(file_path, if_stmt, source, violations);
+                if !handled {
+                    self.check_statements(file_path, &if_stmt.then_body, source, violations);
                 }
-                Statement::Compound(compound) => {
-                    self.check_statements(file_path, &compound.statements, source, violations);
+                if let Some(else_body) = &if_stmt.else_body {
+                    self.check_statements(file_path, else_body, source, violations);
                 }
-                _ => {}
+            } else {
+                stmt.for_each_child_block(|body| {
+                    self.check_statements(file_path, body, source, violations);
+                });
             }
         }
     }

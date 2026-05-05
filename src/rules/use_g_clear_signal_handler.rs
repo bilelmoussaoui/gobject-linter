@@ -73,27 +73,9 @@ impl UseGClearSignalHandler {
                 continue;
             }
 
-            // Recursively check nested statements
-            match &statements[i] {
-                Statement::If(if_stmt) => {
-                    self.check_statements(&if_stmt.then_body, file, file_path, violations);
-                    if let Some(else_body) = &if_stmt.else_body {
-                        self.check_statements(else_body, file, file_path, violations);
-                    }
-                }
-                Statement::Compound(compound) => {
-                    self.check_statements(&compound.statements, file, file_path, violations);
-                }
-                Statement::Labeled(labeled) => {
-                    self.check_statements(
-                        std::slice::from_ref(&labeled.statement),
-                        file,
-                        file_path,
-                        violations,
-                    );
-                }
-                _ => {}
-            }
+            statements[i].for_each_child_block(|body| {
+                self.check_statements(body, file, file_path, violations);
+            });
 
             i += 1;
         }

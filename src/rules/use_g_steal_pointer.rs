@@ -88,26 +88,9 @@ impl UseGStealPointer {
                 i += 2;
                 continue;
             }
-            match &statements[i] {
-                Statement::Compound(compound) => {
-                    self.check_statements(&compound.statements, file_path, file, violations);
-                }
-                Statement::If(if_stmt) => {
-                    self.check_statements(&if_stmt.then_body, file_path, file, violations);
-                    if let Some(else_body) = &if_stmt.else_body {
-                        self.check_statements(else_body, file_path, file, violations);
-                    }
-                }
-                Statement::Labeled(labeled) => {
-                    self.check_statements(
-                        std::slice::from_ref(&labeled.statement),
-                        file_path,
-                        file,
-                        violations,
-                    );
-                }
-                _ => {}
-            }
+            statements[i].for_each_child_block(|body| {
+                self.check_statements(body, file_path, file, violations);
+            });
             i += 1;
         }
     }

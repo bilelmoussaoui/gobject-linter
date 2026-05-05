@@ -96,7 +96,49 @@ impl Statement {
                     stmt.walk(f);
                 }
             }
-            _ => {}
+            Statement::Declaration(_)
+            | Statement::Expression(_)
+            | Statement::Return(_)
+            | Statement::Goto(_)
+            | Statement::Break(_)
+            | Statement::Continue(_)
+            | Statement::Preprocessor(_) => {}
+        }
+    }
+
+    /// Call `f` with each immediate child block (a `&[Statement]` slice) of
+    /// this statement. Covers all container variants exhaustively; leaf
+    /// variants produce no calls. Use this instead of a manual `match` when
+    /// you need to apply a slice-level operation (e.g. pair detection) to
+    /// every nested body.
+    pub fn for_each_child_block<F>(&self, mut f: F)
+    where
+        F: FnMut(&[Statement]),
+    {
+        match self {
+            Statement::If(if_stmt) => {
+                f(&if_stmt.then_body);
+                if let Some(else_body) = &if_stmt.else_body {
+                    f(else_body);
+                }
+            }
+            Statement::Compound(c) => f(&c.statements),
+            Statement::Labeled(l) => f(std::slice::from_ref(&l.statement)),
+            Statement::For(for_stmt) => f(&for_stmt.body),
+            Statement::While(w) => f(&w.body),
+            Statement::DoWhile(d) => f(&d.body),
+            Statement::Switch(sw) => {
+                for case in &sw.cases {
+                    f(&case.body);
+                }
+            }
+            Statement::Declaration(_)
+            | Statement::Expression(_)
+            | Statement::Return(_)
+            | Statement::Goto(_)
+            | Statement::Break(_)
+            | Statement::Continue(_)
+            | Statement::Preprocessor(_) => {}
         }
     }
 
@@ -359,7 +401,13 @@ impl Statement {
                         Self::walk_pairs(&case.body, f);
                     }
                 }
-                _ => {}
+                Statement::Declaration(_)
+                | Statement::Expression(_)
+                | Statement::Return(_)
+                | Statement::Goto(_)
+                | Statement::Break(_)
+                | Statement::Continue(_)
+                | Statement::Preprocessor(_) => {}
             }
         }
     }
@@ -391,7 +439,13 @@ impl Statement {
                         Self::walk_triples(&case.body, f);
                     }
                 }
-                _ => {}
+                Statement::Declaration(_)
+                | Statement::Expression(_)
+                | Statement::Return(_)
+                | Statement::Goto(_)
+                | Statement::Break(_)
+                | Statement::Continue(_)
+                | Statement::Preprocessor(_) => {}
             }
         }
     }
