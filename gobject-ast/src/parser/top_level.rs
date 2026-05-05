@@ -963,8 +963,16 @@ impl Parser {
 
         let mut cursor = params_node.walk();
         for child in params_node.children(&mut cursor) {
-            // Check node kind before processing
-            if !child.is_named() || child.kind() != "parameter_declaration" {
+            if !child.is_named() {
+                continue;
+            }
+
+            if child.kind() == "variadic_parameter" {
+                parameters.push(Parameter::Variadic);
+                continue;
+            }
+
+            if child.kind() != "parameter_declaration" {
                 continue;
             }
 
@@ -998,7 +1006,7 @@ impl Parser {
                 .unwrap_or_default();
             let type_info = TypeInfo::new(full_text, param_location);
 
-            parameters.push(Parameter {
+            parameters.push(Parameter::Regular {
                 name: name.map(ToOwned::to_owned),
                 type_info,
                 location: self.node_location(child),

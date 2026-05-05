@@ -442,9 +442,9 @@ impl FunctionDefItem {
 
     /// Get a parameter by name
     pub fn get_param_by_name(&self, name: &str) -> Option<&super::types::Parameter> {
-        self.parameters
-            .iter()
-            .find(|p| p.name.as_ref().map(|n| n == name).unwrap_or(false))
+        self.parameters.iter().find(
+            |p| matches!(p, super::types::Parameter::Regular { name: Some(n), .. } if n == name),
+        )
     }
 
     /// Find all param_spec assignments in the function body

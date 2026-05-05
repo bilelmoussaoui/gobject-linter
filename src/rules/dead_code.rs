@@ -154,8 +154,13 @@ impl AliasMaps {
         use gobject_ast::model::statement::Statement;
         let mut map: HashMap<String, String> = HashMap::new();
         for param in &func.parameters {
-            if let Some(name) = &param.name {
-                let base = &param.type_info.base_type;
+            if let gobject_ast::model::types::Parameter::Regular {
+                name: Some(name),
+                type_info,
+                ..
+            } = param
+            {
+                let base = &type_info.base_type;
                 if !base.is_empty() {
                     map.insert(name.clone(), self.canonical(base).to_owned());
                 }
@@ -197,7 +202,9 @@ impl AliasMaps {
             for func in file.iter_function_definitions() {
                 collect_type_ref(&func.return_type, &mut type_refs);
                 for param in &func.parameters {
-                    collect_type_ref(&param.type_info, &mut type_refs);
+                    if let gobject_ast::model::types::Parameter::Regular { type_info, .. } = param {
+                        collect_type_ref(type_info, &mut type_refs);
+                    }
                 }
                 for stmt in &func.body_statements {
                     collect_func_refs_from_stmt(stmt, &mut func_refs);
@@ -208,7 +215,9 @@ impl AliasMaps {
             for func in file.iter_function_declarations() {
                 collect_type_ref(&func.return_type, &mut type_refs);
                 for param in &func.parameters {
-                    collect_type_ref(&param.type_info, &mut type_refs);
+                    if let gobject_ast::model::types::Parameter::Regular { type_info, .. } = param {
+                        collect_type_ref(type_info, &mut type_refs);
+                    }
                 }
             }
 

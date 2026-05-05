@@ -372,8 +372,14 @@ fn test_callback_typedef_parsing() {
     assert_eq!(return_type.base_type, "void");
     assert_eq!(return_type.pointer_depth, 0);
     assert_eq!(parameters.len(), 2);
-    assert_eq!(parameters[0].type_info.base_type, "MyObject");
-    assert_eq!(parameters[1].type_info.base_type, "gpointer");
+    let gobject_ast::model::types::Parameter::Regular { type_info: p0, .. } = &parameters[0] else {
+        panic!("expected Regular")
+    };
+    let gobject_ast::model::types::Parameter::Regular { type_info: p1, .. } = &parameters[1] else {
+        panic!("expected Regular")
+    };
+    assert_eq!(p0.base_type, "MyObject");
+    assert_eq!(p1.base_type, "gpointer");
 
     // `typedef gboolean (*MyPredicate)(const gchar *name, guint index)`
     let pred = typedefs
@@ -412,5 +418,48 @@ fn test_callback_typedef_parsing() {
     assert_eq!(return_type.pointer_depth, 1);
     assert!(return_type.is_const);
     assert_eq!(parameters.len(), 1);
-    assert_eq!(parameters[0].type_info.base_type, "MyObject");
+    let gobject_ast::model::types::Parameter::Regular { type_info: p0, .. } = &parameters[0] else {
+        panic!("expected Regular")
+    };
+    assert_eq!(p0.base_type, "MyObject");
+}
+
+#[test]
+fn test_variadic_parameter_parsing() {
+    use gobject_ast::model::types::Parameter;
+
+    let project = parse_fixture("variadic_func.h");
+    let file = project.files.values().next().expect("No files parsed");
+
+    let decls: Vec<_> = file.iter_function_declarations().collect();
+    assert_eq!(decls.len(), 3);
+
+    // foo(int n, ...) — 2 params: Regular + Variadic
+    let foo = decls
+        .iter()
+        .find(|d| d.name == "foo")
+        .expect("foo not found");
+    assert_eq!(foo.parameters.len(), 2);
+    assert!(matches!(foo.parameters[0], Parameter::Regular { .. }));
+    assert!(matches!(foo.parameters[1], Parameter::Variadic));
+
+    // bar(const gchar *format, ...) — 2 params: Regular + Variadic
+    let bar = decls
+        .iter()
+        .find(|d| d.name == "bar")
+        .expect("bar not found");
+    assert_eq!(bar.parameters.len(), 2);
+    assert!(matches!(bar.parameters[0], Parameter::Regular { .. }));
+    assert!(matches!(bar.parameters[1], Parameter::Variadic));
+
+    // baz(void) — not variadic
+    let baz = decls
+        .iter()
+        .find(|d| d.name == "baz")
+        .expect("baz not found");
+    assert!(
+        baz.parameters
+            .iter()
+            .all(|p| !matches!(p, Parameter::Variadic))
+    );
 }

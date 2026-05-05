@@ -223,9 +223,13 @@ impl UseGObjectNotifyByPspec {
         let obj_identifier = self.extract_identifier(&obj_str);
 
         // Find which function parameter matches this identifier
-        let param_type = func
-            .get_param_by_name(&obj_identifier)
-            .map(|p| &p.type_info.base_type)?;
+        let param_type = func.get_param_by_name(&obj_identifier).and_then(|p| {
+            if let gobject_ast::model::types::Parameter::Regular { type_info, .. } = p {
+                Some(&type_info.base_type)
+            } else {
+                None
+            }
+        })?;
 
         // Extract class prefix from type (e.g., "FooObject" -> "foo")
         let type_prefix = self.extract_type_prefix(param_type);

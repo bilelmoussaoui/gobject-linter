@@ -648,7 +648,13 @@ impl PropertyEnumConvention {
         let (func, assignments) = file.find_class_init_for_property_enum(enum_info)?;
 
         // Extract class type from parameter
-        let class_type_info = func.parameters.first().map(|p| p.type_info.clone())?;
+        let class_type_info = func.parameters.first().and_then(|p| {
+            if let gobject_ast::model::types::Parameter::Regular { type_info, .. } = p {
+                Some(type_info.clone())
+            } else {
+                None
+            }
+        })?;
 
         // Extract get_property and set_property function names from assignments
         let mut get_property_func = None;

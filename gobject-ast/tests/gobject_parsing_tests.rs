@@ -215,10 +215,26 @@ fn test_vfunc_parameters_and_return_types() {
 
     // Check parameters
     assert_eq!(do_something.parameters.len(), 2);
-    assert_eq!(do_something.parameters[0].type_info.full_text, "MyObject*");
-    assert_eq!(do_something.parameters[0].name, Some("self".to_string()));
-    assert_eq!(do_something.parameters[1].type_info.full_text, "int");
-    assert_eq!(do_something.parameters[1].name, Some("value".to_string()));
+    let gobject_ast::model::types::Parameter::Regular {
+        type_info: ds_p0,
+        name: ds_n0,
+        ..
+    } = &do_something.parameters[0]
+    else {
+        panic!("expected Regular")
+    };
+    let gobject_ast::model::types::Parameter::Regular {
+        type_info: ds_p1,
+        name: ds_n1,
+        ..
+    } = &do_something.parameters[1]
+    else {
+        panic!("expected Regular")
+    };
+    assert_eq!(ds_p0.full_text, "MyObject*");
+    assert_eq!(ds_n0.as_deref(), Some("self"));
+    assert_eq!(ds_p1.full_text, "int");
+    assert_eq!(ds_n1.as_deref(), Some("value"));
 
     // Find the get_value vfunc
     let get_value = vfuncs
@@ -231,7 +247,13 @@ fn test_vfunc_parameters_and_return_types() {
 
     // Check parameters
     assert_eq!(get_value.parameters.len(), 1);
-    assert_eq!(get_value.parameters[0].type_info.full_text, "MyObject*");
+    let gobject_ast::model::types::Parameter::Regular {
+        type_info: gv_p0, ..
+    } = &get_value.parameters[0]
+    else {
+        panic!("expected Regular")
+    };
+    assert_eq!(gv_p0.full_text, "MyObject*");
 }
 
 #[test]

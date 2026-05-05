@@ -151,10 +151,15 @@ impl Rule for InconsistentFunctionSignature {
 impl InconsistentFunctionSignature {
     /// `(void)` and `()` both mean "no parameters" in C.
     fn effective_params<'a>(&self, params: &'a [Parameter]) -> &'a [Parameter] {
-        if params.len() == 1
-            && params[0].type_info.base_type == "void"
-            && params[0].type_info.pointer_depth == 0
-            && params[0].name.is_none()
+        if let [
+            Parameter::Regular {
+                name: None,
+                type_info,
+                ..
+            },
+        ] = params
+            && type_info.base_type == "void"
+            && type_info.pointer_depth == 0
         {
             return &[];
         }
@@ -165,9 +170,14 @@ impl InconsistentFunctionSignature {
         let a = self.effective_params(a);
         let b = self.effective_params(b);
         a.len() == b.len()
-            && a.iter()
-                .zip(b.iter())
-                .all(|(pa, pb)| pa.type_info.matches(&pb.type_info))
+            && a.iter().zip(b.iter()).all(|(pa, pb)| match (pa, pb) {
+                (
+                    Parameter::Regular { type_info: ta, .. },
+                    Parameter::Regular { type_info: tb, .. },
+                ) => ta.matches(tb),
+                (Parameter::Variadic, Parameter::Variadic) => true,
+                _ => false,
+            })
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -214,22 +224,45 @@ impl InconsistentFunctionSignature {
         }
 
         for (i, (dp, fp)) in decl_params.iter().zip(def_params.iter()).enumerate() {
-            if !dp.type_info.matches(&fp.type_info) {
-                let param_id = dp
-                    .name
-                    .as_deref()
-                    .or(fp.name.as_deref())
-                    .map(|n| format!("'{n}'"))
-                    .unwrap_or_else(|| format!("{}", i + 1));
-                violations.push(self.violation(
-                    path,
-                    line,
-                    column,
-                    format!(
-                        "'{}' parameter {} declared as '{}' but defined as '{}'",
-                        name, param_id, dp.type_info.full_text, fp.type_info.full_text,
-                    ),
-                ));
+            match (dp, fp) {
+                (Parameter::Variadic, Parameter::Variadic) => {}
+                (
+                    Parameter::Regular {
+                        type_info: dt,
+                        name: dn,
+                        ..
+                    },
+                    Parameter::Regular {
+                        type_info: ft,
+                        name: fn_,
+                        ..
+                    },
+                ) => {
+                    if !dt.matches(ft) {
+                        let param_id = dn
+                            .as_deref()
+                            .or(fn_.as_deref())
+                            .map(|n| format!("'{n}'"))
+                            .unwrap_or_else(|| format!("{}", i + 1));
+                        violations.push(self.violation(
+                            path,
+                            line,
+                            column,
+                            format!(
+                                "'{}' parameter {} declared as '{}' but defined as '{}'",
+                                name, param_id, dt.full_text, ft.full_text,
+                            ),
+                        ));
+                    }
+                }
+                _ => {
+                    violations.push(self.violation(
+                        path,
+                        line,
+                        column,
+                        format!("'{}' parameter {} variadic mismatch between declaration and definition", name, i + 1),
+                    ));
+                }
             }
         }
     }

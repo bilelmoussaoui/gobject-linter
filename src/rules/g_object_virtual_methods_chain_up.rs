@@ -44,16 +44,22 @@ impl Rule for GObjectVirtualMethodsChainUp {
             return;
         }
 
-        let first_param = &func.parameters[0];
+        let Some(gobject_ast::model::types::Parameter::Regular {
+            type_info: first_type,
+            ..
+        }) = func.parameters.first()
+        else {
+            return;
+        };
 
         // Must be a pointer type
-        if !first_param.type_info.is_pointer() {
+        if !first_type.is_pointer() {
             return;
         }
 
         // Must be GObject or a type ending in "Object"
         // This matches: GObject*, MyObject*, FooBarObject*, etc.
-        if !first_param.type_info.is_base_type("GObject") {
+        if !first_type.is_base_type("GObject") {
             return;
         }
 
