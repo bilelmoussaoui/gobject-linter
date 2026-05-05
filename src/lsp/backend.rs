@@ -49,11 +49,11 @@ impl GObjectBackend {
         let mut current = file_path;
         let mut root = None;
         while let Some(parent) = current.parent() {
-            let config_path = parent
-                .join("gobject-linter.toml")
-                .exists()
-                .then(|| parent.join("gobject-linter.toml"))
-                .unwrap_or_else(|| parent.join("goblint.toml"));
+            let config_path = if parent.join("gobject-linter.toml").exists() {
+                parent.join("gobject-linter.toml")
+            } else {
+                parent.join("goblint.toml")
+            };
             if config_path.exists() {
                 root = Some(parent.to_path_buf());
                 break;
