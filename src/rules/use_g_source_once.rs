@@ -1,4 +1,4 @@
-use gobject_ast::{Expression, Statement};
+use gobject_ast::{Expression, Statement, model::types::BasicType};
 
 use super::{Fix, Rule};
 use crate::{ast_context::AstContext, config::Config, rules::Violation};
@@ -220,7 +220,7 @@ impl UseGSourceOnce {
         _ast_context: &AstContext,
     ) -> Option<Fix> {
         // Check if return type is gboolean
-        if func.return_type.base_type != "gboolean" {
+        if func.return_type.as_basic() != Some(BasicType::Boolean) {
             return None;
         }
 
@@ -239,7 +239,7 @@ impl UseGSourceOnce {
         _ast_context: &AstContext,
     ) -> Option<Fix> {
         // Check if return type is gboolean
-        if func.return_type.base_type != "gboolean" {
+        if func.return_type.as_basic() != Some(BasicType::Boolean) {
             return None;
         }
 
