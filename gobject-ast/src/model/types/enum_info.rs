@@ -27,10 +27,31 @@ impl EnumInfo {
     }
 
     /// Check if this appears to be a flags enum (bit flags pattern)
-    /// based on bit shift operations or power-of-two values
+    /// based on bit shift operations or power-of-two values.
     pub fn is_flags_enum(&self) -> bool {
         if self.values.is_empty() {
             return false;
+        }
+
+        // Collect all explicitly-assigned numeric values.
+        let explicit_values: Vec<i64> = self
+            .values
+            .iter()
+            .filter(|v| v.value.is_some())
+            .filter_map(|v| v.value)
+            .collect();
+
+        // If the values with explicit assignments form a consecutive integer
+        // sequence (0,1,2,… or 1,2,3,…) they are almost certainly a plain
+        // enumeration, not bit flags.  Reject early to avoid false positives
+        // on e.g. { FORBID=0, ALLOW=1, IGNORE=2 }.
+        if explicit_values.len() >= 2 {
+            let mut sorted = explicit_values.clone();
+            sorted.sort_unstable();
+            let is_consecutive = sorted.windows(2).all(|w| w[1] == w[0] + 1);
+            if is_consecutive {
+                return false;
+            }
         }
 
         let mut flag_like_count = 0;
