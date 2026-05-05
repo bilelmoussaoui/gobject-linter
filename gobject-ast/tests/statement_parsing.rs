@@ -267,6 +267,52 @@ fn test_statement_order() {
 }
 
 #[test]
+fn test_bitfield_struct_parsing() {
+    let project = parse_fixture("bitfield_struct.h");
+
+    let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("bitfield_struct.h");
+
+    let file = project
+        .get_file(&fixture_path)
+        .expect("File should be parsed");
+
+    let typedef = file
+        .iter_all_items()
+        .find_map(|item| match item {
+            gobject_ast::model::top_level::TopLevelItem::TypeDefinition(
+                td @ TypeDefItem::Typedef { name, .. },
+            ) if name == "MyBitStruct" => Some(td),
+            _ => None,
+        })
+        .expect("MyBitStruct typedef not found");
+
+    let TypeDefItem::Typedef { struct_fields, .. } = typedef else {
+        panic!("expected Typedef");
+    };
+
+    assert_eq!(struct_fields.len(), 4, "expected 4 fields");
+
+    let flags = &struct_fields[0];
+    assert_eq!(flags.field_name.as_deref(), Some("flags"));
+    assert_eq!(flags.bit_width, Some(1));
+
+    let count = &struct_fields[1];
+    assert_eq!(count.field_name.as_deref(), Some("count"));
+    assert_eq!(count.bit_width, Some(4));
+
+    let padding = &struct_fields[2];
+    assert_eq!(padding.field_name.as_deref(), Some("padding"));
+    assert_eq!(padding.bit_width, Some(27));
+
+    let normal = &struct_fields[3];
+    assert_eq!(normal.field_name.as_deref(), Some("normal_field"));
+    assert_eq!(normal.bit_width, None);
+}
+
+#[test]
 fn test_callback_typedef_parsing() {
     let project = parse_fixture("typedef_callback.h");
 

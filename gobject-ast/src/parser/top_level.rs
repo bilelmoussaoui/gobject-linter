@@ -614,13 +614,14 @@ impl Parser {
                             ),
                             field_name,
                             location: self.node_location(child),
+                            bit_width: None,
                             inner_fields,
                         });
                         continue;
                     }
 
                     let type_text: Option<String> = match type_node.kind() {
-                        "type_identifier" | "primitive_type" => {
+                        "type_identifier" | "primitive_type" | "sized_type_specifier" => {
                             std::str::from_utf8(&source[type_node.byte_range()])
                                 .ok()
                                 .map(|s| s.trim().to_owned())
@@ -647,10 +648,21 @@ impl Parser {
                         .and_then(|d| self.extract_field_declarator_name(d, source))
                         .map(|s| s.to_owned());
 
+                    let bit_width = {
+                        let mut cursor = child.walk();
+                        child
+                            .children(&mut cursor)
+                            .find(|c| c.kind() == "bitfield_clause")
+                            .and_then(|bc| bc.named_child(0))
+                            .and_then(|w| std::str::from_utf8(&source[w.byte_range()]).ok())
+                            .and_then(|s| s.trim().parse::<u32>().ok())
+                    };
+
                     fields.push(StructField {
                         field_type,
                         field_name,
                         location: self.node_location(child),
+                        bit_width,
                         inner_fields: vec![],
                     });
                 }

@@ -126,6 +126,9 @@ pub struct StructField {
     /// Field name, if present (anonymous bitfields have none)
     pub field_name: Option<String>,
     pub location: super::SourceLocation,
+    /// Bit-width for bitfield members (`unsigned flags : 1` → `Some(1)`).
+    #[serde(default)]
+    pub bit_width: Option<u32>,
     /// Non-empty for anonymous struct/union fields: the members of the
     /// embedded aggregate (e.g. `union { A a; B b; } d` → inner_fields = [a,
     /// b]).
