@@ -62,6 +62,8 @@ pub struct TypeInfo {
     /// Base type without qualifiers or pointers: `"GFile"`, `"int"`.
     pub base_type: String,
     pub is_const: bool,
+    #[serde(default)]
+    pub is_volatile: bool,
     /// True when spelled with the `struct` keyword (`struct Foo *`).
     #[serde(default)]
     pub is_struct: bool,
@@ -86,12 +88,17 @@ impl TypeInfo {
         let mut is_const = false;
 
         let macro_name = auto_cleanup.as_ref().map(|a| a.name());
+        let mut is_volatile = false;
 
         for part in &parts {
             match *part {
                 "static" | "extern" | "inline" => {}
                 "const" => {
                     is_const = true;
+                    filtered_parts.push(part);
+                }
+                "volatile" => {
+                    is_volatile = true;
                     filtered_parts.push(part);
                 }
                 // Drop the macro token(s): bare name ("g_autoptr"), compact
@@ -107,15 +114,16 @@ impl TypeInfo {
 
         let cleaned = filtered_parts.join(" ");
 
-        let without_const = if is_const {
-            cleaned.strip_prefix("const ").unwrap_or(&cleaned).trim()
-        } else {
-            &cleaned
-        };
+        // Strip const/volatile in any order to reach the base type.
+        let without_qualifiers: String = cleaned
+            .split_whitespace()
+            .filter(|&w| w != "const" && w != "volatile")
+            .collect::<Vec<_>>()
+            .join(" ");
 
-        let pointer_depth = without_const.chars().filter(|&c| c == '*').count();
+        let pointer_depth = without_qualifiers.chars().filter(|&c| c == '*').count();
 
-        let raw_base = without_const.replace('*', "").trim().to_string();
+        let raw_base = without_qualifiers.replace('*', "").trim().to_string();
         let (base_type, is_struct, is_union) = if let Some(ref auto) = auto_cleanup {
             if let Some(type_arg) = auto.type_arg() {
                 (type_arg.to_owned(), false, false)
@@ -129,6 +137,7 @@ impl TypeInfo {
         Self {
             base_type,
             is_const,
+            is_volatile,
             is_struct,
             is_union,
             pointer_depth,

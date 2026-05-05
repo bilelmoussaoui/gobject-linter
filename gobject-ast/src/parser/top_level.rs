@@ -8,35 +8,28 @@ impl Parser {
     pub(super) fn extract_return_type(&self, node: Node, source: &[u8]) -> TypeInfo {
         let mut cursor = node.walk();
         let mut type_node = None;
-        let mut is_const = false;
+        let mut qualifiers: Vec<&str> = Vec::new();
 
         // Find the type node by walking children
         // Now that grammar is fixed, macro_modifier will be a separate node we can skip
         for child in node.children(&mut cursor) {
             match child.kind() {
-                "type_identifier"
-                    if type_node.is_none() => {
-                        type_node = Some(child);
-                    }
+                "type_identifier" if type_node.is_none() => {
+                    type_node = Some(child);
+                }
                 "primitive_type" | "sized_type_specifier" | "struct_specifier"
-                    // Found the type
-                    if type_node.is_none() => {
-                        type_node = Some(child);
-                    }
+                    if type_node.is_none() =>
+                {
+                    type_node = Some(child);
+                }
                 "type_qualifier" => {
-                    // Check if it's const
                     let text = std::str::from_utf8(&source[child.byte_range()]).unwrap_or("");
-                    if text == "const" {
-                        is_const = true;
+                    if matches!(text, "const" | "volatile") {
+                        qualifiers.push(text);
                     }
                 }
-                "macro_modifier" => {
-                    // Skip macro modifiers - handled by grammar now
-                }
-                "pointer_declarator" | "function_declarator" => {
-                    // Stop when we hit the declarator
-                    break;
-                }
+                "macro_modifier" => {}
+                "pointer_declarator" | "function_declarator" => break,
                 _ => {}
             }
         }
@@ -46,14 +39,13 @@ impl Parser {
             let text = std::str::from_utf8(&source[type_n.byte_range()]).unwrap_or("void");
             (text.to_string(), type_n.start_byte(), type_n.end_byte())
         } else {
-            // No type found, default to void
             (String::from("void"), node.start_byte(), node.start_byte())
         };
 
-        let full_text = if is_const {
-            format!("const {}", full_type_text)
+        let full_text = if qualifiers.is_empty() {
+            full_type_text
         } else {
-            full_type_text.clone()
+            format!("{} {}", qualifiers.join(" "), full_type_text)
         };
 
         let location = SourceLocation::new(
@@ -327,9 +319,9 @@ impl Parser {
                     if let Some(name) = self.extract_declarator_name(func_decl, source) {
                         tracing::debug!("Found function declarator with name: {}", name);
 
-                        // Check for static storage class
                         let decl_text = std::str::from_utf8(&source[node.byte_range()]).ok()?;
                         let is_static = decl_text.contains("static");
+                        let is_inline = decl_text.contains("inline");
 
                         // Extract export macros from first line
                         let export_macros = self.find_export_macros_in_declaration(node, source);
@@ -360,6 +352,7 @@ impl Parser {
                             name: name.to_owned(),
                             return_type,
                             is_static,
+                            is_inline,
                             parameters,
                             export_macros: export_macros
                                 .into_iter()
@@ -417,7 +410,8 @@ impl Parser {
                 None
             }
             "function_definition" => {
-                let (name, is_static) = self.extract_function_from_definition(node, source)?;
+                let (name, is_static, is_inline) =
+                    self.extract_function_from_definition(node, source)?;
 
                 // Extract parameters - find parameter_list in declarator
                 let parameters = if let Some(declarator) = node.child_by_field_name("declarator") {
@@ -457,6 +451,7 @@ impl Parser {
                     name: name.to_owned(),
                     return_type,
                     is_static,
+                    is_inline,
                     parameters,
                     body_statements,
                     location: self.node_location(node),

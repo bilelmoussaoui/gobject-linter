@@ -6,6 +6,7 @@ use crate::model::{Expression, SourceLocation, TypeInfo};
 pub struct VariableDecl {
     pub type_info: TypeInfo,
     pub name: String,
+    pub is_static: bool,
     /// Location of the variable name in the source
     pub name_location: SourceLocation,
     pub initializer: Option<Expression>,

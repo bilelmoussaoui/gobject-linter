@@ -203,15 +203,15 @@ impl Parser {
         &self,
         node: Node,
         source: &'a [u8],
-    ) -> Option<(&'a str, bool)> {
-        // Check if function definition contains "static"
+    ) -> Option<(&'a str, bool, bool)> {
         let func_text = std::str::from_utf8(&source[node.byte_range()]).ok()?;
         let is_static = func_text.starts_with("static") || func_text.contains("\nstatic ");
+        let is_inline = func_text.contains("inline ");
 
         let declarator = node.child_by_field_name("declarator")?;
         let name = self.extract_declarator_name(declarator, source)?;
 
-        Some((name, is_static))
+        Some((name, is_static, is_inline))
     }
 
     pub(super) fn find_function_declarator<'a>(&self, node: Node<'a>) -> Option<Node<'a>> {

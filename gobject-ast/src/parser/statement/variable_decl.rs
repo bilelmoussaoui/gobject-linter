@@ -12,6 +12,7 @@ impl Parser {
         let mut declarator = None;
         let mut first_type_node: Option<Node> = None;
         let mut last_type_node: Option<Node> = None;
+        let mut is_static = false;
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
@@ -24,8 +25,18 @@ impl Parser {
                     }
                     last_type_node = Some(child);
                 }
-                "storage_class_specifier"
-                | "type_specifier"
+                "storage_class_specifier" => {
+                    let text = std::str::from_utf8(&source[child.byte_range()]).ok()?;
+                    if text == "static" {
+                        is_static = true;
+                    }
+                    type_parts.push(text);
+                    if first_type_node.is_none() {
+                        first_type_node = Some(child);
+                    }
+                    last_type_node = Some(child);
+                }
+                "type_specifier"
                 | "type_identifier"
                 | "primitive_type"
                 | "sized_type_specifier"
@@ -142,6 +153,7 @@ impl Parser {
         Some(VariableDecl {
             type_info,
             name: var_name?.to_owned(),
+            is_static,
             name_location: var_name_location,
             initializer,
             array_size,
