@@ -1,3 +1,5 @@
+use std::ffi::{c_long, c_ulong};
+
 use serde::{Deserialize, Serialize};
 
 use crate::model::{
@@ -90,20 +92,91 @@ pub struct Property {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PropertyType {
     String,
-    Int { min: i64, max: i64, default: i64 },
-    UInt { min: u64, max: u64, default: u64 },
-    Boolean { default: bool },
-    Float { min: f64, max: f64, default: f64 },
-    Double { min: f64, max: f64, default: f64 },
-    Enum { enum_type: String, default: i64 },
-    Flags { flags_type: String, default: u64 },
-    Object { object_type: String },
-    Boxed { boxed_type: String },
+    Int {
+        min: i32,
+        max: i32,
+        default: i32,
+    },
+    UInt {
+        min: u32,
+        max: u32,
+        default: u32,
+    },
+    Int64 {
+        min: i64,
+        max: i64,
+        default: i64,
+    },
+    UInt64 {
+        min: u64,
+        max: u64,
+        default: u64,
+    },
+    Long {
+        min: c_long,
+        max: c_long,
+        default: c_long,
+    },
+    ULong {
+        min: c_ulong,
+        max: c_ulong,
+        default: c_ulong,
+    },
+    Char {
+        min: i8,
+        max: i8,
+        default: i8,
+    },
+    UChar {
+        min: u8,
+        max: u8,
+        default: u8,
+    },
+    Unichar {
+        default: u32,
+    },
+    Param {
+        param_type: String,
+    },
+    Boolean {
+        default: bool,
+    },
+    Float {
+        min: f32,
+        max: f32,
+        default: f32,
+    },
+    Double {
+        min: f64,
+        max: f64,
+        default: f64,
+    },
+    Enum {
+        enum_type: String,
+        default: i32,
+    },
+    Flags {
+        flags_type: String,
+        default: u32,
+    },
+    Object {
+        object_type: String,
+    },
+    Boxed {
+        boxed_type: String,
+    },
     Pointer,
-    GType { is_a_type: String },
-    Variant,
+    GType {
+        is_a_type: String,
+    },
+    Variant {
+        variant_type: Option<String>,
+        default_value: Option<Expression>,
+    },
     Override,
-    Unknown { spec_function: String },
+    Unknown {
+        spec_function: String,
+    },
 }
 
 impl Property {
@@ -142,17 +215,17 @@ impl Property {
             "g_param_spec_int" => {
                 // (name, nick, blurb, min, max, default, flags)
                 let min = if args.len() > 3 {
-                    extract_int_arg(&args[3]).unwrap_or(i64::MIN)
+                    extract_int_arg::<i32>(&args[3]).unwrap_or(i32::MIN)
                 } else {
-                    i64::MIN
+                    i32::MIN
                 };
                 let max = if args.len() > 4 {
-                    extract_int_arg(&args[4]).unwrap_or(i64::MAX)
+                    extract_int_arg::<i32>(&args[4]).unwrap_or(i32::MAX)
                 } else {
-                    i64::MAX
+                    i32::MAX
                 };
                 let default = if args.len() > 5 {
-                    extract_int_arg(&args[5]).unwrap_or(0)
+                    extract_int_arg::<i32>(&args[5]).unwrap_or(0)
                 } else {
                     0
                 };
@@ -161,17 +234,17 @@ impl Property {
             "g_param_spec_uint" => {
                 // (name, nick, blurb, min, max, default, flags)
                 let min = if args.len() > 3 {
-                    extract_uint_arg(&args[3]).unwrap_or(0)
+                    extract_uint_arg::<u32>(&args[3]).unwrap_or(0)
                 } else {
                     0
                 };
                 let max = if args.len() > 4 {
-                    extract_uint_arg(&args[4]).unwrap_or(u64::MAX)
+                    extract_uint_arg::<u32>(&args[4]).unwrap_or(u32::MAX)
                 } else {
-                    u64::MAX
+                    u32::MAX
                 };
                 let default = if args.len() > 5 {
-                    extract_uint_arg(&args[5]).unwrap_or(0)
+                    extract_uint_arg::<u32>(&args[5]).unwrap_or(0)
                 } else {
                     0
                 };
@@ -180,17 +253,17 @@ impl Property {
             "g_param_spec_float" => {
                 // (name, nick, blurb, min, max, default, flags)
                 let min = if args.len() > 3 {
-                    extract_float_arg(&args[3]).unwrap_or(f64::MIN)
+                    extract_float_arg::<f32>(&args[3]).unwrap_or(f32::MIN)
                 } else {
-                    f64::MIN
+                    f32::MIN
                 };
                 let max = if args.len() > 4 {
-                    extract_float_arg(&args[4]).unwrap_or(f64::MAX)
+                    extract_float_arg::<f32>(&args[4]).unwrap_or(f32::MAX)
                 } else {
-                    f64::MAX
+                    f32::MAX
                 };
                 let default = if args.len() > 5 {
-                    extract_float_arg(&args[5]).unwrap_or(0.0)
+                    extract_float_arg::<f32>(&args[5]).unwrap_or(0.0)
                 } else {
                     0.0
                 };
@@ -199,17 +272,17 @@ impl Property {
             "g_param_spec_double" => {
                 // (name, nick, blurb, min, max, default, flags)
                 let min = if args.len() > 3 {
-                    extract_float_arg(&args[3]).unwrap_or(f64::MIN)
+                    extract_float_arg::<f64>(&args[3]).unwrap_or(f64::MIN)
                 } else {
                     f64::MIN
                 };
                 let max = if args.len() > 4 {
-                    extract_float_arg(&args[4]).unwrap_or(f64::MAX)
+                    extract_float_arg::<f64>(&args[4]).unwrap_or(f64::MAX)
                 } else {
                     f64::MAX
                 };
                 let default = if args.len() > 5 {
-                    extract_float_arg(&args[5]).unwrap_or(0.0)
+                    extract_float_arg::<f64>(&args[5]).unwrap_or(0.0)
                 } else {
                     0.0
                 };
@@ -223,7 +296,7 @@ impl Property {
                     String::new()
                 };
                 let default = if args.len() > 4 {
-                    extract_int_arg(&args[4]).unwrap_or(0)
+                    extract_int_arg::<i32>(&args[4]).unwrap_or(0)
                 } else {
                     0
                 };
@@ -237,7 +310,7 @@ impl Property {
                     String::new()
                 };
                 let default = if args.len() > 4 {
-                    extract_uint_arg(&args[4]).unwrap_or(0)
+                    extract_uint_arg::<u32>(&args[4]).unwrap_or(0)
                 } else {
                     0
                 };
@@ -274,7 +347,158 @@ impl Property {
                 };
                 PropertyType::GType { is_a_type }
             }
-            "g_param_spec_variant" => PropertyType::Variant,
+            "g_param_spec_int64" => {
+                // (name, nick, blurb, min, max, default, flags)
+                let min = if args.len() > 3 {
+                    extract_int_arg::<i64>(&args[3]).unwrap_or(i64::MIN)
+                } else {
+                    i64::MIN
+                };
+                let max = if args.len() > 4 {
+                    extract_int_arg::<i64>(&args[4]).unwrap_or(i64::MAX)
+                } else {
+                    i64::MAX
+                };
+                let default = if args.len() > 5 {
+                    extract_int_arg::<i64>(&args[5]).unwrap_or(0)
+                } else {
+                    0
+                };
+                PropertyType::Int64 { min, max, default }
+            }
+            "g_param_spec_uint64" => {
+                // (name, nick, blurb, min, max, default, flags)
+                let min = if args.len() > 3 {
+                    extract_uint_arg::<u64>(&args[3]).unwrap_or(0)
+                } else {
+                    0
+                };
+                let max = if args.len() > 4 {
+                    extract_uint_arg::<u64>(&args[4]).unwrap_or(u64::MAX)
+                } else {
+                    u64::MAX
+                };
+                let default = if args.len() > 5 {
+                    extract_uint_arg::<u64>(&args[5]).unwrap_or(0)
+                } else {
+                    0
+                };
+                PropertyType::UInt64 { min, max, default }
+            }
+            "g_param_spec_long" => {
+                // (name, nick, blurb, min, max, default, flags)
+                let min = if args.len() > 3 {
+                    extract_int_arg::<c_long>(&args[3]).unwrap_or(c_long::MIN)
+                } else {
+                    c_long::MIN
+                };
+                let max = if args.len() > 4 {
+                    extract_int_arg::<c_long>(&args[4]).unwrap_or(c_long::MAX)
+                } else {
+                    c_long::MAX
+                };
+                let default = if args.len() > 5 {
+                    extract_int_arg::<c_long>(&args[5]).unwrap_or(0)
+                } else {
+                    0
+                };
+                PropertyType::Long { min, max, default }
+            }
+            "g_param_spec_ulong" => {
+                // (name, nick, blurb, min, max, default, flags)
+                let min = if args.len() > 3 {
+                    extract_uint_arg::<c_ulong>(&args[3]).unwrap_or(0)
+                } else {
+                    0
+                };
+                let max = if args.len() > 4 {
+                    extract_uint_arg::<c_ulong>(&args[4]).unwrap_or(c_ulong::MAX)
+                } else {
+                    c_ulong::MAX
+                };
+                let default = if args.len() > 5 {
+                    extract_uint_arg::<c_ulong>(&args[5]).unwrap_or(0)
+                } else {
+                    0
+                };
+                PropertyType::ULong { min, max, default }
+            }
+            "g_param_spec_char" => {
+                // (name, nick, blurb, min, max, default, flags)
+                let min = if args.len() > 3 {
+                    extract_int_arg::<i8>(&args[3]).unwrap_or(i8::MIN)
+                } else {
+                    i8::MIN
+                };
+                let max = if args.len() > 4 {
+                    extract_int_arg::<i8>(&args[4]).unwrap_or(i8::MAX)
+                } else {
+                    i8::MAX
+                };
+                let default = if args.len() > 5 {
+                    extract_int_arg::<i8>(&args[5]).unwrap_or(0)
+                } else {
+                    0
+                };
+                PropertyType::Char { min, max, default }
+            }
+            "g_param_spec_uchar" => {
+                // (name, nick, blurb, min, max, default, flags)
+                let min = if args.len() > 3 {
+                    extract_uint_arg::<u8>(&args[3]).unwrap_or(0)
+                } else {
+                    0
+                };
+                let max = if args.len() > 4 {
+                    extract_uint_arg::<u8>(&args[4]).unwrap_or(u8::MAX)
+                } else {
+                    u8::MAX
+                };
+                let default = if args.len() > 5 {
+                    extract_uint_arg::<u8>(&args[5]).unwrap_or(0)
+                } else {
+                    0
+                };
+                PropertyType::UChar { min, max, default }
+            }
+            "g_param_spec_unichar" => {
+                // (name, nick, blurb, default, flags)
+                let default = if args.len() > 3 {
+                    extract_uint_arg::<u32>(&args[3]).unwrap_or(0)
+                } else {
+                    0
+                };
+                PropertyType::Unichar { default }
+            }
+            "g_param_spec_param" => {
+                // (name, nick, blurb, param_type, flags)
+                let param_type = if args.len() > 3 {
+                    extract_identifier_arg(&args[3]).unwrap_or_default()
+                } else {
+                    String::new()
+                };
+                PropertyType::Param { param_type }
+            }
+            "g_param_spec_variant" => {
+                // (name, nick, blurb, type, default_value, flags)
+                let variant_type = if args.len() > 3 {
+                    extract_identifier_arg(&args[3])
+                } else {
+                    None
+                };
+                let default_value = args.get(4).and_then(|arg| {
+                    let Argument::Expression(e) = arg;
+                    if matches!(e.as_ref(), Expression::Null(_)) {
+                        None
+                    } else {
+                        Some(*e.clone())
+                    }
+                });
+                PropertyType::Variant {
+                    variant_type,
+                    default_value,
+                }
+            }
             _ => PropertyType::Unknown {
                 spec_function: func_name.to_string(),
             },
@@ -339,16 +563,18 @@ fn extract_string_arg(arg: &Argument) -> Option<String> {
     }
 }
 
-fn extract_int_arg(arg: &Argument) -> Option<i64> {
+fn extract_int_arg<T>(arg: &Argument) -> Option<T>
+where
+    T: std::str::FromStr + std::ops::Neg<Output = T>,
+{
     match arg {
         Argument::Expression(boxed_expr) => match &**boxed_expr {
             Expression::NumberLiteral(num) => num.value.parse().ok(),
             Expression::Unary(unary) => {
-                // Handle negative numbers like -1
                 if matches!(unary.operator, UnaryOp::Negate)
                     && let Expression::NumberLiteral(num) = &*unary.operand
                 {
-                    return num.value.parse::<i64>().ok().map(|v| -v);
+                    return num.value.parse::<T>().ok().map(|v| -v);
                 }
                 None
             }
@@ -357,7 +583,7 @@ fn extract_int_arg(arg: &Argument) -> Option<i64> {
     }
 }
 
-fn extract_uint_arg(arg: &Argument) -> Option<u64> {
+fn extract_uint_arg<T: std::str::FromStr>(arg: &Argument) -> Option<T> {
     match arg {
         Argument::Expression(boxed_expr) => match &**boxed_expr {
             Expression::NumberLiteral(num) => num.value.parse().ok(),
@@ -366,7 +592,10 @@ fn extract_uint_arg(arg: &Argument) -> Option<u64> {
     }
 }
 
-fn extract_float_arg(arg: &Argument) -> Option<f64> {
+fn extract_float_arg<T>(arg: &Argument) -> Option<T>
+where
+    T: std::str::FromStr + std::ops::Neg<Output = T>,
+{
     match arg {
         Argument::Expression(boxed_expr) => match &**boxed_expr {
             Expression::NumberLiteral(num) => num.value.parse().ok(),
@@ -374,7 +603,7 @@ fn extract_float_arg(arg: &Argument) -> Option<f64> {
                 if matches!(unary.operator, UnaryOp::Negate)
                     && let Expression::NumberLiteral(num) = &*unary.operand
                 {
-                    return num.value.parse::<f64>().ok().map(|v| -v);
+                    return num.value.parse::<T>().ok().map(|v| -v);
                 }
                 None
             }
