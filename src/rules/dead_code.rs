@@ -533,11 +533,13 @@ fn collect_type_refs_from_top_level_item(item: &TopLevelItem, refs: &mut HashSet
     match item {
         TopLevelItem::Declaration(stmt) => collect_type_refs_from_stmt(stmt, refs),
         TopLevelItem::TypeDefinition(TypeDefItem::Typedef {
-            target_type,
+            target,
             struct_fields,
             ..
         }) => {
-            collect_type_ref(target_type, refs);
+            if let Some(target_type) = target.as_type() {
+                collect_type_ref(target_type, refs);
+            }
             collect_type_refs_from_fields(struct_fields, refs);
         }
         TopLevelItem::TypeDefinition(TypeDefItem::Struct { fields, .. }) => {

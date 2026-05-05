@@ -1,6 +1,9 @@
 use std::path::PathBuf;
 
-use gobject_ast::{Expression, ExpressionStmt, Parser, Statement, model::top_level::TypeDefItem};
+use gobject_ast::{
+    Expression, ExpressionStmt, Parser, Statement,
+    model::top_level::{TypeDefItem, TypedefTarget},
+};
 
 fn parse_fixture(name: &str) -> gobject_ast::Project {
     let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -261,4 +264,107 @@ fn test_statement_order() {
         found_pattern,
         "Should find consecutive g_bytes_get_data and g_bytes_unref calls in order"
     );
+}
+
+#[test]
+fn test_callback_typedef_parsing() {
+    let project = parse_fixture("typedef_callback.h");
+
+    let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("typedef_callback.h");
+
+    let file = project
+        .get_file(&fixture_path)
+        .expect("File should be parsed");
+
+    let typedefs: Vec<&TypeDefItem> = file
+        .iter_all_items()
+        .filter_map(|item| match item {
+            gobject_ast::model::top_level::TopLevelItem::TypeDefinition(td) => Some(td),
+            _ => None,
+        })
+        .collect();
+
+    // Plain type alias: `typedef struct _MyObject MyObject`
+    let plain = typedefs
+        .iter()
+        .find(|td| matches!(td, TypeDefItem::Typedef { name, .. } if name == "MyObject"))
+        .expect("MyObject typedef not found");
+    let TypeDefItem::Typedef { target, .. } = plain else {
+        panic!("expected Typedef");
+    };
+    assert!(
+        matches!(target, TypedefTarget::Type(_)),
+        "MyObject should be a plain type alias"
+    );
+    let TypedefTarget::Type(ti) = target else {
+        unreachable!()
+    };
+    assert_eq!(ti.base_type, "_MyObject");
+    assert!(ti.is_struct);
+
+    // `typedef void (*MyCallback)(MyObject *obj, gpointer user_data)`
+    let cb = typedefs
+        .iter()
+        .find(|td| matches!(td, TypeDefItem::Typedef { name, .. } if name == "MyCallback"))
+        .expect("MyCallback typedef not found");
+    let TypeDefItem::Typedef { target, .. } = cb else {
+        panic!("expected Typedef");
+    };
+    let TypedefTarget::Callback {
+        return_type,
+        parameters,
+    } = target
+    else {
+        panic!(
+            "MyCallback should be TypedefTarget::Callback, got {:?}",
+            target
+        );
+    };
+    assert_eq!(return_type.base_type, "void");
+    assert_eq!(return_type.pointer_depth, 0);
+    assert_eq!(parameters.len(), 2);
+    assert_eq!(parameters[0].type_info.base_type, "MyObject");
+    assert_eq!(parameters[1].type_info.base_type, "gpointer");
+
+    // `typedef gboolean (*MyPredicate)(const gchar *name, guint index)`
+    let pred = typedefs
+        .iter()
+        .find(|td| matches!(td, TypeDefItem::Typedef { name, .. } if name == "MyPredicate"))
+        .expect("MyPredicate typedef not found");
+    let TypeDefItem::Typedef { target, .. } = pred else {
+        panic!("expected Typedef");
+    };
+    let TypedefTarget::Callback {
+        return_type,
+        parameters,
+    } = target
+    else {
+        panic!("MyPredicate should be TypedefTarget::Callback");
+    };
+    assert_eq!(return_type.base_type, "gboolean");
+    assert_eq!(parameters.len(), 2);
+
+    // `typedef const gchar *(*MyGetNameFunc)(MyObject *obj)`
+    let getter = typedefs
+        .iter()
+        .find(|td| matches!(td, TypeDefItem::Typedef { name, .. } if name == "MyGetNameFunc"))
+        .expect("MyGetNameFunc typedef not found");
+    let TypeDefItem::Typedef { target, .. } = getter else {
+        panic!("expected Typedef");
+    };
+    let TypedefTarget::Callback {
+        return_type,
+        parameters,
+    } = target
+    else {
+        panic!("MyGetNameFunc should be TypedefTarget::Callback");
+    };
+    assert_eq!(return_type.base_type, "gchar");
+    assert_eq!(return_type.pointer_depth, 1);
+    assert!(return_type.is_const);
+    assert_eq!(parameters.len(), 1);
+    assert_eq!(parameters[0].type_info.base_type, "MyObject");
 }

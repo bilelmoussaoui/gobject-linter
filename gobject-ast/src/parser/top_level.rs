@@ -267,23 +267,8 @@ impl Parser {
                         enum_info: Box::new(enum_info),
                     }));
                 }
-                // Check for typedef
-                if let Some(typedef) = self.extract_typedef_from_type_definition(node, source) {
-                    // When typedef wraps a struct body, parse field declarations so rules
-                    // can see which types are referenced inside the struct.
-                    let struct_fields = node
-                        .child_by_field_name("type")
-                        .filter(|n| matches!(n.kind(), "struct_specifier" | "union_specifier"))
-                        .and_then(|s| s.child_by_field_name("body"))
-                        .map(|body| self.extract_struct_fields_from_body(body, source))
-                        .unwrap_or_default();
-
-                    return Some(TopLevelItem::TypeDefinition(TypeDefItem::Typedef {
-                        name: typedef.name,
-                        target_type: typedef.target_type,
-                        struct_fields,
-                        location: self.node_location(node),
-                    }));
+                if let Some(item) = self.extract_typedef_from_type_definition(node, source) {
+                    return Some(TopLevelItem::TypeDefinition(item));
                 }
                 None
             }
@@ -700,7 +685,7 @@ impl Parser {
         &self,
         node: Node,
         source: &[u8],
-    ) -> Option<TypedefInfo> {
+    ) -> Option<TypeDefItem> {
         // type_definition has "declarator" for the typedef name and "type" for what
         // it's typedef'ing
         let declarator_node = node.child_by_field_name("declarator")?;
@@ -718,15 +703,68 @@ impl Parser {
                 .to_owned()
         };
 
-        let type_node = node.child_by_field_name("type")?;
-        let target_text = std::str::from_utf8(&source[type_node.byte_range()]).ok()?;
-        let target_type =
-            crate::TypeInfo::new(target_text.to_owned(), self.node_location(type_node));
+        // When the typedef wraps an inline struct body, extract field declarations
+        // so rules can see which types are referenced inside the struct.
+        let struct_fields = node
+            .child_by_field_name("type")
+            .filter(|n| matches!(n.kind(), "struct_specifier" | "union_specifier"))
+            .and_then(|s| s.child_by_field_name("body"))
+            .map(|body| self.extract_struct_fields_from_body(body, source))
+            .unwrap_or_default();
 
-        Some(TypedefInfo {
+        // Detect function-pointer typedefs: `typedef RetType (*Name)(params)`.
+        // The declarator will contain a function_declarator node.
+        let target = if let Some(func_decl) = self.find_function_declarator(declarator_node) {
+            // Count pointer_declarator nodes between declarator_node and func_decl —
+            // each one adds one level of indirection to the return type.
+            // e.g. `typedef const gchar *(*Func)(...)` has one pointer_declarator
+            // wrapping the function_declarator, so the return type is `const gchar *`.
+            let mut return_ptr_depth = 0usize;
+            let mut ptr = declarator_node;
+            loop {
+                if ptr.start_byte() == func_decl.start_byte() {
+                    break;
+                }
+                if ptr.kind() == "pointer_declarator" {
+                    return_ptr_depth += 1;
+                }
+                if let Some(inner) = ptr.child_by_field_name("declarator") {
+                    ptr = inner;
+                } else {
+                    break;
+                }
+            }
+
+            let mut return_type = self.extract_return_type(node, source);
+            return_type.pointer_depth += return_ptr_depth;
+
+            let mut parameters = func_decl
+                .children_by_field_name("parameters", &mut func_decl.walk())
+                .next()
+                .map(|p| self.extract_parameters(p, source))
+                .unwrap_or_default();
+            if parameters.is_empty()
+                && let Some(params_node) = self.find_node_by_kind(func_decl, "parameter_list")
+            {
+                parameters = self.extract_parameters(params_node, source);
+            }
+            TypedefTarget::Callback {
+                return_type,
+                parameters,
+            }
+        } else {
+            let type_node = node.child_by_field_name("type")?;
+            let target_text = std::str::from_utf8(&source[type_node.byte_range()]).ok()?;
+            let target_type =
+                crate::TypeInfo::new(target_text.to_owned(), self.node_location(type_node));
+            TypedefTarget::Type(target_type)
+        };
+
+        Some(TypeDefItem::Typedef {
             name,
+            target,
+            struct_fields,
             location: self.node_location(node),
-            target_type,
         })
     }
 
@@ -986,7 +1024,7 @@ impl Parser {
         source: &'a [u8],
     ) -> Option<&'a str> {
         if let Some(inner) = declarator.child_by_field_name("declarator") {
-            if inner.kind() == "identifier" {
+            if matches!(inner.kind(), "identifier" | "type_identifier") {
                 let text = std::str::from_utf8(&source[inner.byte_range()]).ok()?;
                 // __attribute__ appearing between '*' and the real name means the
                 // function_declarator's "declarator" field points at the attribute
@@ -1009,19 +1047,24 @@ impl Parser {
             return self.extract_declarator_name(inner, source);
         }
 
-        if declarator.kind() == "identifier" {
+        if matches!(declarator.kind(), "identifier" | "type_identifier") {
             let name = &source[declarator.byte_range()];
             return std::str::from_utf8(name).ok();
         }
 
-        // Handle parenthesized declarators like (function_name) used to prevent macro
-        // expansion
+        // Handle parenthesized declarators: `(function_name)` to prevent macro
+        // expansion, or `(*Name)` inside function-pointer typedefs.
         if declarator.kind() == "parenthesized_declarator" {
             let mut cursor = declarator.walk();
             for child in declarator.children(&mut cursor) {
-                if child.kind() == "identifier" {
+                if matches!(child.kind(), "identifier" | "type_identifier") {
                     let name = &source[child.byte_range()];
                     return std::str::from_utf8(name).ok();
+                }
+                if child.is_named()
+                    && let Some(name) = self.extract_declarator_name(child, source)
+                {
+                    return Some(name);
                 }
             }
         }

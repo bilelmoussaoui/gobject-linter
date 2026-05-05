@@ -358,11 +358,11 @@ impl FileModel {
     /// struct body). Yields `(typedef_name, target_TypeInfo)` so callers can
     /// inspect `target_type.base_type`, `.is_struct`, and `.is_union`.
     pub fn iter_typedef_pairs(&self) -> impl Iterator<Item = (&str, &super::TypeInfo)> + '_ {
-        use crate::top_level::TypeDefItem;
+        use crate::top_level::{TypeDefItem, TypedefTarget};
         self.iter_all_items().filter_map(|item| match item {
             TopLevelItem::TypeDefinition(TypeDefItem::Typedef {
                 name,
-                target_type,
+                target: TypedefTarget::Type(target_type),
                 struct_fields,
                 ..
             }) if struct_fields.is_empty() && !target_type.base_type.is_empty() => {

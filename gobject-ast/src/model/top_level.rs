@@ -158,12 +158,35 @@ impl StructField {
     }
 }
 
+/// The right-hand side of a typedef declaration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TypedefTarget {
+    /// Plain type alias: `typedef struct _Foo Foo`, `typedef gint MyInt`.
+    Type(super::TypeInfo),
+    /// Function-pointer alias: `typedef void (*FooCallback)(GObject *,
+    /// gpointer)`.
+    Callback {
+        return_type: super::TypeInfo,
+        parameters: Vec<super::types::Parameter>,
+    },
+}
+
+impl TypedefTarget {
+    /// Return the inner `TypeInfo` if this is a plain type alias.
+    pub fn as_type(&self) -> Option<&super::TypeInfo> {
+        match self {
+            Self::Type(t) => Some(t),
+            Self::Callback { .. } => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TypeDefItem {
     Typedef {
         name: String,
-        target_type: super::TypeInfo,
-        /// Fields when the typedef wraps a struct body:
+        target: TypedefTarget,
+        /// Fields when the typedef wraps an inline struct body:
         /// `typedef struct { FieldType field; } Name;`
         #[serde(default)]
         struct_fields: Vec<StructField>,
