@@ -149,6 +149,9 @@ impl Expression {
             }
             Expression::InitializerList(init) => {
                 for item in &init.items {
+                    if let Some(Designator::Subscript(idx)) = &item.designator {
+                        idx.walk(f);
+                    }
                     item.value.walk(f);
                 }
             }
