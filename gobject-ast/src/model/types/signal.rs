@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::model::{
     expression::{CallExpression, Expression, StructField},
@@ -20,21 +20,31 @@ use crate::model::{
 ///               guint n_params,
 ///               ...);
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Signal {
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub itype: Option<String>, // G_TYPE_FROM_CLASS(klass), G_OBJECT_TYPE, etc.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub flags: Vec<SignalFlag>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub class_offset: Option<StructField>, // None when 0 (no default handler)
-    pub accumulator: Option<String>,       // function name or NULL
-    pub accu_data: Option<String>,         // data or NULL
-    pub c_marshaller: Option<String>,      // marshaller or NULL
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accumulator: Option<String>, // function name or NULL
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accu_data: Option<String>, // data or NULL
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub c_marshaller: Option<String>, // marshaller or NULL
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub return_type: Option<GType>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub n_params: Option<i64>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub param_types: Vec<GType>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum SignalFlag {
     RunFirst,
     RunLast,

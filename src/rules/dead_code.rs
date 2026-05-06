@@ -5,7 +5,7 @@ use gobject_ast::{
     model::{
         AssignmentOp, TypeInfo,
         expression::{Argument, Designator, Expression},
-        statement::Statement,
+        statement::{Statement, VariableDecl},
         top_level::{PreprocessorDirective, TopLevelItem, TypeDefItem},
         types::GObjectTypeKind,
     },
@@ -112,7 +112,7 @@ fn collect_references(ast_context: &AstContext) -> (HashSet<String>, HashSet<Str
 
         for item in file.iter_all_items() {
             if let TopLevelItem::Declaration(decl) = item {
-                collect_func_refs_from_stmt(decl, &mut func_refs);
+                collect_func_refs_from_decl(decl, &mut func_refs);
             }
             collect_type_refs_from_top_level_item(item, &mut type_refs);
             match item {
@@ -189,10 +189,10 @@ fn collect_field_refs(ast_context: &AstContext) -> (HashSet<(String, String)>, H
 
         for item in file.iter_all_items() {
             match item {
-                TopLevelItem::Declaration(stmt) => {
-                    collect_field_refs_from_stmt(
+                TopLevelItem::Declaration(decl) => {
+                    collect_field_refs_from_decl(
                         ast_context,
-                        stmt,
+                        decl,
                         &empty_map,
                         &mut qualified,
                         &mut unqualified,
@@ -246,12 +246,7 @@ fn collect_type_defs<'a>(ast_context: &'a AstContext) -> TypeDefMap<'a> {
     for (path, file) in ast_context.iter_private_files() {
         for item in file.iter_all_items() {
             match item {
-                TopLevelItem::TypeDefinition(TypeDefItem::Struct {
-                    name,
-                    has_body: true,
-                    location,
-                    ..
-                }) => {
+                TopLevelItem::TypeDefinition(TypeDefItem::Struct { name, location, .. }) => {
                     defs.entry(name.clone())
                         .or_default()
                         .push((path, *location));
@@ -298,14 +293,9 @@ fn collect_field_defs<'a>(ast_context: &'a AstContext) -> FieldDefMap<'a> {
     for (path, file) in ast_context.iter_private_files() {
         for item in file.iter_all_items() {
             match item {
-                TopLevelItem::TypeDefinition(
-                    td @ TypeDefItem::Struct {
-                        name,
-                        has_body: true,
-                        fields,
-                        ..
-                    },
-                ) if !td.is_vtable_struct() => {
+                TopLevelItem::TypeDefinition(td @ TypeDefItem::Struct { name, fields, .. })
+                    if !td.is_vtable_struct() =>
+                {
                     collect_fields_into_defs(fields, name, path, &mut defs);
                 }
                 TopLevelItem::TypeDefinition(
@@ -434,7 +424,8 @@ fn collect_type_refs_from_stmt(stmt: &Statement, refs: &mut HashSet<String>) {
 
 fn collect_type_refs_from_top_level_item(item: &TopLevelItem, refs: &mut HashSet<String>) {
     match item {
-        TopLevelItem::Declaration(stmt) => collect_type_refs_from_stmt(stmt, refs),
+        TopLevelItem::Declaration(decl) => collect_type_ref(&decl.type_info, refs),
+        TopLevelItem::Expression(_) => {}
         TopLevelItem::TypeDefinition(TypeDefItem::Typedef {
             target,
             struct_fields,
@@ -471,6 +462,30 @@ fn collect_func_refs_from_stmt(stmt: &Statement, refs: &mut HashSet<String>) {
             extract_function_calls_from_text(value, refs);
         }
     });
+}
+
+fn collect_func_refs_from_decl(decl: &VariableDecl, refs: &mut HashSet<String>) {
+    if let Some(init) = &decl.initializer {
+        init.walk(&mut |e| refs.extend(e.collect_identifiers()));
+    }
+    if let Some(size) = &decl.array_size {
+        size.walk(&mut |e| refs.extend(e.collect_identifiers()));
+    }
+}
+
+fn collect_field_refs_from_decl(
+    ast_context: &AstContext,
+    decl: &VariableDecl,
+    type_map: &HashMap<String, String>,
+    qualified: &mut HashSet<(String, String)>,
+    unqualified: &mut HashSet<String>,
+) {
+    if let Some(init) = &decl.initializer {
+        collect_field_reads_impl(ast_context, init, false, type_map, qualified, unqualified);
+    }
+    if let Some(size) = &decl.array_size {
+        collect_field_reads_impl(ast_context, size, false, type_map, qualified, unqualified);
+    }
 }
 
 fn extract_function_calls_from_text(text: &str, refs: &mut HashSet<String>) {

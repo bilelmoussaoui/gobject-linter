@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::model::{AssignmentOp, Expression, SourceLocation, UnaryOp};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Assignment {
     pub lhs: Box<Expression>, // Can be Identifier or FieldAccess
     pub operator: AssignmentOp,

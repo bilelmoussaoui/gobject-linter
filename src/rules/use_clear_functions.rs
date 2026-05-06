@@ -144,12 +144,9 @@ impl UseClearFunctions {
         };
 
         // Create fixes: replace first statement, delete second
+        let stmt1_end = stmt1.location().find_semicolon_end(source);
         let fixes = vec![
-            Fix::new(
-                stmt1.location().start_byte,
-                stmt1.location().end_byte,
-                replacement.clone(),
-            ),
+            Fix::new(stmt1.location().start_byte, stmt1_end, replacement.clone()),
             Fix::delete_line(stmt2.location(), source),
         ];
 

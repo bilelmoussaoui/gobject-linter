@@ -202,15 +202,12 @@ impl UseGStealPointer {
         let replacement = format!("{other_expr} = g_steal_pointer (&{ptr_expr});");
 
         // Use two separate fixes to preserve comments between statements
+        let s2_end = s2.location().find_semicolon_end(&file.source);
         let fixes = vec![
             // Delete the entire first line
             Fix::delete_line(s1.location(), &file.source),
             // Replace the second statement
-            Fix::new(
-                s2.location().start_byte,
-                s2.location().end_byte,
-                replacement.clone(),
-            ),
+            Fix::new(s2.location().start_byte, s2_end, replacement.clone()),
         ];
 
         violations.push(self.violation_with_fixes(
@@ -452,7 +449,7 @@ impl UseGStealPointer {
             return None;
         };
 
-        let Expression::Assignment(assign) = &expr_stmt.expr else {
+        let Expression::Assignment(assign) = expr_stmt.as_ref() else {
             return None;
         };
 

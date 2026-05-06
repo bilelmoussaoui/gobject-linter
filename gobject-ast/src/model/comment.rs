@@ -1,8 +1,9 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::SourceLocation;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum CommentKind {
     /// Single-line comment: // ...
     Line,
@@ -10,7 +11,8 @@ pub enum CommentKind {
     Block,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum CommentPosition {
     /// Comment appears before the associated node
     Leading,
@@ -20,7 +22,7 @@ pub enum CommentPosition {
     Inner,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Comment {
     /// The comment text (without // or /* */ delimiters)
     pub text: String,

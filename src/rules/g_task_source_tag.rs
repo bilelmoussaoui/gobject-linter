@@ -56,10 +56,10 @@ impl GTaskSourceTag {
                 // Extract indentation from the statement
                 let indentation = stmt_location.extract_indentation(source);
 
-                // Create fix: insert g_task_set_source_tag after the statement
+                let stmt_end = stmt_location.find_semicolon_end(source);
                 let fix = Fix::new(
-                    stmt_location.end_byte,
-                    stmt_location.end_byte,
+                    stmt_end,
+                    stmt_end,
                     format!(
                         "\n{}g_task_set_source_tag ({}, {});",
                         indentation, var_name, func.name
@@ -100,16 +100,17 @@ impl GTaskSourceTag {
                     }
                     // Check assignments: task = g_task_new(...)
                     Statement::Expression(expr_stmt) => {
-                        if let Expression::Assignment(assignment) = &expr_stmt.expr
+                        if let Expression::Assignment(assignment) = expr_stmt.as_ref()
                             && let Expression::Call(call) = assignment.rhs.as_ref()
                             && call.is_function("g_task_new")
                         {
-                            // For assignments, use assignment location for name, expr_stmt location
-                            // for statement (expr_stmt.location
-                            // includes the semicolon, assignment.location does not)
                             let var_name = assignment.lhs_as_text();
                             if !var_name.is_empty() {
-                                results.push((var_name, assignment.location, expr_stmt.location));
+                                results.push((
+                                    var_name,
+                                    assignment.location,
+                                    *expr_stmt.location(),
+                                ));
                             }
                         }
                     }

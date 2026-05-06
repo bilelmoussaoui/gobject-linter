@@ -67,15 +67,12 @@ impl UseGSetStr {
         let set_str_call = format!("g_set_str (&{var_name}, {new_val});");
 
         // Use two separate fixes to preserve comments between statements
+        let s2_end = s2.location().find_semicolon_end(&file.source);
         let fixes = vec![
             // Delete the entire first line (g_free/g_clear_pointer)
             Fix::delete_line(s1.location(), &file.source),
             // Replace the second statement with g_set_str
-            Fix::new(
-                s2.location().start_byte,
-                s2.location().end_byte,
-                set_str_call.clone(),
-            ),
+            Fix::new(s2.location().start_byte, s2_end, set_str_call.clone()),
         ];
 
         violations.push(self.violation_with_fixes(
@@ -94,7 +91,7 @@ impl UseGSetStr {
             return None;
         };
 
-        let Expression::Call(call) = &expr_stmt.expr else {
+        let Expression::Call(call) = expr_stmt.as_ref() else {
             return None;
         };
 
@@ -140,7 +137,7 @@ impl UseGSetStr {
             return None;
         };
 
-        let Expression::Assignment(assign) = &expr_stmt.expr else {
+        let Expression::Assignment(assign) = expr_stmt.as_ref() else {
             return None;
         };
 

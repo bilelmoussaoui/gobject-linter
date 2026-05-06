@@ -117,7 +117,7 @@ impl UseGAutoptrGotoCleanup {
                     }
                     // Pattern 2: var = allocation_call();
                     Statement::Expression(expr_stmt) => {
-                        if let Expression::Assignment(assign) = &expr_stmt.expr
+                        if let Expression::Assignment(assign) = expr_stmt.as_ref()
                             && let Expression::Call(call) = &*assign.rhs
                             && call.is_allocation_call()
                             // Only simple identifiers, not field expressions

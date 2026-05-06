@@ -1,6 +1,4 @@
-use gobject_ast::{
-    Assignment, AssignmentOp, CallExpression, Expression, ExpressionStmt, Statement,
-};
+use gobject_ast::{Assignment, AssignmentOp, CallExpression, Expression, Statement};
 
 use crate::{
     ast_context::AstContext,
@@ -74,13 +72,10 @@ impl UseGBytesUnrefToData {
         );
 
         // Use two separate fixes to preserve comments between statements
+        let stmt1_end = stmt1.location().find_semicolon_end(&file.source);
         let fixes = vec![
             // Replace the first statement with the new call
-            Fix::new(
-                stmt1.location().start_byte,
-                stmt1.location().end_byte,
-                replacement.clone(),
-            ),
+            Fix::new(stmt1.location().start_byte, stmt1_end, replacement.clone()),
             // Delete the entire second line
             Fix::delete_line(stmt2.location(), &file.source),
         ];
@@ -104,11 +99,10 @@ impl UseGBytesUnrefToData {
         stmt: &'a Statement,
         source: &'a [u8],
     ) -> Option<(String, String, String, &'a Assignment, &'a CallExpression)> {
-        let Statement::Expression(ExpressionStmt {
-            expr: Expression::Assignment(assignment),
-            ..
-        }) = stmt
-        else {
+        let Statement::Expression(expr_stmt) = stmt else {
+            return None;
+        };
+        let Expression::Assignment(assignment) = expr_stmt.as_ref() else {
             return None;
         };
 
@@ -155,7 +149,7 @@ impl UseGBytesUnrefToData {
             return None;
         };
 
-        let Expression::Call(call) = &expr_stmt.expr else {
+        let Expression::Call(call) = expr_stmt.as_ref() else {
             return None;
         };
 
@@ -174,6 +168,6 @@ impl UseGBytesUnrefToData {
             return None;
         }
 
-        Some(expr_stmt.location.end_byte)
+        Some(expr_stmt.location().find_semicolon_end(source))
     }
 }

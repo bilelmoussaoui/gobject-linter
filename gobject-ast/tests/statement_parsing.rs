@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use gobject_ast::{
-    Expression, ExpressionStmt, Parser, Statement,
+    Expression, Parser, Statement,
     model::{
         statement::ForInit,
         top_level::{TypeDefItem, TypedefTarget},
@@ -48,10 +48,8 @@ fn test_parse_call_expressions() {
     // Count call expressions
     let mut call_count = 0;
     for stmt in &func.body_statements {
-        if let Statement::Expression(ExpressionStmt {
-            expr: Expression::Call(_),
-            ..
-        }) = stmt
+        if let Statement::Expression(expr) = stmt
+            && matches!(expr.as_ref(), Expression::Call(_))
         {
             call_count += 1;
         }
@@ -86,10 +84,8 @@ fn test_parse_assignments() {
     // Count assignments
     let mut assignment_count = 0;
     for stmt in &func.body_statements {
-        if let Statement::Expression(ExpressionStmt {
-            expr: Expression::Assignment(_),
-            ..
-        }) = stmt
+        if let Statement::Expression(expr) = stmt
+            && matches!(expr.as_ref(), Expression::Assignment(_))
         {
             assignment_count += 1;
         }
@@ -257,10 +253,8 @@ fn test_statement_order() {
     // Second statement should be a call to g_bytes_unref
     let mut found_pattern = false;
     for i in 0..func.body_statements.len() - 1 {
-        if let Statement::Expression(ExpressionStmt {
-            expr: Expression::Call(call2),
-            ..
-        }) = &func.body_statements[i + 1]
+        if let Statement::Expression(expr) = &func.body_statements[i + 1]
+            && let Expression::Call(call2) = expr.as_ref()
             && call2.is_function("g_bytes_unref")
         {
             found_pattern = true;

@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Serialize, Serializer, ser::SerializeMap as _};
 
 use crate::{
     SourceLocation, Statement, TypeInfo,
@@ -6,24 +6,31 @@ use crate::{
     top_level::FunctionDefItem,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct GObjectType {
-    pub type_name: String,           // e.g., "ClutterInputDeviceTool"
-    pub type_macro: Option<GType>,   // e.g., CLUTTER_TYPE_INPUT_DEVICE_TOOL; None for quarks
-    pub function_prefix: String,     // e.g., "clutter_input_device_tool"
+    pub type_name: String, // e.g., "ClutterInputDeviceTool"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub type_macro: Option<GType>, // e.g., CLUTTER_TYPE_INPUT_DEVICE_TOOL; None for quarks
+    pub function_prefix: String, // e.g., "clutter_input_device_tool"
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_type: Option<String>, // e.g., "GObject"; None for boxed/pointer types
-    pub flags: Option<String>,       /* G_DEFINE_TYPE_EXTENDED flags arg, e.g.
-                                      * "G_TYPE_FLAG_ABSTRACT" */
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub flags: Option<String>, /* G_DEFINE_TYPE_EXTENDED flags arg, e.g.
+                            * "G_TYPE_FLAG_ABSTRACT" */
     pub kind: GObjectTypeKind,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub interfaces: Vec<InterfaceImplementation>, // G_IMPLEMENT_INTERFACE
-    pub has_private: bool,                        /* G_ADD_PRIVATE in *_WITH_CODE, or
-                                                   * *_WITH_PRIVATE */
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub has_private: bool, /* G_ADD_PRIVATE in *_WITH_CODE, or
+                            * *_WITH_PRIVATE */
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub code_block_statements: Vec<Statement>, // Statements from *_WITH_CODE macros
-    pub export_macros: Vec<String>,            // e.g., ["CLUTTER_EXPORT"]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub export_macros: Vec<String>, // e.g., ["CLUTTER_EXPORT"]
     pub location: SourceLocation,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct InterfaceImplementation {
     pub interface_type: GType, // e.g., GTK_TYPE_EDITABLE
     pub init_function: String, // e.g., "mask_entry_editable_init"
@@ -94,15 +101,17 @@ impl GObjectType {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct VirtualFunction {
     pub name: String,
     pub return_type: TypeInfo,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub parameters: Vec<Parameter>,
 }
 
 /// Which G_DECLARE_* variant was used
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum DeclareKind {
     Final,
     Derivable,
@@ -110,7 +119,8 @@ pub enum DeclareKind {
 }
 
 /// Which G_DEFINE_* (non-boxed, non-pointer, non-extended) variant was used
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum DefineKind {
     Type,
     TypeWithCode,
@@ -129,7 +139,7 @@ pub enum DefineKind {
     Pointer,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub enum GObjectTypeKind {
     /// G_DECLARE_FINAL_TYPE / G_DECLARE_DERIVABLE_TYPE / G_DECLARE_INTERFACE
     Declare {
@@ -150,6 +160,45 @@ pub enum GObjectTypeKind {
         quark_name: String,
         func_prefix: String,
     },
+}
+
+impl Serialize for GObjectTypeKind {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Define(_) => s.serialize_str(self.macro_name()),
+            Self::Declare {
+                module_prefix,
+                type_prefix,
+                ..
+            } => {
+                let mut m = s.serialize_map(Some(3))?;
+                m.serialize_entry("macro", self.macro_name())?;
+                m.serialize_entry("module_prefix", module_prefix)?;
+                m.serialize_entry("type_prefix", type_prefix)?;
+                m.end()
+            }
+            Self::DefineBoxed {
+                copy_func,
+                free_func,
+            } => {
+                let mut m = s.serialize_map(Some(3))?;
+                m.serialize_entry("macro", self.macro_name())?;
+                m.serialize_entry("copy_func", copy_func)?;
+                m.serialize_entry("free_func", free_func)?;
+                m.end()
+            }
+            Self::DefineQuark {
+                quark_name,
+                func_prefix,
+            } => {
+                let mut m = s.serialize_map(Some(3))?;
+                m.serialize_entry("macro", self.macro_name())?;
+                m.serialize_entry("quark_name", quark_name)?;
+                m.serialize_entry("func_prefix", func_prefix)?;
+                m.end()
+            }
+        }
+    }
 }
 
 impl GObjectTypeKind {

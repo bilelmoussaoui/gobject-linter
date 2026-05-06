@@ -1,18 +1,22 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::{
     SourceLocation,
     model::{Expression, operators::BinaryOp},
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct EnumInfo {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     pub location: SourceLocation,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub values: Vec<EnumValue>,
     /// Location of the enum body for inserting fixes
+    #[serde(skip)]
     pub body_location: SourceLocation,
     /// Attributes between closing brace and type name (e.g., G_GNUC_FLAG_ENUM)
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub attributes: Vec<String>,
 }
 
@@ -100,17 +104,21 @@ fn is_bit_shift_expr(expr: &Expression) -> bool {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct EnumValue {
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<i64>,
     /// The expression AST for the value (if present)
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub value_expr: Option<Expression>,
     /// Location of this enumerator node
     pub location: SourceLocation,
     /// Location of just the name
+    #[serde(skip)]
     pub name_location: SourceLocation,
     /// Location of the value (if present)
+    #[serde(skip)]
     pub value_location: Option<SourceLocation>,
 }
 

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
+use clap::ValueEnum;
+use serde::{Serialize, Serializer, ser::SerializeMap};
 
 use crate::{
     EnumInfo, GObjectType, TypeInfo, VariableDecl, VirtualFunction,
@@ -11,8 +12,28 @@ use crate::{
     },
 };
 
+/// Coarse kind of a top-level item, useful for filtering without
+/// pattern-matching.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, ValueEnum)]
+#[serde(rename_all = "snake_case")]
+pub enum TopLevelItemKind {
+    FunctionDefinition,
+    FunctionDeclaration,
+    Typedef,
+    Struct,
+    Enum,
+    Include,
+    Define,
+    GObjectType,
+    Conditional,
+    GObjectDeclsBlock,
+    Declaration,
+    Expression,
+    Other,
+}
+
 /// Represents a top-level item in a C file
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub enum TopLevelItem {
     /// Preprocessor directive (#define, #include, etc.)
     Preprocessor(PreprocessorDirective),
@@ -22,11 +43,93 @@ pub enum TopLevelItem {
     FunctionDeclaration(FunctionDeclItem),
     /// Function definition (with body)
     FunctionDefinition(FunctionDefItem),
-    /// Standalone declaration (variables, etc.)
-    Declaration(Box<Statement>),
+    /// Standalone variable declaration
+    Declaration(Box<VariableDecl>),
+    /// Standalone expression statement
+    Expression(Box<Expression>),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl TopLevelItem {
+    /// The name associated with this item, if any.
+    pub fn name(&self) -> Option<&str> {
+        match self {
+            Self::FunctionDefinition(f) => Some(&f.name),
+            Self::FunctionDeclaration(f) => Some(&f.name),
+            Self::TypeDefinition(td) => match td {
+                TypeDefItem::Typedef { name, .. } | TypeDefItem::Struct { name, .. } => Some(name),
+                TypeDefItem::Enum(enum_info) => enum_info.name.as_deref(),
+            },
+            Self::Preprocessor(PreprocessorDirective::Include { path, .. }) => Some(path),
+            Self::Preprocessor(PreprocessorDirective::Define { name, .. }) => Some(name),
+            Self::Preprocessor(PreprocessorDirective::GObjectType(gobject_type)) => {
+                Some(&gobject_type.type_name)
+            }
+            Self::Declaration(decl) => Some(&decl.name),
+            _ => None,
+        }
+    }
+
+    /// The coarse kind of this item.
+    pub fn kind(&self) -> TopLevelItemKind {
+        match self {
+            Self::FunctionDefinition(_) => TopLevelItemKind::FunctionDefinition,
+            Self::FunctionDeclaration(_) => TopLevelItemKind::FunctionDeclaration,
+            Self::TypeDefinition(TypeDefItem::Typedef { .. }) => TopLevelItemKind::Typedef,
+            Self::TypeDefinition(TypeDefItem::Struct { .. }) => TopLevelItemKind::Struct,
+            Self::TypeDefinition(TypeDefItem::Enum(_)) => TopLevelItemKind::Enum,
+            Self::Preprocessor(PreprocessorDirective::Include { .. }) => TopLevelItemKind::Include,
+            Self::Preprocessor(PreprocessorDirective::Define { .. }) => TopLevelItemKind::Define,
+            Self::Preprocessor(PreprocessorDirective::GObjectType { .. }) => {
+                TopLevelItemKind::GObjectType
+            }
+            Self::Preprocessor(PreprocessorDirective::Conditional { .. }) => {
+                TopLevelItemKind::Conditional
+            }
+            Self::Preprocessor(PreprocessorDirective::GObjectDeclsBlock { .. }) => {
+                TopLevelItemKind::GObjectDeclsBlock
+            }
+            Self::Declaration(_) => TopLevelItemKind::Declaration,
+            Self::Expression(_) => TopLevelItemKind::Expression,
+            Self::Preprocessor(_) => TopLevelItemKind::Other,
+        }
+    }
+}
+
+impl Serialize for TopLevelItem {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Preprocessor(directive) => directive.serialize(s),
+            Self::TypeDefinition(v) => {
+                let mut m = s.serialize_map(Some(1))?;
+                m.serialize_entry("type_definition", v)?;
+                m.end()
+            }
+            Self::FunctionDeclaration(v) => {
+                let mut m = s.serialize_map(Some(1))?;
+                m.serialize_entry("function_declaration", v)?;
+                m.end()
+            }
+            Self::FunctionDefinition(v) => {
+                let mut m = s.serialize_map(Some(1))?;
+                m.serialize_entry("function_definition", v)?;
+                m.end()
+            }
+            Self::Declaration(v) => {
+                let mut m = s.serialize_map(Some(1))?;
+                m.serialize_entry("declaration", v)?;
+                m.end()
+            }
+            Self::Expression(v) => {
+                let mut m = s.serialize_map(Some(1))?;
+                m.serialize_entry("expression", v)?;
+                m.end()
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum PragmaKind {
     /// #pragma once
     Once,
@@ -43,7 +146,8 @@ pub enum PragmaKind {
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum PreprocessorDirective {
     Include {
         path: String,
@@ -64,10 +168,7 @@ pub enum PreprocessorDirective {
         location: SourceLocation,
     },
     /// GObject type declaration/definition (G_DECLARE_*, G_DEFINE_*)
-    GObjectType {
-        gobject_type: Box<GObjectType>,
-        location: SourceLocation,
-    },
+    GObjectType(Box<GObjectType>),
     /// G_DEFINE_AUTOPTR_CLEANUP_FUNC (Type, cleanup_func)
     AutoptrCleanupFunc {
         type_name: String,
@@ -108,17 +209,18 @@ impl PreprocessorDirective {
             | Self::Define { location, .. }
             | Self::Call { location, .. }
             | Self::Pragma { location, .. }
-            | Self::GObjectType { location, .. }
             | Self::AutoptrCleanupFunc { location, .. }
             | Self::AutoCleanupClearFunc { location, .. }
             | Self::MacroWithCode { location, .. }
             | Self::Conditional { location, .. }
             | Self::GObjectDeclsBlock { location, .. } => location,
+            Self::GObjectType(gt) => &gt.location,
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ConditionalKind {
     Ifdef,
     Ifndef,
@@ -129,19 +231,20 @@ pub enum ConditionalKind {
 
 /// A parsed field from a struct body (e.g. `GObject parent` → field_type =
 /// "GObject")
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct StructField {
     pub field_type: TypeInfo,
     /// Field name, if present (anonymous bitfields have none)
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub field_name: Option<String>,
     pub location: SourceLocation,
     /// Bit-width for bitfield members (`unsigned flags : 1` → `Some(1)`).
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bit_width: Option<u32>,
     /// Non-empty for anonymous struct/union fields: the members of the
     /// embedded aggregate (e.g. `union { A a; B b; } d` → inner_fields = [a,
     /// b]).
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inner_fields: Vec<Self>,
 }
 
@@ -171,7 +274,8 @@ impl StructField {
 }
 
 /// The right-hand side of a typedef declaration.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum TypedefTarget {
     /// Plain type alias: `typedef struct _Foo Foo`, `typedef gint MyInt`.
     Type(TypeInfo),
@@ -193,31 +297,29 @@ impl TypedefTarget {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum TypeDefItem {
     Typedef {
         name: String,
         target: TypedefTarget,
         /// Fields when the typedef wraps an inline struct body:
         /// `typedef struct { FieldType field; } Name;`
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         struct_fields: Vec<StructField>,
         location: SourceLocation,
     },
     Struct {
         name: String,
-        has_body: bool,
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         fields: Vec<StructField>,
         /// Virtual functions (function pointer fields) extracted from class
         /// structs (structs whose name ends with `Class`).
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         vfuncs: Vec<VirtualFunction>,
         location: SourceLocation,
     },
-    Enum {
-        enum_info: Box<EnumInfo>,
-    },
+    Enum(Box<EnumInfo>),
 }
 
 impl TypeDefItem {
@@ -236,26 +338,35 @@ impl TypeDefItem {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct FunctionDeclItem {
     pub name: String,
     pub return_type: TypeInfo,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub is_static: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub is_inline: bool,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub parameters: Vec<Parameter>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub export_macros: Vec<String>,
     pub location: SourceLocation,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct FunctionDefItem {
     pub name: String,
     pub return_type: TypeInfo,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub is_static: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub is_inline: bool,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub parameters: Vec<Parameter>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub body_statements: Vec<Statement>,
     pub location: SourceLocation,
+    #[serde(skip)]
     pub body_location: Option<SourceLocation>,
 }
 
@@ -392,7 +503,7 @@ impl FunctionDefItem {
                     }
                     // Check assignment: var = allocation_call()
                     Statement::Expression(expr_stmt) => {
-                        if let Expression::Assignment(assign) = &expr_stmt.expr
+                        if let Expression::Assignment(assign) = expr_stmt.as_ref()
                             && let Expression::Identifier(id) = &*assign.lhs
                             && let Expression::Call(call) = &*assign.rhs
                             && is_allocation(call)
@@ -470,7 +581,7 @@ impl FunctionDefItem {
         for stmt in &self.body_statements {
             stmt.walk(&mut |s| {
                 if let Statement::Expression(expr_stmt) = s {
-                    match &expr_stmt.expr {
+                    match expr_stmt.as_ref() {
                         // Assignment: props[PROP_X] = g_param_spec_*() or spec = g_param_spec_*()
                         Expression::Assignment(assignment) => {
                             if let Expression::Call(param_call) = &*assignment.rhs {
@@ -554,7 +665,7 @@ impl FunctionDefItem {
         for stmt in &self.body_statements {
             stmt.walk(&mut |s| {
                 if let Statement::Expression(expr_stmt) = s
-                    && let Expression::Call(call) = &expr_stmt.expr
+                    && let Expression::Call(call) = expr_stmt.as_ref()
                 {
                     // g_object_class_install_properties(class, N_PROPS, array)
                     if call.function_contains("install_properties") {

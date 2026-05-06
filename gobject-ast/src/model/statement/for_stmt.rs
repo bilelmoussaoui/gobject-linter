@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::{
     VariableDecl,
@@ -6,7 +6,7 @@ use crate::{
 };
 
 /// The initializer clause of a `for` statement.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub enum ForInit {
     /// Expression initializer: `for (i = 0; ...)`
     Expr(Box<Expression>),
@@ -15,14 +15,18 @@ pub enum ForInit {
     Decl(Box<VariableDecl>),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ForStatement {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub initializer: Option<ForInit>,
     /// Condition expression
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub condition: Option<Box<Expression>>,
     /// Update expression
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub update: Option<Box<Expression>>,
     /// Loop body (can be single statement or compound)
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub body: Vec<Statement>,
     pub location: SourceLocation,
 }

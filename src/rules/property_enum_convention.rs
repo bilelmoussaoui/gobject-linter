@@ -1,5 +1,5 @@
 use gobject_ast::{
-    EnumInfo, EnumValue, Expression, FileModel, PropertyType, Statement, top_level::TopLevelItem,
+    EnumInfo, EnumValue, Expression, FileModel, PropertyType, top_level::TopLevelItem,
 };
 use heck::ToShoutySnakeCase;
 
@@ -531,10 +531,7 @@ impl PropertyEnumConvention {
         let mut array_names = Vec::new();
 
         for item in file.iter_all_items() {
-            let TopLevelItem::Declaration(stmt) = item else {
-                continue;
-            };
-            let Statement::Declaration(decl) = stmt.as_ref() else {
+            let TopLevelItem::Declaration(decl) = item else {
                 continue;
             };
             if !decl.type_info.is_base_type("GParamSpec") || !decl.type_info.is_pointer() {

@@ -1,6 +1,6 @@
 use std::ffi::{c_long, c_ulong};
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::model::{
     SourceLocation,
@@ -9,7 +9,8 @@ use crate::model::{
     types::GType,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ParamFlag {
     /// The parameter is readable (value: 1)
     Readable,
@@ -81,16 +82,20 @@ impl ParamFlag {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Property {
     pub name: String,
     pub property_type: PropertyType,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub nick: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub blurb: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub flags: Vec<ParamFlag>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum PropertyType {
     String,
     Int {

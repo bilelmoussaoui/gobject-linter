@@ -88,10 +88,8 @@ impl TypeStyle {
             TopLevelItem::TypeDefinition(typedef_item) => {
                 self.check_typedef(typedef_item, path, style, violations);
             }
-            TopLevelItem::Declaration(stmt) => {
-                if let gobject_ast::Statement::Declaration(decl) = stmt.as_ref() {
-                    self.check_type(&decl.type_info, path, style, violations);
-                }
+            TopLevelItem::Declaration(decl) => {
+                self.check_type(&decl.type_info, path, style, violations);
             }
             _ => {}
         }
@@ -127,7 +125,7 @@ impl TypeStyle {
             TypeDefItem::Struct { fields, .. } => {
                 self.check_fields(fields, path, style, violations);
             }
-            TypeDefItem::Enum { .. } => {}
+            TypeDefItem::Enum(_) => {}
         }
     }
 

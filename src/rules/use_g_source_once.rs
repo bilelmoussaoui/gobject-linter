@@ -307,12 +307,8 @@ impl UseGSourceOnce {
         // Check if this statement is a g_idle_add/g_timeout_add/g_timeout_add_seconds
         // call with our callback
         if let Statement::Expression(expr_stmt) = stmt
-            && expr_stmt.expr.is_call_to_any(&[
-                "g_idle_add",
-                "g_timeout_add",
-                "g_timeout_add_seconds",
-            ])
-            && let Expression::Call(call) = &expr_stmt.expr
+            && expr_stmt.is_call_to_any(&["g_idle_add", "g_timeout_add", "g_timeout_add_seconds"])
+            && let Expression::Call(call) = expr_stmt.as_ref()
         {
             // Determine which argument is the callback
             let func_name = call.function_name();

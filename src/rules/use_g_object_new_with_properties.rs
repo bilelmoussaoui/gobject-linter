@@ -115,14 +115,14 @@ impl UseGObjectNewWithProperties {
             }
             // Assignment: obj = g_object_new(TYPE, NULL);
             Statement::Expression(expr_stmt) => {
-                if let Expression::Assignment(assign) = &expr_stmt.expr
+                if let Expression::Assignment(assign) = expr_stmt.as_ref()
                     && let Expression::Call(call) = &*assign.rhs
                 {
                     for &empty_call in empty_new_calls {
                         if std::ptr::eq(call as *const _, empty_call as *const _) {
                             let var_name = assign.lhs_as_text();
                             if !var_name.is_empty() {
-                                return Some((var_name, expr_stmt.location));
+                                return Some((var_name, *expr_stmt.location()));
                             }
                         }
                     }
@@ -157,7 +157,7 @@ impl UseGObjectNewWithProperties {
             return None;
         };
 
-        let Expression::Call(call) = &expr_stmt.expr else {
+        let Expression::Call(call) = expr_stmt.as_ref() else {
             return None;
         };
 

@@ -75,7 +75,7 @@ impl UnnecessaryNullCheck {
         };
 
         // Check if it's a g_free/g_clear_* call
-        let Expression::Call(call) = &expr_stmt.expr else {
+        let Expression::Call(call) = expr_stmt.as_ref() else {
             return;
         };
 
@@ -98,8 +98,10 @@ impl UnnecessaryNullCheck {
         }
 
         // Create a fix: replace the if statement with the call statement
-        // Extract the statement text from the source
-        let stmt_text = expr_stmt.location.as_str(source).unwrap_or_default();
+        // Extract the statement text from the source (including the semicolon)
+        let loc = expr_stmt.location();
+        let stmt_end = loc.find_semicolon_end(source);
+        let stmt_text = std::str::from_utf8(&source[loc.start_byte..stmt_end]).unwrap_or_default();
 
         let fix = Fix::new(
             if_stmt.location.start_byte,

@@ -1,7 +1,8 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 /// Binary operators in C
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum BinaryOp {
     // Arithmetic
     Add,      // +
@@ -95,7 +96,8 @@ impl BinaryOp {
 }
 
 /// Unary operators in C
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum UnaryOp {
     Not,           // !
     BitwiseNot,    // ~
@@ -141,7 +143,8 @@ impl UnaryOp {
 }
 
 /// Update operators (increment/decrement)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum UpdateOp {
     Increment, // ++
     Decrement, // --
@@ -167,7 +170,8 @@ impl UpdateOp {
 }
 
 /// Assignment operators in C
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum AssignmentOp {
     Assign,           // =
     AddAssign,        // +=
@@ -220,7 +224,8 @@ impl AssignmentOp {
 }
 
 /// Field access operators in C
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum FieldAccessOp {
     Arrow, // ->
     Dot,   // .

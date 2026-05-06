@@ -1,28 +1,32 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::model::{Expression, SourceLocation, Statement};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CaseLabel {
     /// The case value expression (e.g., PROP_FOO, 1, N_PROPS + 1)
     /// None for default case
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<Expression>,
     pub location: SourceLocation,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SwitchCase {
     /// The case label (case PROP_FOO:, default:, etc.)
     pub label: CaseLabel,
     /// Statements between this case and the next case/end
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub body: Vec<Statement>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SwitchStatement {
     pub condition: Expression,
+    #[serde(skip)]
     pub condition_location: SourceLocation,
     /// Cases with their associated statement bodies
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub cases: Vec<SwitchCase>,
     pub location: SourceLocation,
 }

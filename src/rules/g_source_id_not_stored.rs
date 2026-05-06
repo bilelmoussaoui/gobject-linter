@@ -47,8 +47,8 @@ impl Rule for GSourceIdNotStored {
             stmt.walk(&mut |s| {
                 // Only check expression statements (not assignments/declarations)
                 if let Statement::Expression(expr_stmt) = s
-                    && expr_stmt.expr.is_call_to_any(SOURCE_FUNCTIONS)
-                    && let Expression::Call(call) = &expr_stmt.expr {
+                    && expr_stmt.is_call_to_any(SOURCE_FUNCTIONS)
+                    && let Expression::Call(call) = expr_stmt.as_ref() {
                         // Check if user_data (last argument) is not NULL
                         if !call.arguments.is_empty()
                             && call.has_arg_matching(call.arguments.len() - 1, |expr| {

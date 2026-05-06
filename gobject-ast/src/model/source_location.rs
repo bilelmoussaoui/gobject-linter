@@ -1,12 +1,26 @@
-use serde::{Deserialize, Serialize};
+use std::fmt;
+
+use serde::{Serialize, Serializer};
 
 /// Source location information for AST nodes
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
+#[derive(Clone, Copy, Default)]
 pub struct SourceLocation {
     pub line: usize,
     pub column: usize,
     pub start_byte: usize,
     pub end_byte: usize,
+}
+
+impl fmt::Debug for SourceLocation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}", self.line, self.column)
+    }
+}
+
+impl Serialize for SourceLocation {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(&format!("{}:{}", self.line, self.column))
+    }
 }
 
 impl SourceLocation {
@@ -140,6 +154,21 @@ impl SourceLocation {
         }
 
         indent
+    }
+
+    /// Scan forward from `end_byte` through whitespace to find a `;` and
+    /// return the byte position immediately after it. Returns `end_byte`
+    /// unchanged if no semicolon is found within a short distance.
+    pub fn find_semicolon_end(&self, source: &[u8]) -> usize {
+        let mut pos = self.end_byte;
+        while pos < source.len() {
+            match source[pos] {
+                b';' => return pos + 1,
+                b' ' | b'\t' | b'\r' | b'\n' => pos += 1,
+                _ => break,
+            }
+        }
+        self.end_byte
     }
 
     /// Find braces surrounding a range in the source

@@ -1,11 +1,12 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 /// A C/GLib primitive scalar type.
 ///
 /// Variants marked with a `G_TYPE_*` have a counterpart in `GType::as_basic()`.
 /// The rest are valid C types that appear in `TypeInfo` but have no GType
 /// registration (e.g. `short`, `long long`, fixed-width integers).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum BasicType {
     Boolean, // gboolean                      / G_TYPE_BOOLEAN
     Char,    // gchar / char                  / G_TYPE_CHAR

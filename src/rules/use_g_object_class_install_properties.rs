@@ -261,7 +261,7 @@ impl UseGObjectClassInstallProperties {
                     );
                     fixes.push(Fix::new(
                         statement_location.start_byte,
-                        statement_location.end_byte,
+                        statement_location.find_semicolon_end(source),
                         replacement,
                     ));
 
@@ -291,7 +291,7 @@ impl UseGObjectClassInstallProperties {
                 let replacement = format!("{}[{}] = {};", array_name, prop_id, param_spec);
                 fixes.push(Fix::new(
                     stmt.location().start_byte,
-                    stmt.location().end_byte,
+                    stmt.location().find_semicolon_end(source),
                     replacement,
                 ));
             }
@@ -322,9 +322,10 @@ impl UseGObjectClassInstallProperties {
                 "\n\n{}g_object_class_install_properties ({}, {}, {});",
                 indentation, object_class_var, n_props_name, array_name
             );
+            let last_stmt_end = last_stmt.location().find_semicolon_end(source);
             fixes.push(Fix::new(
-                last_stmt.location().end_byte,
-                last_stmt.location().end_byte,
+                last_stmt_end,
+                last_stmt_end,
                 install_properties_call,
             ));
         }
@@ -357,8 +358,7 @@ impl UseGObjectClassInstallProperties {
     fn determine_array_name(&self, file: &gobject_ast::FileModel, _source: &[u8]) -> String {
         // Check if "props" is already used as a GParamSpec array
         for item in &file.top_level_items {
-            if let TopLevelItem::Declaration(stmt) = item
-                && let Statement::Declaration(decl) = stmt.as_ref()
+            if let TopLevelItem::Declaration(decl) = item
                 && decl.name == "props"
                 && decl.type_info.full_text.contains("GParamSpec")
             {

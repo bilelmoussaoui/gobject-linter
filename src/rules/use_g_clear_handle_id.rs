@@ -138,7 +138,7 @@ impl UseGClearHandleId {
         } else if if_stmt.then_body.len() == 1
             && if_stmt.then_has_braces
             && let Statement::Expression(expr_stmt) = &if_stmt.then_body[0]
-            && let Expression::Call(call) = &expr_stmt.expr
+            && let Expression::Call(call) = expr_stmt.as_ref()
             && call.is_function("g_clear_handle_id")
         {
             let call_text = call.location.as_str(source).unwrap_or("");

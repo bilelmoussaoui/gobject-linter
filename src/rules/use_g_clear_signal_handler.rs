@@ -70,8 +70,13 @@ impl UseGClearSignalHandler {
             }
 
             // bare g_signal_handler_disconnect(obj, struct->member) — no zero-assign
-            if self.try_bare_disconnect_on_member(&statements[i], statements, file_path, violations)
-            {
+            if self.try_bare_disconnect_on_member(
+                &statements[i],
+                statements,
+                &file.source,
+                file_path,
+                violations,
+            ) {
                 i += 1;
                 continue;
             }
@@ -160,15 +165,12 @@ impl UseGClearSignalHandler {
         }
 
         let replacement = format!("g_clear_signal_handler (&{handler_id}, {obj});");
+        let s1_end = s1.location().find_semicolon_end(&file.source);
 
         // Use two separate fixes to preserve comments between statements
         let fixes = vec![
             // Replace the first statement with the new call
-            Fix::new(
-                s1.location().start_byte,
-                s1.location().end_byte,
-                replacement.clone(),
-            ),
+            Fix::new(s1.location().start_byte, s1_end, replacement.clone()),
             // Delete the entire second line
             Fix::delete_line(s2.location(), &file.source),
         ];
@@ -188,6 +190,7 @@ impl UseGClearSignalHandler {
         &self,
         stmt: &Statement,
         all_stmts: &[Statement],
+        source: &[u8],
         file_path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) -> bool {
@@ -212,11 +215,8 @@ impl UseGClearSignalHandler {
         }
 
         let replacement = format!("g_clear_signal_handler (&{handler_id}, {obj});");
-        let fix = Fix::new(
-            stmt.location().start_byte,
-            stmt.location().end_byte,
-            replacement.clone(),
-        );
+        let stmt_end = stmt.location().find_semicolon_end(source);
+        let fix = Fix::new(stmt.location().start_byte, stmt_end, replacement.clone());
 
         violations.push(self.violation_with_fix(
             file_path,
@@ -235,7 +235,7 @@ impl UseGClearSignalHandler {
             return None;
         };
 
-        let Expression::Call(call) = &expr_stmt.expr else {
+        let Expression::Call(call) = expr_stmt.as_ref() else {
             return None;
         };
 
@@ -259,7 +259,7 @@ impl UseGClearSignalHandler {
             return false;
         };
 
-        let Expression::Assignment(assign) = &expr_stmt.expr else {
+        let Expression::Assignment(assign) = expr_stmt.as_ref() else {
             return false;
         };
 
@@ -276,7 +276,7 @@ impl UseGClearSignalHandler {
                 continue;
             };
 
-            let Expression::Call(call) = &expr_stmt.expr else {
+            let Expression::Call(call) = expr_stmt.as_ref() else {
                 continue;
             };
 

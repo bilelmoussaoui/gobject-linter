@@ -1,11 +1,11 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::{
     GObjectType, SourceLocation, TypeInfo, VariableDecl,
     model::{
-        Comment, Statement,
+        Comment,
         expression::Expression,
         top_level::{FunctionDefItem, TopLevelItem},
         types::{EnumInfo, ParamSpecAssignment},
@@ -14,8 +14,9 @@ use crate::{
 };
 
 /// The complete project model - a map of files to their content
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Default)]
 pub struct Project {
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub files: HashMap<PathBuf, FileModel>,
 }
 
@@ -60,12 +61,14 @@ impl Project {
 }
 
 /// Model of a single file (header or C file)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct FileModel {
     pub path: PathBuf,
     /// Top-level items in source order (preserves structure like #ifdef blocks)
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub top_level_items: Vec<TopLevelItem>,
     /// All comments in the file, in source order
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub comments: Vec<Comment>,
     /// The raw source code of this file - available for detailed pattern
     /// matching
@@ -139,10 +142,9 @@ impl FileModel {
     pub fn iter_all_gobject_types(&self) -> impl Iterator<Item = &GObjectType> + '_ {
         self.iter_items_recursive(&self.top_level_items)
             .filter_map(|item| match item {
-                TopLevelItem::Preprocessor(PreprocessorDirective::GObjectType {
-                    gobject_type,
-                    ..
-                }) => Some(gobject_type.as_ref()),
+                TopLevelItem::Preprocessor(PreprocessorDirective::GObjectType(gobject_type)) => {
+                    Some(gobject_type.as_ref())
+                }
                 _ => None,
             })
     }
@@ -179,7 +181,7 @@ impl FileModel {
     pub fn iter_all_enums(&self) -> impl Iterator<Item = &EnumInfo> + '_ {
         self.iter_items_recursive(&self.top_level_items)
             .filter_map(|item| match item {
-                TopLevelItem::TypeDefinition(TypeDefItem::Enum { enum_info }) => {
+                TopLevelItem::TypeDefinition(TypeDefItem::Enum(enum_info)) => {
                     Some(enum_info.as_ref())
                 }
                 _ => None,
@@ -213,10 +215,7 @@ impl FileModel {
     ) -> Vec<&VariableDecl> {
         self.iter_all_items()
             .filter_map(|item| {
-                let TopLevelItem::Declaration(stmt) = item else {
-                    return None;
-                };
-                let Statement::Declaration(decl) = stmt.as_ref() else {
+                let TopLevelItem::Declaration(decl) = item else {
                     return None;
                 };
                 if !decl.type_info.is_base_type(base_type)

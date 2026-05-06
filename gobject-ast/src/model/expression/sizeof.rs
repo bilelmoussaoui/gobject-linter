@@ -1,18 +1,20 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::{
     TypeInfo,
     model::{SourceLocation, expression::Expression},
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SizeofExpression {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub operand: Option<SizeofOperand>,
     pub text: String, // Full text like "sizeof(int)" or "sizeof x"
     pub location: SourceLocation,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum SizeofOperand {
     Type(TypeInfo),              // sizeof(MyType) or sizeof(struct MyType *)
     Expression(Box<Expression>), // sizeof(expr)

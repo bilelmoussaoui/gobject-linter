@@ -26,7 +26,7 @@ pub use literal::{
     NumberLiteralExpression, StringLiteralExpression,
 };
 pub use offsetof::{OffsetOfExpression, StructField};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 pub use sizeof::{SizeofExpression, SizeofOperand};
 pub use subscript::SubscriptExpression;
 pub use unary::UnaryExpression;
@@ -34,7 +34,8 @@ pub use update::UpdateExpression;
 
 use crate::model::SourceLocation;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Expression {
     Call(CallExpression),
     Assignment(Assignment),

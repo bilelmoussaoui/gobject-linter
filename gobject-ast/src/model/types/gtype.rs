@@ -1,9 +1,10 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::model::{expression::Expression, types::BasicType};
 
 /// A GLib GType reference — either a macro/define or a `_get_type()` call.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum GType {
     /// `G_TYPE_NONE` — void / no return value.
     None,

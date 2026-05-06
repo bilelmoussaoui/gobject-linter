@@ -52,11 +52,12 @@ impl Rule for UseGClearList {
             } else {
                 "g_slist"
             };
+            let second_end = second.location().find_semicolon_end(&file.source);
             let fixes = vec![
                 Fix::delete_line(first.location(), &file.source),
                 Fix::new(
                     second.location().start_byte,
-                    second.location().end_byte,
+                    second_end,
                     replacement.clone(),
                 ),
             ];

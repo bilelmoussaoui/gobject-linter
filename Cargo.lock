@@ -426,6 +426,7 @@ name = "gobject-ast"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap",
  "ignore",
  "serde",
  "serde_json",

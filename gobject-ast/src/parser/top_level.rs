@@ -268,9 +268,9 @@ impl Parser {
             "type_definition" => {
                 // Check for typedef enum
                 if let Some(enum_info) = self.extract_enum(node, source) {
-                    return Some(TopLevelItem::TypeDefinition(TypeDefItem::Enum {
-                        enum_info: Box::new(enum_info),
-                    }));
+                    return Some(TopLevelItem::TypeDefinition(TypeDefItem::Enum(Box::new(
+                        enum_info,
+                    ))));
                 }
                 if let Some(item) = self.extract_typedef_from_type_definition(node, source) {
                     return Some(TopLevelItem::TypeDefinition(item));
@@ -282,9 +282,9 @@ impl Parser {
 
                 // Check for enum declarations
                 if let Some(enum_info) = self.extract_enum(node, source) {
-                    return Some(TopLevelItem::TypeDefinition(TypeDefItem::Enum {
-                        enum_info: Box::new(enum_info),
-                    }));
+                    return Some(TopLevelItem::TypeDefinition(TypeDefItem::Enum(Box::new(
+                        enum_info,
+                    ))));
                 }
 
                 // Check for a standalone struct definition: `struct _Foo { ... };`
@@ -351,7 +351,11 @@ impl Parser {
 
                 // Variable or type declaration - parse as statement
                 if let Some(stmt) = self.parse_statement(node, source) {
-                    return Some(TopLevelItem::Declaration(Box::new(stmt)));
+                    return match stmt {
+                        Statement::Declaration(decl) => Some(TopLevelItem::Declaration(decl)),
+                        Statement::Expression(expr) => Some(TopLevelItem::Expression(expr)),
+                        _ => None,
+                    };
                 }
                 None
             }
@@ -377,7 +381,6 @@ impl Parser {
                         };
                         return Some(TopLevelItem::TypeDefinition(TypeDefItem::Struct {
                             name,
-                            has_body: true,
                             fields,
                             vfuncs,
                             location: self.node_location(node),
@@ -389,9 +392,9 @@ impl Parser {
             "enum_specifier" => {
                 // Standalone enum (enum Name { ... } or anonymous enum { ... })
                 if let Some(enum_info) = self.extract_enum(node, source) {
-                    return Some(TopLevelItem::TypeDefinition(TypeDefItem::Enum {
-                        enum_info: Box::new(enum_info),
-                    }));
+                    return Some(TopLevelItem::TypeDefinition(TypeDefItem::Enum(Box::new(
+                        enum_info,
+                    ))));
                 }
                 None
             }
@@ -445,9 +448,8 @@ impl Parser {
                 }))
             }
             "expression_statement" => self
-                .parse_statement(node, source)
-                .map(Box::new)
-                .map(TopLevelItem::Declaration),
+                .parse_expression_stmt(node, source)
+                .map(TopLevelItem::Expression),
             "gobject_type_macro" => {
                 let full_text = std::str::from_utf8(&source[node.byte_range()]).unwrap_or("");
                 let macro_name = full_text.split('(').next().unwrap_or("").trim();
@@ -485,10 +487,7 @@ impl Parser {
 
                 if let Some(gobject_type) = self.extract_gobject_from_macro_modifier(node, source) {
                     return Some(TopLevelItem::Preprocessor(
-                        PreprocessorDirective::GObjectType {
-                            gobject_type: Box::new(gobject_type),
-                            location: self.node_location(node),
-                        },
+                        PreprocessorDirective::GObjectType(Box::new(gobject_type)),
                     ));
                 }
                 None
@@ -565,7 +564,6 @@ impl Parser {
 
                 return Some(TopLevelItem::TypeDefinition(TypeDefItem::Struct {
                     name,
-                    has_body: true,
                     fields,
                     vfuncs,
                     location: self.node_location(declaration_node),

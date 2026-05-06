@@ -89,7 +89,7 @@ impl UseGFileLoadBytes {
             stmt.walk(&mut |s| match s {
                 Statement::Expression(expr_stmt) => {
                     self.check_expr_for_bytes_new_take(
-                        &expr_stmt.expr,
+                        expr_stmt,
                         file_path,
                         load_contents_vars,
                         violations,

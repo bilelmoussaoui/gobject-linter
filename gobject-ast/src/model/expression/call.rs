@@ -1,10 +1,11 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::model::{Expression, SourceLocation};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CallExpression {
     pub function: Box<Expression>, // Can be Identifier or FieldAccess
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub arguments: Vec<Argument>,
     pub location: SourceLocation,
 }
@@ -169,10 +170,10 @@ impl CallExpression {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(untagged)]
 pub enum Argument {
     Expression(Box<Expression>),
-    // Add more specific types as needed
 }
 
 impl Argument {

@@ -1,7 +1,6 @@
 mod break_stmt;
 mod compound_stmt;
 mod continue_stmt;
-mod expression_stmt;
 mod for_stmt;
 mod goto_stmt;
 mod if_stmt;
@@ -14,13 +13,12 @@ mod while_stmt;
 pub use break_stmt::BreakStatement;
 pub use compound_stmt::CompoundStatement;
 pub use continue_stmt::ContinueStatement;
-pub use expression_stmt::ExpressionStmt;
 pub use for_stmt::{ForInit, ForStatement};
 pub use goto_stmt::GotoStatement;
 pub use if_stmt::IfStatement;
 pub use labeled_stmt::LabeledStatement;
 pub use return_stmt::ReturnStatement;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 pub use switch_stmt::{CaseLabel, SwitchCase, SwitchStatement};
 pub use variable_decl::VariableDecl;
 pub use while_stmt::{DoWhileStatement, WhileStatement};
@@ -29,10 +27,11 @@ use crate::model::{
     Assignment, CallExpression, Expression, SourceLocation, top_level::PreprocessorDirective,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Statement {
     Declaration(Box<VariableDecl>),
-    Expression(ExpressionStmt),
+    Expression(Box<Expression>),
     If(IfStatement),
     Return(ReturnStatement),
     Goto(GotoStatement),
@@ -148,7 +147,7 @@ impl Statement {
     /// immediate children of this statement node.
     pub fn expressions(&self) -> Vec<&Expression> {
         match self {
-            Self::Expression(expr_stmt) => vec![&expr_stmt.expr],
+            Self::Expression(expr_stmt) => vec![expr_stmt],
             Self::Return(ret) => ret.value.as_ref().into_iter().collect(),
             Self::Declaration(decl) => {
                 let mut exprs: Vec<&Expression> = decl.initializer.as_ref().into_iter().collect();
@@ -200,7 +199,7 @@ impl Statement {
     pub fn location(&self) -> &SourceLocation {
         match self {
             Self::Declaration(d) => &d.location,
-            Self::Expression(e) => &e.location,
+            Self::Expression(e) => e.location(),
             Self::If(i) => &i.location,
             Self::Return(r) => &r.location,
             Self::Goto(g) => &g.location,
@@ -287,7 +286,7 @@ impl Statement {
         let mut results: Vec<&'s Assignment> = Vec::new();
         self.walk(&mut |s| {
             if let Self::Expression(expr_stmt) = s
-                && let Expression::Assignment(assign) = &expr_stmt.expr
+                && let Expression::Assignment(assign) = expr_stmt.as_ref()
             {
                 results.push(assign);
             }
@@ -319,7 +318,7 @@ impl Statement {
     /// call
     pub fn extract_call(&self) -> Option<&CallExpression> {
         if let Self::Expression(expr_stmt) = self
-            && let Expression::Call(call) = &expr_stmt.expr
+            && let Expression::Call(call) = expr_stmt.as_ref()
         {
             return Some(call);
         }
@@ -333,7 +332,7 @@ impl Statement {
         F: Fn(&Expression) -> bool,
     {
         if let Self::Expression(expr_stmt) = self
-            && let Expression::Assignment(assign) = &expr_stmt.expr
+            && let Expression::Assignment(assign) = expr_stmt.as_ref()
         {
             let lhs_text = match &*assign.lhs {
                 Expression::Identifier(id) => id.name.as_str(),
@@ -350,7 +349,7 @@ impl Statement {
     /// Extract the assignment expression if this is an assignment statement
     pub fn extract_assignment(&self) -> Option<&Assignment> {
         if let Self::Expression(expr_stmt) = self
-            && let Expression::Assignment(assign) = &expr_stmt.expr
+            && let Expression::Assignment(assign) = expr_stmt.as_ref()
         {
             return Some(assign);
         }

@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::model::{BinaryOp, Expression, SourceLocation};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct BinaryExpression {
     pub left: Box<Expression>,
     pub operator: BinaryOp,

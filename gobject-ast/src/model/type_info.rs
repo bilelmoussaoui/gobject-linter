@@ -1,8 +1,13 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
+
+fn is_zero(v: &usize) -> bool {
+    *v == 0
+}
 
 use crate::model::{SourceLocation, types::BasicType};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum AutoCleanupMacro {
     /// g_autoptr(TypeName)
     Autoptr(String),
@@ -57,24 +62,28 @@ impl std::fmt::Display for AutoCleanupMacro {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TypeInfo {
     /// Base type without qualifiers or pointers: `"GFile"`, `"int"`.
     pub base_type: String,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub is_const: bool,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub is_volatile: bool,
     /// True when spelled with the `struct` keyword (`struct Foo *`).
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub is_struct: bool,
     /// True when spelled with the `union` keyword (`union Foo *`).
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub is_union: bool,
     /// Pointer indirections: 0 = value, 1 = `*`, 2 = `**`.
+    #[serde(skip_serializing_if = "is_zero")]
     pub pointer_depth: usize,
     /// Full type string as it appears in source (`"const GFile *"`).
+    #[serde(skip)]
     pub full_text: String,
     pub location: SourceLocation,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub auto_cleanup: Option<AutoCleanupMacro>,
 }
 
@@ -256,7 +265,7 @@ impl TypeInfo {
             ("gdouble" | "double", 0) => Some(BasicType::Double),
             ("gchar" | "char", 1) => Some(BasicType::String),
             ("gpointer" | "void", 1) => Some(BasicType::Pointer),
-            // ── C types without a G_TYPE_* equivalent ───────────────────────
+            // C types without a G_TYPE_* equivalent
             ("_Bool" | "bool", 0) => Some(BasicType::Bool),
             ("gshort" | "short" | "signed short" | "short int" | "signed short int", 0) => {
                 Some(BasicType::Short)

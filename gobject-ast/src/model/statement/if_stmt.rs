@@ -1,12 +1,15 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::model::{BinaryExpression, Expression, SourceLocation, Statement};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct IfStatement {
     pub condition: Expression,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub then_body: Vec<Statement>,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub then_has_braces: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub else_body: Option<Vec<Statement>>,
     pub location: SourceLocation,
 }
