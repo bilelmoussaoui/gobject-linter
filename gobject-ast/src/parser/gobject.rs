@@ -411,7 +411,7 @@ impl Parser {
         }
 
         // Only parse if this is actually an expression node
-        if Parser::is_expression_node(&node)
+        if Self::is_expression_node(&node)
             && let Some(expr) = self.parse_expression(node, source)
         {
             collect_identifiers_from_expr(&expr, source, result);

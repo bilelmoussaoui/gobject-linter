@@ -157,7 +157,7 @@ impl Signal {
             .filter_map(|i| call.get_arg(i).and_then(GType::from_expression))
             .collect();
 
-        Some(Signal {
+        Some(Self {
             name,
             itype,
             flags,

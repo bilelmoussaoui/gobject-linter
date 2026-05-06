@@ -910,7 +910,7 @@ impl Parser {
                 let (value, value_expr, value_location) =
                     if let Some(value_node) = child.child_by_field_name("value") {
                         // Parse as expression (only if it's actually an expression node)
-                        let expr = if Parser::is_expression_node(&value_node) {
+                        let expr = if Self::is_expression_node(&value_node) {
                             self.parse_expression(value_node, source)
                         } else {
                             None

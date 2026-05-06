@@ -37,7 +37,7 @@ impl Parser {
                     if child.is_named()
                         && child.kind() != "("
                         && child.kind() != ")"
-                        && Parser::is_expression_node(&child)
+                        && Self::is_expression_node(&child)
                     {
                         return self.parse_expression(child, source);
                     }
@@ -159,8 +159,7 @@ impl Parser {
                 let mut cursor = node.walk();
                 let mut last_expr = None;
                 for child in node.children(&mut cursor) {
-                    if child.is_named() && child.kind() != "," && Parser::is_expression_node(&child)
-                    {
+                    if child.is_named() && child.kind() != "," && Self::is_expression_node(&child) {
                         last_expr = self.parse_expression(child, source);
                     }
                 }
@@ -294,7 +293,7 @@ impl Parser {
                             }
                             _ => {
                                 // This should be the value expression
-                                if Parser::is_expression_node(&pair_child) {
+                                if Self::is_expression_node(&pair_child) {
                                     value = self.parse_expression(pair_child, source);
                                 }
                             }
@@ -310,7 +309,7 @@ impl Parser {
                 }
                 _ => {
                     // Direct value (no designator): just an expression
-                    if Parser::is_expression_node(&child)
+                    if Self::is_expression_node(&child)
                         && let Some(expr) = self.parse_expression(child, source)
                     {
                         items.push(InitializerItem {

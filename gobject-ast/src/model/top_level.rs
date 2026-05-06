@@ -133,7 +133,7 @@ pub struct StructField {
     /// embedded aggregate (e.g. `union { A a; B b; } d` → inner_fields = [a,
     /// b]).
     #[serde(default)]
-    pub inner_fields: Vec<StructField>,
+    pub inner_fields: Vec<Self>,
 }
 
 impl StructField {
@@ -152,7 +152,7 @@ impl StructField {
     /// in pre-order, matching the pattern used by `Statement::walk`.
     pub fn walk<F>(&self, f: &mut F)
     where
-        F: FnMut(&StructField),
+        F: FnMut(&Self),
     {
         f(self);
         for inner in &self.inner_fields {

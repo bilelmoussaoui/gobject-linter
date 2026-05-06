@@ -179,25 +179,25 @@ impl Argument {
     /// Convert this argument back to source text
     pub fn to_source_string(&self, source: &[u8]) -> Option<String> {
         match self {
-            Argument::Expression(expr) => expr.to_source_string(source),
+            Self::Expression(expr) => expr.to_source_string(source),
         }
     }
 
     /// Check if this argument is a string literal or macro wrapping a string
     pub fn is_string_or_macro_string(&self) -> bool {
-        let Argument::Expression(expr) = self;
+        let Self::Expression(expr) = self;
         expr.is_string_or_macro_string()
     }
 
     /// Check if this argument is NULL
     pub fn is_null(&self) -> bool {
-        let Argument::Expression(expr) = self;
+        let Self::Expression(expr) = self;
         expr.is_null()
     }
 
     /// Extract string value from this argument, unwrapping macros
     pub fn extract_string_value(&self) -> Option<String> {
-        let Argument::Expression(expr) = self;
+        let Self::Expression(expr) = self;
         expr.extract_string_value()
     }
 }

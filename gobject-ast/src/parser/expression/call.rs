@@ -20,7 +20,7 @@ impl Parser {
             for child in args_node.children(&mut cursor) {
                 if child.is_named()
                     && child.kind() != ","
-                    && Parser::is_expression_node(&child)
+                    && Self::is_expression_node(&child)
                     && let Some(expr) = self.parse_expression(child, source)
                 {
                     arguments.push(Argument::Expression(Box::new(expr)));

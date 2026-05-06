@@ -44,39 +44,39 @@ pub enum ParamFlag {
 impl ParamFlag {
     pub fn from_identifier(name: &str) -> Self {
         match name {
-            "G_PARAM_READABLE" => ParamFlag::Readable,
-            "G_PARAM_WRITABLE" => ParamFlag::Writable,
-            "G_PARAM_READWRITE" => ParamFlag::ReadWrite,
-            "G_PARAM_CONSTRUCT" => ParamFlag::Construct,
-            "G_PARAM_CONSTRUCT_ONLY" => ParamFlag::ConstructOnly,
-            "G_PARAM_LAX_VALIDATION" => ParamFlag::LaxValidation,
-            "G_PARAM_STATIC_NAME" => ParamFlag::StaticName,
-            "G_PARAM_PRIVATE" => ParamFlag::Private,
-            "G_PARAM_STATIC_NICK" => ParamFlag::StaticNick,
-            "G_PARAM_STATIC_BLURB" => ParamFlag::StaticBlurb,
-            "G_PARAM_STATIC_STRINGS" => ParamFlag::StaticStrings,
-            "G_PARAM_EXPLICIT_NOTIFY" => ParamFlag::ExplicitNotify,
-            "G_PARAM_DEPRECATED" => ParamFlag::Deprecated,
-            _ => ParamFlag::Unknown(name.to_string()),
+            "G_PARAM_READABLE" => Self::Readable,
+            "G_PARAM_WRITABLE" => Self::Writable,
+            "G_PARAM_READWRITE" => Self::ReadWrite,
+            "G_PARAM_CONSTRUCT" => Self::Construct,
+            "G_PARAM_CONSTRUCT_ONLY" => Self::ConstructOnly,
+            "G_PARAM_LAX_VALIDATION" => Self::LaxValidation,
+            "G_PARAM_STATIC_NAME" => Self::StaticName,
+            "G_PARAM_PRIVATE" => Self::Private,
+            "G_PARAM_STATIC_NICK" => Self::StaticNick,
+            "G_PARAM_STATIC_BLURB" => Self::StaticBlurb,
+            "G_PARAM_STATIC_STRINGS" => Self::StaticStrings,
+            "G_PARAM_EXPLICIT_NOTIFY" => Self::ExplicitNotify,
+            "G_PARAM_DEPRECATED" => Self::Deprecated,
+            _ => Self::Unknown(name.to_string()),
         }
     }
 
     pub fn as_str(&self) -> &str {
         match self {
-            ParamFlag::Readable => "G_PARAM_READABLE",
-            ParamFlag::Writable => "G_PARAM_WRITABLE",
-            ParamFlag::ReadWrite => "G_PARAM_READWRITE",
-            ParamFlag::Construct => "G_PARAM_CONSTRUCT",
-            ParamFlag::ConstructOnly => "G_PARAM_CONSTRUCT_ONLY",
-            ParamFlag::LaxValidation => "G_PARAM_LAX_VALIDATION",
-            ParamFlag::StaticName => "G_PARAM_STATIC_NAME",
-            ParamFlag::Private => "G_PARAM_PRIVATE",
-            ParamFlag::StaticNick => "G_PARAM_STATIC_NICK",
-            ParamFlag::StaticBlurb => "G_PARAM_STATIC_BLURB",
-            ParamFlag::StaticStrings => "G_PARAM_STATIC_STRINGS",
-            ParamFlag::ExplicitNotify => "G_PARAM_EXPLICIT_NOTIFY",
-            ParamFlag::Deprecated => "G_PARAM_DEPRECATED",
-            ParamFlag::Unknown(name) => name.as_str(),
+            Self::Readable => "G_PARAM_READABLE",
+            Self::Writable => "G_PARAM_WRITABLE",
+            Self::ReadWrite => "G_PARAM_READWRITE",
+            Self::Construct => "G_PARAM_CONSTRUCT",
+            Self::ConstructOnly => "G_PARAM_CONSTRUCT_ONLY",
+            Self::LaxValidation => "G_PARAM_LAX_VALIDATION",
+            Self::StaticName => "G_PARAM_STATIC_NAME",
+            Self::Private => "G_PARAM_PRIVATE",
+            Self::StaticNick => "G_PARAM_STATIC_NICK",
+            Self::StaticBlurb => "G_PARAM_STATIC_BLURB",
+            Self::StaticStrings => "G_PARAM_STATIC_STRINGS",
+            Self::ExplicitNotify => "G_PARAM_EXPLICIT_NOTIFY",
+            Self::Deprecated => "G_PARAM_DEPRECATED",
+            Self::Unknown(name) => name.as_str(),
         }
     }
 }
@@ -491,7 +491,7 @@ impl Property {
             Vec::new()
         };
 
-        Some(Property {
+        Some(Self {
             name,
             property_type,
             nick,
@@ -517,7 +517,7 @@ impl Property {
         // Third argument is the property name
         let name = extract_string_arg(&args[2])?;
 
-        Some(Property {
+        Some(Self {
             name,
             property_type: PropertyType::Override,
             nick: None,
@@ -675,10 +675,10 @@ impl ParamSpecAssignment {
     /// is an override)
     pub fn is_installed(&self) -> bool {
         match self {
-            ParamSpecAssignment::ArraySubscript { install_call, .. } => install_call.is_some(),
-            ParamSpecAssignment::OverrideProperty { .. } => true,
-            ParamSpecAssignment::Variable { install_call, .. } => install_call.is_some(),
-            ParamSpecAssignment::DirectInstall { .. } => true,
+            Self::ArraySubscript { install_call, .. } => install_call.is_some(),
+            Self::OverrideProperty { .. } => true,
+            Self::Variable { install_call, .. } => install_call.is_some(),
+            Self::DirectInstall { .. } => true,
         }
     }
 
@@ -686,26 +686,26 @@ impl ParamSpecAssignment {
     /// For Variable assignments, extracts enum value from install_property call
     pub fn get_installed_enum_value(&self, source: &[u8]) -> Option<String> {
         match self {
-            ParamSpecAssignment::ArraySubscript {
+            Self::ArraySubscript {
                 enum_value,
                 install_call,
                 ..
             } => install_call.as_ref().map(|_| enum_value.clone()),
-            ParamSpecAssignment::OverrideProperty { enum_value, .. } => Some(enum_value.clone()),
-            ParamSpecAssignment::Variable { install_call, .. } => install_call
+            Self::OverrideProperty { enum_value, .. } => Some(enum_value.clone()),
+            Self::Variable { install_call, .. } => install_call
                 .as_ref()
                 .and_then(|call| call.get_arg(1).and_then(|arg| arg.to_source_string(source))),
-            ParamSpecAssignment::DirectInstall { enum_value, .. } => Some(enum_value.clone()),
+            Self::DirectInstall { enum_value, .. } => Some(enum_value.clone()),
         }
     }
 
     /// Get the property information
     pub fn property(&self) -> &Property {
         match self {
-            ParamSpecAssignment::ArraySubscript { property, .. } => property,
-            ParamSpecAssignment::Variable { property, .. } => property,
-            ParamSpecAssignment::OverrideProperty { property, .. } => property,
-            ParamSpecAssignment::DirectInstall { property, .. } => property,
+            Self::ArraySubscript { property, .. } => property,
+            Self::Variable { property, .. } => property,
+            Self::OverrideProperty { property, .. } => property,
+            Self::DirectInstall { property, .. } => property,
         }
     }
 
@@ -713,10 +713,10 @@ impl ParamSpecAssignment {
     /// DirectInstall)
     pub fn enum_value(&self) -> Option<&str> {
         match self {
-            ParamSpecAssignment::ArraySubscript { enum_value, .. } => Some(enum_value.as_str()),
-            ParamSpecAssignment::OverrideProperty { enum_value, .. } => Some(enum_value.as_str()),
-            ParamSpecAssignment::DirectInstall { enum_value, .. } => Some(enum_value.as_str()),
-            ParamSpecAssignment::Variable { .. } => None,
+            Self::ArraySubscript { enum_value, .. } => Some(enum_value.as_str()),
+            Self::OverrideProperty { enum_value, .. } => Some(enum_value.as_str()),
+            Self::DirectInstall { enum_value, .. } => Some(enum_value.as_str()),
+            Self::Variable { .. } => None,
         }
     }
 }

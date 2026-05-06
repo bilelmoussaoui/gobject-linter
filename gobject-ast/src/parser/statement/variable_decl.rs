@@ -109,7 +109,7 @@ impl Parser {
                 }
             } else {
                 // After "=", parse as initializer
-                if child.is_named() && Parser::is_expression_node(&child) {
+                if child.is_named() && Self::is_expression_node(&child) {
                     initializer = self.parse_expression(child, source);
                 }
             }
@@ -226,7 +226,7 @@ impl Parser {
                     break;
                 }
                 // After "[", look for the size expression
-                if found_bracket && child.is_named() && Parser::is_expression_node(&child) {
+                if found_bracket && child.is_named() && Self::is_expression_node(&child) {
                     return self.parse_expression(child, source);
                 }
             }

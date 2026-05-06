@@ -25,7 +25,7 @@ impl Parser {
                 body_statements = self.parse_function_body(child, source);
                 break;
             } else if child.is_named()
-                && !Parser::is_expression_node(&child)
+                && !Self::is_expression_node(&child)
                 && child.kind() != ";"
                 && child.kind() != "("
                 && child.kind() != ")"
@@ -76,7 +76,7 @@ impl Parser {
                 }
                 "(" | ")" => {}
                 _ => {
-                    if Parser::is_expression_node(&child) {
+                    if Self::is_expression_node(&child) {
                         let expr = self.parse_expression(child, source)?;
                         match semicolon_count {
                             0 => initializer = Some(ForInit::Expr(Box::new(expr))),
@@ -122,7 +122,7 @@ impl Parser {
                     // Skip delimiters
                 }
                 _ => {
-                    if Parser::is_expression_node(&child) && condition.is_none() {
+                    if Self::is_expression_node(&child) && condition.is_none() {
                         condition = Some(Box::new(self.parse_expression(child, source)?));
                     } else if child.is_named() {
                         // Single statement body
@@ -161,7 +161,7 @@ impl Parser {
                     // Skip keywords and delimiters
                 }
                 _ => {
-                    if Parser::is_expression_node(&child) {
+                    if Self::is_expression_node(&child) {
                         condition = Some(Box::new(self.parse_expression(child, source)?));
                     } else if child.is_named() && body.is_empty() {
                         // Single statement body (before the condition)

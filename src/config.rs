@@ -107,15 +107,15 @@ pub enum RuleLevel {
 
 impl RuleLevel {
     pub fn is_enabled(&self) -> bool {
-        !matches!(self, RuleLevel::Ignore)
+        !matches!(self, Self::Ignore)
     }
 
     pub fn is_error(&self) -> bool {
-        matches!(self, RuleLevel::Error)
+        matches!(self, Self::Error)
     }
 
     pub fn is_warn(&self) -> bool {
-        matches!(self, RuleLevel::Warn)
+        matches!(self, Self::Warn)
     }
 }
 
@@ -258,13 +258,13 @@ impl Config {
     pub fn load(path: &Path) -> Result<Self> {
         if !path.exists() {
             // Return default config if file doesn't exist
-            return Ok(Config::default());
+            return Ok(Self::default());
         }
 
         let content = fs::read_to_string(path)
             .with_context(|| format!("Failed to read config file: {}", path.display()))?;
 
-        let config: Config = toml::from_str(&content)
+        let config: Self = toml::from_str(&content)
             .with_context(|| format!("Failed to parse config file: {}", path.display()))?;
 
         Ok(config)

@@ -52,11 +52,11 @@ impl Statement {
     /// inside the closure can be stored in an outer `Vec<&'s T>`.
     pub fn walk<'s, F>(&'s self, f: &mut F)
     where
-        F: FnMut(&'s Statement),
+        F: FnMut(&'s Self),
     {
         f(self);
         match self {
-            Statement::If(if_stmt) => {
+            Self::If(if_stmt) => {
                 for stmt in &if_stmt.then_body {
                     stmt.walk(f);
                 }
@@ -66,43 +66,43 @@ impl Statement {
                     }
                 }
             }
-            Statement::Compound(compound) => {
+            Self::Compound(compound) => {
                 for stmt in &compound.statements {
                     stmt.walk(f);
                 }
             }
-            Statement::Labeled(labeled) => {
+            Self::Labeled(labeled) => {
                 labeled.statement.walk(f);
             }
-            Statement::Switch(switch) => {
+            Self::Switch(switch) => {
                 for case in &switch.cases {
                     for stmt in &case.body {
                         stmt.walk(f);
                     }
                 }
             }
-            Statement::For(for_stmt) => {
+            Self::For(for_stmt) => {
                 for stmt in &for_stmt.body {
                     stmt.walk(f);
                 }
             }
-            Statement::While(while_stmt) => {
+            Self::While(while_stmt) => {
                 for stmt in &while_stmt.body {
                     stmt.walk(f);
                 }
             }
-            Statement::DoWhile(do_while) => {
+            Self::DoWhile(do_while) => {
                 for stmt in &do_while.body {
                     stmt.walk(f);
                 }
             }
-            Statement::Declaration(_)
-            | Statement::Expression(_)
-            | Statement::Return(_)
-            | Statement::Goto(_)
-            | Statement::Break(_)
-            | Statement::Continue(_)
-            | Statement::Preprocessor(_) => {}
+            Self::Declaration(_)
+            | Self::Expression(_)
+            | Self::Return(_)
+            | Self::Goto(_)
+            | Self::Break(_)
+            | Self::Continue(_)
+            | Self::Preprocessor(_) => {}
         }
     }
 
@@ -113,32 +113,32 @@ impl Statement {
     /// every nested body.
     pub fn for_each_child_block<F>(&self, mut f: F)
     where
-        F: FnMut(&[Statement]),
+        F: FnMut(&[Self]),
     {
         match self {
-            Statement::If(if_stmt) => {
+            Self::If(if_stmt) => {
                 f(&if_stmt.then_body);
                 if let Some(else_body) = &if_stmt.else_body {
                     f(else_body);
                 }
             }
-            Statement::Compound(c) => f(&c.statements),
-            Statement::Labeled(l) => f(std::slice::from_ref(&l.statement)),
-            Statement::For(for_stmt) => f(&for_stmt.body),
-            Statement::While(w) => f(&w.body),
-            Statement::DoWhile(d) => f(&d.body),
-            Statement::Switch(sw) => {
+            Self::Compound(c) => f(&c.statements),
+            Self::Labeled(l) => f(std::slice::from_ref(&l.statement)),
+            Self::For(for_stmt) => f(&for_stmt.body),
+            Self::While(w) => f(&w.body),
+            Self::DoWhile(d) => f(&d.body),
+            Self::Switch(sw) => {
                 for case in &sw.cases {
                     f(&case.body);
                 }
             }
-            Statement::Declaration(_)
-            | Statement::Expression(_)
-            | Statement::Return(_)
-            | Statement::Goto(_)
-            | Statement::Break(_)
-            | Statement::Continue(_)
-            | Statement::Preprocessor(_) => {}
+            Self::Declaration(_)
+            | Self::Expression(_)
+            | Self::Return(_)
+            | Self::Goto(_)
+            | Self::Break(_)
+            | Self::Continue(_)
+            | Self::Preprocessor(_) => {}
         }
     }
 
@@ -147,17 +147,17 @@ impl Statement {
     /// immediate children of this statement node.
     pub fn expressions(&self) -> Vec<&Expression> {
         match self {
-            Statement::Expression(expr_stmt) => vec![&expr_stmt.expr],
-            Statement::Return(ret) => ret.value.as_ref().into_iter().collect(),
-            Statement::Declaration(decl) => {
+            Self::Expression(expr_stmt) => vec![&expr_stmt.expr],
+            Self::Return(ret) => ret.value.as_ref().into_iter().collect(),
+            Self::Declaration(decl) => {
                 let mut exprs: Vec<&Expression> = decl.initializer.as_ref().into_iter().collect();
                 if let Some(size) = &decl.array_size {
                     exprs.push(size);
                 }
                 exprs
             }
-            Statement::If(if_stmt) => vec![&if_stmt.condition],
-            Statement::Switch(switch) => {
+            Self::If(if_stmt) => vec![&if_stmt.condition],
+            Self::Switch(switch) => {
                 let mut exprs = vec![&switch.condition];
                 for case in &switch.cases {
                     if let Some(label_expr) = &case.label.value {
@@ -166,7 +166,7 @@ impl Statement {
                 }
                 exprs
             }
-            Statement::For(for_stmt) => {
+            Self::For(for_stmt) => {
                 let mut exprs = Vec::new();
                 match &for_stmt.initializer {
                     Some(ForInit::Expr(init)) => exprs.push(&**init),
@@ -185,33 +185,33 @@ impl Statement {
                 }
                 exprs
             }
-            Statement::While(while_stmt) => vec![&*while_stmt.condition],
-            Statement::DoWhile(do_while) => vec![&*do_while.condition],
-            Statement::Goto(_)
-            | Statement::Labeled(_)
-            | Statement::Compound(_)
-            | Statement::Break(_)
-            | Statement::Continue(_)
-            | Statement::Preprocessor(_) => vec![],
+            Self::While(while_stmt) => vec![&*while_stmt.condition],
+            Self::DoWhile(do_while) => vec![&*do_while.condition],
+            Self::Goto(_)
+            | Self::Labeled(_)
+            | Self::Compound(_)
+            | Self::Break(_)
+            | Self::Continue(_)
+            | Self::Preprocessor(_) => vec![],
         }
     }
 
     pub fn location(&self) -> &SourceLocation {
         match self {
-            Statement::Declaration(d) => &d.location,
-            Statement::Expression(e) => &e.location,
-            Statement::If(i) => &i.location,
-            Statement::Return(r) => &r.location,
-            Statement::Goto(g) => &g.location,
-            Statement::Labeled(l) => &l.location,
-            Statement::Compound(c) => &c.location,
-            Statement::Switch(s) => &s.location,
-            Statement::For(f) => &f.location,
-            Statement::While(w) => &w.location,
-            Statement::DoWhile(d) => &d.location,
-            Statement::Break(b) => &b.location,
-            Statement::Continue(c) => &c.location,
-            Statement::Preprocessor(p) => p.location(),
+            Self::Declaration(d) => &d.location,
+            Self::Expression(e) => &e.location,
+            Self::If(i) => &i.location,
+            Self::Return(r) => &r.location,
+            Self::Goto(g) => &g.location,
+            Self::Labeled(l) => &l.location,
+            Self::Compound(c) => &c.location,
+            Self::Switch(s) => &s.location,
+            Self::For(f) => &f.location,
+            Self::While(w) => &w.location,
+            Self::DoWhile(d) => &d.location,
+            Self::Break(b) => &b.location,
+            Self::Continue(c) => &c.location,
+            Self::Preprocessor(p) => p.location(),
         }
     }
 
@@ -233,7 +233,7 @@ impl Statement {
     pub fn iter_switches<'s>(&'s self) -> impl Iterator<Item = &'s SwitchStatement> + 's {
         let mut results: Vec<&'s SwitchStatement> = Vec::new();
         self.walk(&mut |s| {
-            if let Statement::Switch(sw) = s {
+            if let Self::Switch(sw) = s {
                 results.push(sw);
             }
         });
@@ -244,7 +244,7 @@ impl Statement {
     pub fn iter_if_statements<'s>(&'s self) -> impl Iterator<Item = &'s IfStatement> + 's {
         let mut results: Vec<&'s IfStatement> = Vec::new();
         self.walk(&mut |s| {
-            if let Statement::If(if_stmt) = s {
+            if let Self::If(if_stmt) = s {
                 results.push(if_stmt);
             }
         });
@@ -256,10 +256,10 @@ impl Statement {
     pub fn iter_declarations<'s>(&'s self) -> impl Iterator<Item = &'s VariableDecl> + 's {
         let mut results: Vec<&'s VariableDecl> = Vec::new();
         self.walk(&mut |s| {
-            if let Statement::Declaration(decl) = s {
+            if let Self::Declaration(decl) = s {
                 results.push(decl);
             }
-            if let Statement::For(for_stmt) = s
+            if let Self::For(for_stmt) = s
                 && let Some(ForInit::Decl(decl)) = &for_stmt.initializer
             {
                 results.push(decl);
@@ -272,7 +272,7 @@ impl Statement {
     pub fn iter_returns<'s>(&'s self) -> impl Iterator<Item = &'s ReturnStatement> + 's {
         let mut results: Vec<&'s ReturnStatement> = Vec::new();
         self.walk(&mut |s| {
-            if let Statement::Return(ret) = s {
+            if let Self::Return(ret) = s {
                 results.push(ret);
             }
         });
@@ -287,7 +287,7 @@ impl Statement {
     ) -> impl Iterator<Item = &'s crate::model::Assignment> + 's {
         let mut results: Vec<&'s crate::model::Assignment> = Vec::new();
         self.walk(&mut |s| {
-            if let Statement::Expression(expr_stmt) = s
+            if let Self::Expression(expr_stmt) = s
                 && let Expression::Assignment(assign) = &expr_stmt.expr
             {
                 results.push(assign);
@@ -319,7 +319,7 @@ impl Statement {
     /// Extract the call expression if this is an expression statement with a
     /// call
     pub fn extract_call(&self) -> Option<&CallExpression> {
-        if let Statement::Expression(expr_stmt) = self
+        if let Self::Expression(expr_stmt) = self
             && let Expression::Call(call) = &expr_stmt.expr
         {
             return Some(call);
@@ -333,7 +333,7 @@ impl Statement {
     where
         F: Fn(&Expression) -> bool,
     {
-        if let Statement::Expression(expr_stmt) = self
+        if let Self::Expression(expr_stmt) = self
             && let Expression::Assignment(assign) = &expr_stmt.expr
         {
             let lhs_text = match &*assign.lhs {
@@ -350,7 +350,7 @@ impl Statement {
 
     /// Extract the assignment expression if this is an assignment statement
     pub fn extract_assignment(&self) -> Option<&crate::model::Assignment> {
-        if let Statement::Expression(expr_stmt) = self
+        if let Self::Expression(expr_stmt) = self
             && let Expression::Assignment(assign) = &expr_stmt.expr
         {
             return Some(assign);
@@ -364,9 +364,9 @@ impl Statement {
     }
 
     /// Iterate over consecutive pairs of statements
-    pub fn for_each_pair<F>(statements: &[Statement], mut f: F)
+    pub fn for_each_pair<F>(statements: &[Self], mut f: F)
     where
-        F: FnMut(&Statement, &Statement),
+        F: FnMut(&Self, &Self),
     {
         for i in 0..statements.len().saturating_sub(1) {
             f(&statements[i], &statements[i + 1]);
@@ -374,9 +374,9 @@ impl Statement {
     }
 
     /// Iterate over consecutive triples of statements
-    pub fn for_each_triple<F>(statements: &[Statement], mut f: F)
+    pub fn for_each_triple<F>(statements: &[Self], mut f: F)
     where
-        F: FnMut(&Statement, &Statement, &Statement),
+        F: FnMut(&Self, &Self, &Self),
     {
         for i in 0..statements.len().saturating_sub(2) {
             f(&statements[i], &statements[i + 1], &statements[i + 2]);
@@ -387,76 +387,76 @@ impl Statement {
     /// (if bodies, else bodies, compound blocks, loops, switch cases, labeled
     /// statements). Eliminates the manual recursion that rules otherwise need
     /// alongside `for_each_pair`.
-    pub fn walk_pairs<F>(stmts: &[Statement], f: &mut F)
+    pub fn walk_pairs<F>(stmts: &[Self], f: &mut F)
     where
-        F: FnMut(&Statement, &Statement),
+        F: FnMut(&Self, &Self),
     {
         for i in 0..stmts.len().saturating_sub(1) {
             f(&stmts[i], &stmts[i + 1]);
         }
         for stmt in stmts {
             match stmt {
-                Statement::If(if_stmt) => {
+                Self::If(if_stmt) => {
                     Self::walk_pairs(&if_stmt.then_body, f);
                     if let Some(else_body) = &if_stmt.else_body {
                         Self::walk_pairs(else_body, f);
                     }
                 }
-                Statement::Compound(c) => Self::walk_pairs(&c.statements, f),
-                Statement::Labeled(l) => Self::walk_pairs(std::slice::from_ref(&l.statement), f),
-                Statement::For(for_stmt) => Self::walk_pairs(&for_stmt.body, f),
-                Statement::While(w) => Self::walk_pairs(&w.body, f),
-                Statement::DoWhile(d) => Self::walk_pairs(&d.body, f),
-                Statement::Switch(sw) => {
+                Self::Compound(c) => Self::walk_pairs(&c.statements, f),
+                Self::Labeled(l) => Self::walk_pairs(std::slice::from_ref(&l.statement), f),
+                Self::For(for_stmt) => Self::walk_pairs(&for_stmt.body, f),
+                Self::While(w) => Self::walk_pairs(&w.body, f),
+                Self::DoWhile(d) => Self::walk_pairs(&d.body, f),
+                Self::Switch(sw) => {
                     for case in &sw.cases {
                         Self::walk_pairs(&case.body, f);
                     }
                 }
-                Statement::Declaration(_)
-                | Statement::Expression(_)
-                | Statement::Return(_)
-                | Statement::Goto(_)
-                | Statement::Break(_)
-                | Statement::Continue(_)
-                | Statement::Preprocessor(_) => {}
+                Self::Declaration(_)
+                | Self::Expression(_)
+                | Self::Return(_)
+                | Self::Goto(_)
+                | Self::Break(_)
+                | Self::Continue(_)
+                | Self::Preprocessor(_) => {}
             }
         }
     }
 
     /// Recursively visit consecutive triples of statements at every nesting
     /// level. Mirrors `walk_pairs` for triple-statement patterns.
-    pub fn walk_triples<F>(stmts: &[Statement], f: &mut F)
+    pub fn walk_triples<F>(stmts: &[Self], f: &mut F)
     where
-        F: FnMut(&Statement, &Statement, &Statement),
+        F: FnMut(&Self, &Self, &Self),
     {
         for i in 0..stmts.len().saturating_sub(2) {
             f(&stmts[i], &stmts[i + 1], &stmts[i + 2]);
         }
         for stmt in stmts {
             match stmt {
-                Statement::If(if_stmt) => {
+                Self::If(if_stmt) => {
                     Self::walk_triples(&if_stmt.then_body, f);
                     if let Some(else_body) = &if_stmt.else_body {
                         Self::walk_triples(else_body, f);
                     }
                 }
-                Statement::Compound(c) => Self::walk_triples(&c.statements, f),
-                Statement::Labeled(l) => Self::walk_triples(std::slice::from_ref(&l.statement), f),
-                Statement::For(for_stmt) => Self::walk_triples(&for_stmt.body, f),
-                Statement::While(w) => Self::walk_triples(&w.body, f),
-                Statement::DoWhile(d) => Self::walk_triples(&d.body, f),
-                Statement::Switch(sw) => {
+                Self::Compound(c) => Self::walk_triples(&c.statements, f),
+                Self::Labeled(l) => Self::walk_triples(std::slice::from_ref(&l.statement), f),
+                Self::For(for_stmt) => Self::walk_triples(&for_stmt.body, f),
+                Self::While(w) => Self::walk_triples(&w.body, f),
+                Self::DoWhile(d) => Self::walk_triples(&d.body, f),
+                Self::Switch(sw) => {
                     for case in &sw.cases {
                         Self::walk_triples(&case.body, f);
                     }
                 }
-                Statement::Declaration(_)
-                | Statement::Expression(_)
-                | Statement::Return(_)
-                | Statement::Goto(_)
-                | Statement::Break(_)
-                | Statement::Continue(_)
-                | Statement::Preprocessor(_) => {}
+                Self::Declaration(_)
+                | Self::Expression(_)
+                | Self::Return(_)
+                | Self::Goto(_)
+                | Self::Break(_)
+                | Self::Continue(_)
+                | Self::Preprocessor(_) => {}
             }
         }
     }

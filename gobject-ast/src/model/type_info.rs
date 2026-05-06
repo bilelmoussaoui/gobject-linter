@@ -229,7 +229,7 @@ impl TypeInfo {
 
     /// Return true if `self` and `other` represent the same type, treating
     /// GLib C aliases as equivalent to their underlying C types.
-    pub fn matches(&self, other: &TypeInfo) -> bool {
+    pub fn matches(&self, other: &Self) -> bool {
         self.normalized_base_type() == other.normalized_base_type()
             && self.pointer_depth == other.pointer_depth
             && self.is_const == other.is_const

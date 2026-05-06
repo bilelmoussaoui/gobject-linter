@@ -34,7 +34,7 @@ pub struct GObjectBackend {
 
 impl GObjectBackend {
     pub fn new(client: Client) -> Self {
-        GObjectBackend {
+        Self {
             client,
             documents: Arc::new(Mutex::new(HashMap::new())),
             workspace_root: Arc::new(Mutex::new(None)),

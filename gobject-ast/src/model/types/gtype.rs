@@ -17,14 +17,14 @@ pub enum GType {
 
 impl GType {
     pub fn is_none(&self) -> bool {
-        matches!(self, GType::None)
+        matches!(self, Self::None)
     }
 
     pub fn from_expression(expr: &Expression) -> Option<Self> {
         match expr {
-            Expression::Identifier(id) if id.name == "G_TYPE_NONE" => Some(GType::None),
-            Expression::Identifier(id) => Some(GType::Identifier(id.name.clone())),
-            Expression::Call(call) => Some(GType::Call(call.function_name())),
+            Expression::Identifier(id) if id.name == "G_TYPE_NONE" => Some(Self::None),
+            Expression::Identifier(id) => Some(Self::Identifier(id.name.clone())),
+            Expression::Call(call) => Some(Self::Call(call.function_name())),
             _ => None,
         }
     }
@@ -32,7 +32,7 @@ impl GType {
     /// Returns the `BasicType` if this GType maps to a GLib primitive, `None`
     /// for object/boxed/interface types and `_get_type()` calls.
     pub fn as_basic(&self) -> Option<BasicType> {
-        let GType::Identifier(id) = self else {
+        let Self::Identifier(id) = self else {
             return None;
         };
         match id.as_str() {

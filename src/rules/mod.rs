@@ -28,14 +28,14 @@ pub enum Category {
 impl Category {
     pub fn as_str(&self) -> &'static str {
         match self {
-            Category::Correctness => "correctness",
-            Category::Suspicious => "suspicious",
-            Category::Style => "style",
-            Category::Complexity => "complexity",
-            Category::Perf => "perf",
-            Category::Pedantic => "pedantic",
-            Category::Restriction => "restriction",
-            Category::Portability => "portability",
+            Self::Correctness => "correctness",
+            Self::Suspicious => "suspicious",
+            Self::Style => "style",
+            Self::Complexity => "complexity",
+            Self::Perf => "perf",
+            Self::Pedantic => "pedantic",
+            Self::Restriction => "restriction",
+            Self::Portability => "portability",
         }
     }
 }
