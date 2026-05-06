@@ -139,15 +139,12 @@ impl AstContext {
     }
 
     /// Check if a file path is a public header.
-    /// When GIR headers are available, only those count as public.
-    /// Otherwise falls back to the installed headers set.
+    /// A header is public if it appears in either the GIR filelist or the
+    /// installed headers set
     /// Returns None if no meson info is available at all.
     pub fn is_public_header(&self, path: &Path) -> Option<bool> {
         let h = self.meson_headers.as_ref()?;
-        if !h.gir.is_empty() {
-            return Some(h.gir.contains(path));
-        }
-        Some(h.installed.contains(path))
+        Some(h.gir.contains(path) || h.installed.contains(path))
     }
 
     /// Check if public/private distinction is available
