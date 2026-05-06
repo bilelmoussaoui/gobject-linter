@@ -170,7 +170,7 @@ impl TypeStyle {
         };
 
         let canonical = if style == "c" {
-            basic.canonical_c()
+            basic.canonical_c(&type_info.base_type)
         } else {
             basic.canonical_glib()
         };

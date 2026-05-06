@@ -80,10 +80,13 @@ impl BasicType {
     }
 
     /// The canonical C/C99 base-type spelling, or `None` if this type has no
-    /// clean C standard equivalent or the conversion would change the pointer
-    /// depth.
-    pub fn canonical_c(self) -> Option<&'static str> {
+    /// clean C standard equivalent, the conversion would change the pointer
+    /// depth, or `current` is already an acceptable C spelling (e.g. `unsigned`
+    /// for `unsigned int`).
+    pub fn canonical_c(self, current: &str) -> Option<&'static str> {
         match self {
+            Self::UInt if current == "unsigned" => None,
+            Self::Int if matches!(current, "signed" | "signed int") => None,
             Self::Boolean => None, // gboolean ≠ bool
             Self::Bool => None,    // already canonical C
             Self::Char => Some("char"),
