@@ -1,5 +1,8 @@
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct UseExplicitDefaultFlags;
 
@@ -70,8 +73,8 @@ impl Rule for UseExplicitDefaultFlags {
         "Use explicit default flag constants (e.g., G_APPLICATION_DEFAULT_FLAGS) instead of 0"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Style
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Style
     }
 
     fn fixable(&self) -> bool {

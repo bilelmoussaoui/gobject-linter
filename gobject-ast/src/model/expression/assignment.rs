@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::model::{AssignmentOp, Expression, SourceLocation};
+use crate::model::{AssignmentOp, Expression, SourceLocation, UnaryOp};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Assignment {
@@ -14,7 +14,6 @@ impl Assignment {
     /// Get a string representation of the LHS (identifier name or field access
     /// text) Handles identifiers, field access, and dereference expressions
     pub fn lhs_as_text(&self) -> String {
-        use crate::model::UnaryOp;
         match &*self.lhs {
             Expression::Identifier(id) => id.name.clone(),
             Expression::FieldAccess(field) => field.text(),

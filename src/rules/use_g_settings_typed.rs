@@ -1,7 +1,10 @@
-use gobject_ast::Expression;
+use gobject_ast::{CallExpression, Expression};
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct UseGSettingsTyped;
 
@@ -14,8 +17,8 @@ impl Rule for UseGSettingsTyped {
         "Prefer g_settings_get/set_string/boolean/etc over g_settings_get/set_value with g_variant"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Style
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Style
     }
 
     fn fixable(&self) -> bool {
@@ -60,7 +63,7 @@ impl UseGSettingsTyped {
     fn check_settings_set_call(
         &self,
         file_path: &std::path::Path,
-        call: &gobject_ast::CallExpression,
+        call: &CallExpression,
         source: &[u8],
         violations: &mut Vec<Violation>,
     ) {
@@ -126,7 +129,7 @@ impl UseGSettingsTyped {
     fn check_variant_get_call(
         &self,
         file_path: &std::path::Path,
-        call: &gobject_ast::CallExpression,
+        call: &CallExpression,
         source: &[u8],
         violations: &mut Vec<Violation>,
     ) {
@@ -203,7 +206,7 @@ impl UseGSettingsTyped {
     /// typed_function_name, rest_of_args)
     fn extract_variant_pattern(
         &self,
-        variant_call: &gobject_ast::CallExpression,
+        variant_call: &CallExpression,
         source: &[u8],
     ) -> Option<(String, &'static str, String)> {
         // Need at least 1 argument (the format string)

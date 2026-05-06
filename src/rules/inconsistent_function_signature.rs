@@ -5,8 +5,11 @@ use std::{
 
 use gobject_ast::{TypeInfo, types::Parameter};
 
-use super::Rule;
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Rule, Violation},
+};
 
 pub struct InconsistentFunctionSignature;
 
@@ -32,8 +35,8 @@ impl Rule for InconsistentFunctionSignature {
         "Detect functions whose return type or parameter types in the declaration do not match the definition"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Suspicious
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Suspicious
     }
 
     fn fixable(&self) -> bool {

@@ -1,6 +1,6 @@
 use std::env;
 
-use crate::rules::Violation;
+use crate::{config::RuleLevel, rules::Violation};
 
 /// Generate GCC-compatible output format
 /// Paths are relative to CWD (not project root) to match GCC/ninja behavior
@@ -38,9 +38,9 @@ pub fn generate_gcc(violations: &[Violation]) {
         };
 
         let level = match violation.level {
-            crate::config::RuleLevel::Error => "error",
-            crate::config::RuleLevel::Warn => "warning",
-            crate::config::RuleLevel::Ignore => {
+            RuleLevel::Error => "error",
+            RuleLevel::Warn => "warning",
+            RuleLevel::Ignore => {
                 unreachable!("Ignored violations should not be reported")
             }
         };

@@ -1,5 +1,10 @@
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use gobject_ast::{Argument, Expression};
+
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct SignalCanonicalName;
 
@@ -12,8 +17,8 @@ impl Rule for SignalCanonicalName {
         "Signal names should use hyphens (-) instead of underscores (_)"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Style
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Style
     }
 
     fn fixable(&self) -> bool {
@@ -28,8 +33,6 @@ impl Rule for SignalCanonicalName {
         path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
-        use gobject_ast::Argument;
-
         for stmt in &func.body_statements {
             for call in stmt.iter_calls() {
                 let func_name = call.function_name();
@@ -74,8 +77,6 @@ impl SignalCanonicalName {
         path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
-        use gobject_ast::Expression;
-
         if let Expression::StringLiteral(string_lit) = expr {
             // Remove quotes and check for underscores
             let signal_name = string_lit.value.trim_matches('"');

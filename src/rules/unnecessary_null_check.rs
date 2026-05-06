@@ -1,7 +1,10 @@
 use gobject_ast::{Expression, Statement};
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct UnnecessaryNullCheck;
 
@@ -14,8 +17,8 @@ impl Rule for UnnecessaryNullCheck {
         "Detect unnecessary NULL checks before g_free/g_clear_* functions"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Suspicious
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Suspicious
     }
 
     fn fixable(&self) -> bool {

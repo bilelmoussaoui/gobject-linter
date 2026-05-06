@@ -1,7 +1,10 @@
-use gobject_ast::{AssignmentOp, Expression, Statement};
+use gobject_ast::{AssignmentOp, Expression, FileModel, Statement};
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct UseGStealPointer;
 
@@ -14,8 +17,8 @@ impl Rule for UseGStealPointer {
         "Use g_steal_pointer() instead of manually copying a pointer and setting it to NULL"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Style
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Style
     }
 
     fn fixable(&self) -> bool {
@@ -40,7 +43,7 @@ impl UseGStealPointer {
         &self,
         func: &gobject_ast::top_level::FunctionDefItem,
         file_path: &std::path::Path,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         self.check_statements(&func.body_statements, file_path, file, violations);
@@ -50,7 +53,7 @@ impl UseGStealPointer {
         &self,
         statements: &[Statement],
         file_path: &std::path::Path,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         let mut i = 0;
@@ -101,7 +104,7 @@ impl UseGStealPointer {
         s1: &Statement,
         s2: &Statement,
         s3: &Statement,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         file_path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) -> bool {
@@ -179,7 +182,7 @@ impl UseGStealPointer {
         &self,
         s1: &Statement,
         s2: &Statement,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         file_path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) -> bool {

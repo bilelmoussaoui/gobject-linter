@@ -1,8 +1,13 @@
-use gobject_ast::Expression;
+use gobject_ast::{
+    EnumInfo, EnumValue, Expression, FileModel, PropertyType, Statement, top_level::TopLevelItem,
+};
 use heck::ToShoutySnakeCase;
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct PropertyEnumConvention;
 
@@ -23,16 +28,16 @@ impl Rule for PropertyEnumConvention {
         "Enforce property enum conventions (typed or legacy style)"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Style
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Style
     }
 
     fn fixable(&self) -> bool {
         true
     }
 
-    fn config_options(&self) -> &'static [super::ConfigOption] {
-        &[super::ConfigOption {
+    fn config_options(&self) -> &'static [crate::rules::ConfigOption] {
+        &[crate::rules::ConfigOption {
             name: "style",
             option_type: "string",
             default_value: "\"typed\"",
@@ -76,15 +81,9 @@ impl PropertyEnumConvention {
                 .iter_property_enums()
                 .filter(|e| {
                     // Apply same checks as main loop to see if this enum will be transformed
-                    let has_prop_0 = e
-                        .values
-                        .first()
-                        .is_some_and(gobject_ast::EnumValue::is_prop_0);
+                    let has_prop_0 = e.values.first().is_some_and(EnumValue::is_prop_0);
 
-                    let has_n_props_at_end = e
-                        .values
-                        .last()
-                        .is_some_and(gobject_ast::EnumValue::is_prop_last);
+                    let has_n_props_at_end = e.values.last().is_some_and(EnumValue::is_prop_last);
 
                     let has_n_props_in_middle = e
                         .values
@@ -110,15 +109,9 @@ impl PropertyEnumConvention {
 
             for enum_info in file.iter_property_enums() {
                 // Check if this uses the old pattern: PROP_0 at start and N_PROPS at end
-                let has_prop_0 = enum_info
-                    .values
-                    .first()
-                    .is_some_and(gobject_ast::EnumValue::is_prop_0);
+                let has_prop_0 = enum_info.values.first().is_some_and(EnumValue::is_prop_0);
 
-                let has_n_props = enum_info
-                    .values
-                    .last()
-                    .is_some_and(gobject_ast::EnumValue::is_prop_last);
+                let has_n_props = enum_info.values.last().is_some_and(EnumValue::is_prop_last);
 
                 // Check if N_PROPS appears in the middle (not last) - this is the override
                 // properties pattern
@@ -342,14 +335,8 @@ impl PropertyEnumConvention {
             // Check modern enums (without PROP_0/N_PROPS) for outdated array sizes
             // and missing switch casts
             for enum_info in file.iter_property_enums() {
-                let has_prop_0 = enum_info
-                    .values
-                    .first()
-                    .is_some_and(gobject_ast::EnumValue::is_prop_0);
-                let has_n_props = enum_info
-                    .values
-                    .last()
-                    .is_some_and(gobject_ast::EnumValue::is_prop_last);
+                let has_prop_0 = enum_info.values.first().is_some_and(EnumValue::is_prop_0);
+                let has_n_props = enum_info.values.last().is_some_and(EnumValue::is_prop_last);
 
                 // Skip old-style enums (already handled above)
                 if has_prop_0 || has_n_props {
@@ -536,13 +523,11 @@ impl PropertyEnumConvention {
     /// GParamSpec *props[LAST_PROP + 1]
     fn find_and_fix_param_spec_arrays<'a>(
         &self,
-        file: &'a gobject_ast::FileModel,
+        file: &'a FileModel,
         n_props_name: &str,
         last_prop_name: &str,
         fixes: &mut Vec<Fix>,
     ) -> Vec<&'a str> {
-        use gobject_ast::{Statement, top_level::TopLevelItem};
-
         let mut array_names = Vec::new();
 
         for item in file.iter_all_items() {
@@ -575,7 +560,7 @@ impl PropertyEnumConvention {
     /// Add switch cast fix for a specific function
     fn add_switch_cast_for_function(
         &self,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         func_name: &str,
         enum_name: &str,
         fixes: &mut Vec<Fix>,
@@ -602,8 +587,6 @@ impl PropertyEnumConvention {
         enum_name: &str,
         fixes: &mut Vec<Fix>,
     ) {
-        use gobject_ast::Expression;
-
         // Check if the condition is already a cast to this enum type
         let already_cast = match &switch_stmt.condition {
             Expression::Cast(cast) => {
@@ -642,8 +625,8 @@ impl PropertyEnumConvention {
     /// Returns the class type and associated get/set property function names
     fn find_class_context_for_enum(
         &self,
-        file: &gobject_ast::FileModel,
-        enum_info: &gobject_ast::EnumInfo,
+        file: &FileModel,
+        enum_info: &EnumInfo,
     ) -> Option<(ClassContext, Vec<gobject_ast::ParamSpecAssignment>)> {
         let (func, assignments) = file.find_class_init_for_property_enum(enum_info)?;
 
@@ -689,11 +672,7 @@ impl PropertyEnumConvention {
     /// Check if N_PROPS is used in switch case expressions in
     /// get_property/set_property e.g., case N_PROPS +
     /// META_DBUS_SESSION_PROP_FOO:
-    fn n_props_used_in_switch_cases(
-        &self,
-        file: &gobject_ast::FileModel,
-        n_props_name: &str,
-    ) -> bool {
+    fn n_props_used_in_switch_cases(&self, file: &FileModel, n_props_name: &str) -> bool {
         for func in file.iter_function_definitions() {
             if !func.name.ends_with("_get_property") && !func.name.ends_with("_set_property") {
                 continue;
@@ -722,8 +701,6 @@ impl PropertyEnumConvention {
         &self,
         assignments: &[gobject_ast::ParamSpecAssignment],
     ) -> std::collections::HashMap<String, bool> {
-        use gobject_ast::PropertyType;
-
         let mut property_map = std::collections::HashMap::new();
 
         for assignment in assignments {
@@ -743,9 +720,9 @@ impl PropertyEnumConvention {
     /// anonymous)
     fn check_modern_enum_switch_casts(
         &self,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         path: &std::path::Path,
-        enum_info: &gobject_ast::EnumInfo,
+        enum_info: &EnumInfo,
         class_context: &ClassContext,
         violations: &mut Vec<Violation>,
     ) {
@@ -802,8 +779,8 @@ impl PropertyEnumConvention {
     /// Create fixes to convert an anonymous enum to a typedef enum
     fn create_typedef_fixes(
         &self,
-        file: &gobject_ast::FileModel,
-        enum_info: &gobject_ast::EnumInfo,
+        file: &FileModel,
+        enum_info: &EnumInfo,
         enum_name: &str,
     ) -> Vec<Fix> {
         let mut fixes = Vec::new();
@@ -836,9 +813,9 @@ impl PropertyEnumConvention {
     /// Check for GParamSpec arrays with outdated PROP_X + 1 sizes
     fn check_outdated_array_sizes(
         &self,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         path: &std::path::Path,
-        enum_info: &gobject_ast::EnumInfo,
+        enum_info: &EnumInfo,
         expected_last_prop: &str,
         violations: &mut Vec<Violation>,
     ) {

@@ -1,7 +1,10 @@
 use gobject_ast::{AssignmentOp, Expression, Statement};
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct UseGClearSignalHandler;
 
@@ -14,8 +17,8 @@ impl Rule for UseGClearSignalHandler {
         "Use g_clear_signal_handler() instead of g_signal_handler_disconnect() and zeroing the ID"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Complexity
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Complexity
     }
 
     fn fixable(&self) -> bool {

@@ -1,7 +1,10 @@
 use gobject_ast::Expression;
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct UseGValueSetStaticString;
 
@@ -14,8 +17,8 @@ impl Rule for UseGValueSetStaticString {
         "Use g_value_set_static_string for string literals instead of g_value_set_string"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Perf
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Perf
     }
 
     fn fixable(&self) -> bool {

@@ -2,7 +2,10 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ast_context::AstContext, config::Config};
+use crate::{
+    ast_context::AstContext,
+    config::{Config, RuleLevel},
+};
 
 /// Rule category (similar to Clippy's lint categories)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum, Serialize)]
@@ -225,7 +228,7 @@ pub struct Violation {
     pub message: String,
     pub rule: &'static str,
     pub category: Category,
-    pub level: crate::config::RuleLevel,
+    pub level: RuleLevel,
     pub snippet: Option<String>,
     /// Rule execution order - higher means more specific/later rules take
     /// precedence
@@ -334,7 +337,7 @@ pub trait Rule: Send + Sync {
             message,
             rule: self.name(),
             category: self.category(),
-            level: crate::config::RuleLevel::Error, // Will be overridden by scanner
+            level: RuleLevel::Error, // Will be overridden by scanner
             snippet: None,
             rule_index: 0, // Will be set by scanner based on execution order
             fixes: Vec::new(),
@@ -357,7 +360,7 @@ pub trait Rule: Send + Sync {
             message,
             rule: self.name(),
             category: self.category(),
-            level: crate::config::RuleLevel::Error, // Will be overridden by scanner
+            level: RuleLevel::Error, // Will be overridden by scanner
             snippet: None,
             rule_index: 0,
             fixes: vec![fix],
@@ -380,7 +383,7 @@ pub trait Rule: Send + Sync {
             message,
             rule: self.name(),
             category: self.category(),
-            level: crate::config::RuleLevel::Error, // Will be overridden by scanner
+            level: RuleLevel::Error, // Will be overridden by scanner
             snippet: None,
             rule_index: 0,
             fixes,

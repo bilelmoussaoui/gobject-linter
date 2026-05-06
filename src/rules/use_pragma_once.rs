@@ -1,5 +1,13 @@
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use gobject_ast::{
+    SourceLocation,
+    top_level::{ConditionalKind, PreprocessorDirective, TopLevelItem},
+};
+
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct UsePragmaOnce;
 
@@ -12,8 +20,8 @@ impl Rule for UsePragmaOnce {
         "Suggest #pragma once instead of traditional include guards"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Style
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Style
     }
 
     fn fixable(&self) -> bool {
@@ -26,8 +34,6 @@ impl Rule for UsePragmaOnce {
         _config: &Config,
         violations: &mut Vec<Violation>,
     ) {
-        use gobject_ast::top_level::{PreprocessorDirective, TopLevelItem};
-
         for (path, file) in ast_context.iter_header_files() {
             // Check if the file already uses #pragma once
             let has_pragma_once = file.top_level_items.iter().any(|item| {
@@ -90,14 +96,7 @@ impl UsePragmaOnce {
     fn find_include_guard(
         &self,
         items: &[gobject_ast::top_level::TopLevelItem],
-    ) -> Option<(
-        gobject_ast::SourceLocation,
-        gobject_ast::SourceLocation,
-        gobject_ast::SourceLocation,
-        String,
-    )> {
-        use gobject_ast::top_level::{ConditionalKind, PreprocessorDirective, TopLevelItem};
-
+    ) -> Option<(SourceLocation, SourceLocation, SourceLocation, String)> {
         // The first item should be #ifndef (traditional include guard)
         items.first().and_then(|item| match item {
             TopLevelItem::Preprocessor(PreprocessorDirective::Conditional {
@@ -111,7 +110,7 @@ impl UsePragmaOnce {
 
                 // Create location for #endif - it's at the end of the conditional
                 // The location.end_byte points to after the #endif directive
-                let endif_loc = gobject_ast::SourceLocation::new(
+                let endif_loc = SourceLocation::new(
                     0, // Line/column don't matter for our use case
                     0,
                     location.end_byte,
@@ -119,7 +118,7 @@ impl UsePragmaOnce {
                 );
 
                 // Create location for #ifndef - it's at the start
-                let ifndef_loc = gobject_ast::SourceLocation::new(
+                let ifndef_loc = SourceLocation::new(
                     location.line,
                     location.column,
                     location.start_byte,
@@ -139,9 +138,7 @@ impl UsePragmaOnce {
         &self,
         body: &[gobject_ast::top_level::TopLevelItem],
         guard_name: &str,
-    ) -> Option<gobject_ast::SourceLocation> {
-        use gobject_ast::top_level::{PreprocessorDirective, TopLevelItem};
-
+    ) -> Option<SourceLocation> {
         // Need at least 2 items: the #define and some actual content
         if body.len() < 2 {
             return None;

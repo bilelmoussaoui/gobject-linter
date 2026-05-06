@@ -1,9 +1,12 @@
 use std::collections::HashSet;
 
-use gobject_ast::{Expression, Statement, UnaryOp};
+use gobject_ast::{Argument, Expression, Statement, UnaryOp, top_level::FunctionDefItem};
 
-use super::Rule;
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Rule, Violation},
+};
 
 pub struct UseGFileLoadBytes;
 
@@ -16,8 +19,8 @@ impl Rule for UseGFileLoadBytes {
         "Suggest g_file_load_bytes/g_file_load_bytes_async instead of g_file_load_contents + g_bytes_new_take"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Complexity
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Complexity
     }
 
     fn fixable(&self) -> bool {
@@ -28,7 +31,7 @@ impl Rule for UseGFileLoadBytes {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::top_level::FunctionDefItem,
+        func: &FunctionDefItem,
         path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
@@ -39,7 +42,7 @@ impl Rule for UseGFileLoadBytes {
 impl UseGFileLoadBytes {
     fn check_function(
         &self,
-        func: &gobject_ast::top_level::FunctionDefItem,
+        func: &FunctionDefItem,
         file_path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
@@ -57,10 +60,7 @@ impl UseGFileLoadBytes {
 
     /// Find all g_file_load_contents calls and return the set of variables they
     /// populate
-    fn find_load_contents_vars(
-        &self,
-        func: &gobject_ast::top_level::FunctionDefItem,
-    ) -> HashSet<String> {
+    fn find_load_contents_vars(&self, func: &FunctionDefItem) -> HashSet<String> {
         let mut result = HashSet::new();
 
         // Find all g_file_load_contents or g_file_load_contents_finish calls
@@ -147,8 +147,8 @@ impl UseGFileLoadBytes {
     }
 
     /// Extract variable name from &var argument
-    fn extract_pointer_var(&self, arg: &gobject_ast::Argument) -> Option<String> {
-        let gobject_ast::Argument::Expression(expr) = arg;
+    fn extract_pointer_var(&self, arg: &Argument) -> Option<String> {
+        let Argument::Expression(expr) = arg;
 
         // Handle &var
         if let Expression::Unary(unary) = expr.as_ref()
@@ -162,8 +162,8 @@ impl UseGFileLoadBytes {
 
     /// Extract variable name from first argument of g_bytes_new_take
     /// Handles: contents, g_steal_pointer(&contents)
-    fn extract_contents_var(&self, arg: &gobject_ast::Argument) -> Option<String> {
-        let gobject_ast::Argument::Expression(expr) = arg;
+    fn extract_contents_var(&self, arg: &Argument) -> Option<String> {
+        let Argument::Expression(expr) = arg;
 
         match expr.as_ref() {
             // Direct variable: contents

@@ -1,7 +1,10 @@
 use gobject_ast::Expression;
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct UseGObjectNotifyByPspec;
 
@@ -14,8 +17,8 @@ impl Rule for UseGObjectNotifyByPspec {
         "Suggest g_object_notify_by_pspec instead of g_object_notify for better performance"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Perf
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Perf
     }
 
     fn fixable(&self) -> bool {

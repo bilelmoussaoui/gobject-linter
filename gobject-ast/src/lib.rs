@@ -8,7 +8,7 @@ pub use parser::Parser;
 mod tests {
     use std::path::Path;
 
-    use super::*;
+    use super::Parser;
 
     #[test]
     fn test_includes_simple() {

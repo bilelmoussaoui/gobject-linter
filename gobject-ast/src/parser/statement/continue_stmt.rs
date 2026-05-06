@@ -1,7 +1,6 @@
 use tree_sitter::Node;
 
-use super::Parser;
-use crate::model::statement::ContinueStatement;
+use crate::{model::statement::ContinueStatement, parser::Parser};
 
 impl Parser {
     pub(super) fn parse_continue_statement(

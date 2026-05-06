@@ -1,7 +1,10 @@
-use gobject_ast::Statement;
+use gobject_ast::{Expression, Statement, model::expression::Argument};
 
-use super::Rule;
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Rule, Violation},
+};
 
 pub struct GObjectVirtualMethodsChainUp;
 
@@ -14,8 +17,8 @@ impl Rule for GObjectVirtualMethodsChainUp {
         "Ensure dispose/finalize/constructed methods chain up to parent class"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Correctness
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Correctness
     }
 
     fn check_func_impl(
@@ -102,8 +105,6 @@ impl GObjectVirtualMethodsChainUp {
         expr: &gobject_ast::Expression,
         method_type: &str,
     ) -> bool {
-        use gobject_ast::Expression;
-
         // The chain-up lives inside a call: `<parent_base>->method(args)`
         // <parent_base> is either a direct identifier or a CLASS-macro call.
         let field_access = match expr {
@@ -137,8 +138,6 @@ impl GObjectVirtualMethodsChainUp {
     ///   - a CLASS-macro call: `G_OBJECT_CLASS(parent_class)`,
     ///     `FOO_CLASS(klass)`, …
     fn looks_like_parent_class_base(&self, expr: &gobject_ast::Expression) -> bool {
-        use gobject_ast::{Expression, model::expression::Argument};
-
         match expr {
             Expression::Identifier(id) => self.is_parent_class_name(&id.name),
             Expression::Call(call) => {

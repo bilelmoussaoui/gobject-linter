@@ -1,8 +1,10 @@
 use std::path::Path;
 
 use gobject_ast::{
-    model::types::{DeclareKind, DefineKind, GObjectTypeKind},
+    GType, Parameter, SignalFlag,
+    model::types::{DeclareKind, DefineKind, GObjectTypeKind, ParamFlag, PropertyType},
     parser::Parser,
+    top_level::TypeDefItem,
 };
 
 fn parse_fixture(fixture_name: &str) -> gobject_ast::model::Project {
@@ -11,23 +13,19 @@ fn parse_fixture(fixture_name: &str) -> gobject_ast::model::Project {
     parser.parse_file(&fixture_path).expect("Failed to parse")
 }
 
-fn extract_gobject_types(file: &gobject_ast::FileModel) -> Vec<&gobject_ast::GObjectType> {
-    file.iter_all_gobject_types().collect()
-}
-
 #[test]
 fn test_g_declare_final_type() {
     let project = parse_fixture("declare_final.h");
     let file = project.files.values().next().expect("No files parsed");
 
-    let gobject_types = extract_gobject_types(file);
+    let gobject_types = file.iter_all_gobject_types().collect::<Vec<_>>();
     assert_eq!(gobject_types.len(), 1);
     let gobj = gobject_types[0];
 
     assert_eq!(gobj.type_name, "MyWidget");
     assert_eq!(
         gobj.type_macro,
-        Some(gobject_ast::GType::Identifier("MY_TYPE_WIDGET".to_owned()))
+        Some(GType::Identifier("MY_TYPE_WIDGET".to_owned()))
     );
 
     match &gobj.kind {
@@ -50,14 +48,15 @@ fn test_g_declare_final_type() {
 fn test_g_declare_derivable_type() {
     let project = parse_fixture("declare_derivable.h");
     let file = project.files.values().next().expect("No files parsed");
+    let gobjects = file.iter_all_gobject_types().collect::<Vec<_>>();
 
-    assert_eq!(extract_gobject_types(file).len(), 1);
-    let gobj = &extract_gobject_types(file)[0];
+    assert_eq!(gobjects.len(), 1);
+    let gobj = gobjects[0];
 
     assert_eq!(gobj.type_name, "MyObject");
     assert_eq!(
         gobj.type_macro,
-        Some(gobject_ast::GType::Identifier("MY_TYPE_OBJECT".to_owned()))
+        Some(GType::Identifier("MY_TYPE_OBJECT".to_owned()))
     );
 
     match &gobj.kind {
@@ -80,16 +79,15 @@ fn test_g_declare_derivable_type() {
 fn test_g_declare_interface() {
     let project = parse_fixture("declare_interface.h");
     let file = project.files.values().next().expect("No files parsed");
+    let types = file.iter_all_gobject_types().collect::<Vec<_>>();
 
-    assert_eq!(extract_gobject_types(file).len(), 1);
-    let gobj = &extract_gobject_types(file)[0];
+    assert_eq!(types.len(), 1);
+    let gobj = &types[0];
 
     assert_eq!(gobj.type_name, "MyInterface");
     assert_eq!(
         gobj.type_macro,
-        Some(gobject_ast::GType::Identifier(
-            "MY_TYPE_INTERFACE".to_owned()
-        ))
+        Some(GType::Identifier("MY_TYPE_INTERFACE".to_owned()))
     );
 
     match &gobj.kind {
@@ -112,9 +110,10 @@ fn test_g_declare_interface() {
 fn test_g_define_type() {
     let project = parse_fixture("define_type.c");
     let file = project.files.values().next().expect("No files parsed");
+    let types = file.iter_all_gobject_types().collect::<Vec<_>>();
 
-    assert_eq!(extract_gobject_types(file).len(), 1);
-    let gobj = &extract_gobject_types(file)[0];
+    assert_eq!(types.len(), 1);
+    let gobj = &types[0];
 
     assert_eq!(gobj.type_name, "MyWidget");
     assert_eq!(gobj.type_macro, None);
@@ -133,9 +132,10 @@ fn test_g_define_type() {
 fn test_g_define_type_with_private() {
     let project = parse_fixture("define_type_with_private.c");
     let file = project.files.values().next().expect("No files parsed");
+    let types = file.iter_all_gobject_types().collect::<Vec<_>>();
 
-    assert_eq!(extract_gobject_types(file).len(), 1);
-    let gobj = &extract_gobject_types(file)[0];
+    assert_eq!(types.len(), 1);
+    let gobj = &types[0];
 
     assert_eq!(gobj.type_name, "MyObject");
 
@@ -153,15 +153,16 @@ fn test_g_define_type_with_private() {
 fn test_class_struct_with_vfuncs() {
     let project = parse_fixture("class_with_vfuncs.h");
     let file = project.files.values().next().expect("No files parsed");
+    let types = file.iter_all_gobject_types().collect::<Vec<_>>();
 
-    assert_eq!(extract_gobject_types(file).len(), 1);
-    let gobj = &extract_gobject_types(file)[0];
+    assert_eq!(types.len(), 1);
+    let gobj = &types[0];
     assert_eq!(gobj.type_name, "MyObject");
 
     let cs = file
         .find_class_struct_for(gobj)
         .expect("No class struct parsed");
-    let gobject_ast::top_level::TypeDefItem::Struct { name, vfuncs, .. } = cs else {
+    let TypeDefItem::Struct { name, vfuncs, .. } = cs else {
         panic!("Expected Struct variant");
     };
 
@@ -187,17 +188,15 @@ fn test_class_struct_with_vfuncs() {
 fn test_multiple_gobject_types_in_one_file() {
     let project = parse_fixture("multiple_types.h");
     let file = project.files.values().next().expect("No files parsed");
+    let types = file.iter_all_gobject_types().collect::<Vec<_>>();
 
     assert!(
-        extract_gobject_types(file).len() >= 2,
+        types.len() >= 2,
         "Expected at least 2 GObject types, got {}",
-        extract_gobject_types(file).len()
+        types.len()
     );
 
-    let type_names: Vec<_> = extract_gobject_types(file)
-        .iter()
-        .map(|g| &g.type_name)
-        .collect();
+    let type_names: Vec<_> = types.iter().map(|g| &g.type_name).collect();
     assert!(type_names.contains(&&"MyWidget".to_string()));
     assert!(type_names.contains(&&"MyInterface".to_string()));
 }
@@ -206,12 +205,13 @@ fn test_multiple_gobject_types_in_one_file() {
 fn test_vfunc_parameters_and_return_types() {
     let project = parse_fixture("class_with_vfuncs.h");
     let file = project.files.values().next().expect("No files parsed");
+    let types = file.iter_all_gobject_types().collect::<Vec<_>>();
 
-    let gobj = &extract_gobject_types(file)[0];
+    let gobj = &types[0];
     let cs = file
         .find_class_struct_for(gobj)
         .expect("No class struct parsed");
-    let gobject_ast::top_level::TypeDefItem::Struct { vfuncs, .. } = cs else {
+    let TypeDefItem::Struct { vfuncs, .. } = cs else {
         panic!("Expected Struct variant");
     };
 
@@ -226,7 +226,7 @@ fn test_vfunc_parameters_and_return_types() {
 
     // Check parameters
     assert_eq!(do_something.parameters.len(), 2);
-    let gobject_ast::model::types::Parameter::Regular {
+    let Parameter::Regular {
         type_info: ds_p0,
         name: ds_n0,
         ..
@@ -234,7 +234,7 @@ fn test_vfunc_parameters_and_return_types() {
     else {
         panic!("expected Regular")
     };
-    let gobject_ast::model::types::Parameter::Regular {
+    let Parameter::Regular {
         type_info: ds_p1,
         name: ds_n1,
         ..
@@ -258,7 +258,7 @@ fn test_vfunc_parameters_and_return_types() {
 
     // Check parameters
     assert_eq!(get_value.parameters.len(), 1);
-    let gobject_ast::model::types::Parameter::Regular {
+    let Parameter::Regular {
         type_info: gv_p0, ..
     } = &get_value.parameters[0]
     else {
@@ -271,10 +271,11 @@ fn test_vfunc_parameters_and_return_types() {
 fn test_property_extraction() {
     let project = parse_fixture("properties.c");
     let file = project.files.values().next().expect("No files parsed");
+    let types = file.iter_all_gobject_types().collect::<Vec<_>>();
 
     // Check that we parse the GObject type definition
-    assert_eq!(extract_gobject_types(file).len(), 1);
-    let gobject_type = &extract_gobject_types(file)[0];
+    assert_eq!(types.len(), 1);
+    let gobject_type = &types[0];
 
     // Get the class_init function name
     let class_init_name = gobject_type.class_init_function_name();
@@ -301,7 +302,6 @@ fn test_property_extraction() {
     assert!(name_prop.is_some(), "Property 'name' not found");
     let name_prop = name_prop.unwrap().property();
 
-    use gobject_ast::model::types::{ParamFlag, PropertyType};
     assert!(matches!(name_prop.property_type, PropertyType::String));
     assert_eq!(name_prop.nick, Some("Name".to_string()));
     assert_eq!(name_prop.blurb, Some("The object name".to_string()));
@@ -401,9 +401,10 @@ fn test_signal_creation() {
 fn test_signal_extraction() {
     let project = parse_fixture("signals.c");
     let file = project.files.values().next().expect("No files parsed");
+    let types = file.iter_all_gobject_types().collect::<Vec<_>>();
 
     // Get the GObject type
-    let gobject_type = &extract_gobject_types(file)[0];
+    let gobject_type = &types[0];
     assert_eq!(gobject_type.type_name, "MyObject");
 
     // Find the class_init function
@@ -423,14 +424,8 @@ fn test_signal_extraction() {
     assert_eq!(changed.name, "changed");
     assert!(changed.itype.is_some());
     assert_eq!(changed.flags.len(), 1);
-    assert_eq!(
-        changed.flags[0],
-        gobject_ast::model::types::SignalFlag::RunLast
-    );
-    assert!(matches!(
-        changed.return_type,
-        Some(gobject_ast::GType::None)
-    ));
+    assert_eq!(changed.flags[0], SignalFlag::RunLast);
+    assert!(matches!(changed.return_type, Some(GType::None)));
     assert_eq!(changed.n_params, Some(0));
     assert_eq!(changed.param_types.len(), 0);
 
@@ -438,19 +433,12 @@ fn test_signal_extraction() {
     let activated = &signals[1];
     assert_eq!(activated.name, "activated");
     assert_eq!(activated.flags.len(), 1);
-    assert!(
-        activated
-            .flags
-            .contains(&gobject_ast::model::types::SignalFlag::RunFirst)
-    );
-    assert!(matches!(
-        activated.return_type,
-        Some(gobject_ast::GType::None)
-    ));
+    assert!(activated.flags.contains(&SignalFlag::RunFirst));
+    assert!(matches!(activated.return_type, Some(GType::None)));
     assert_eq!(activated.n_params, Some(1));
     assert_eq!(
         activated.param_types,
-        vec![gobject_ast::GType::Identifier("G_TYPE_INT".to_string())]
+        vec![GType::Identifier("G_TYPE_INT".to_string())]
     );
 }
 
@@ -458,10 +446,11 @@ fn test_signal_extraction() {
 fn test_interface_implementation() {
     let project = parse_fixture("interface_impl.c");
     let file = project.files.values().next().expect("No files parsed");
+    let types = file.iter_all_gobject_types().collect::<Vec<_>>();
 
     // Should have a G_DEFINE_TYPE_WITH_CODE macro
-    assert_eq!(extract_gobject_types(file).len(), 1);
-    let gobj = &extract_gobject_types(file)[0];
+    assert_eq!(types.len(), 1);
+    let gobj = &types[0];
 
     // Check that it detected the interface implementation
     assert_eq!(
@@ -471,7 +460,7 @@ fn test_interface_implementation() {
     );
     assert_eq!(
         gobj.interfaces[0].interface_type,
-        gobject_ast::GType::Identifier("MY_TYPE_INTERFACE".to_owned())
+        GType::Identifier("MY_TYPE_INTERFACE".to_owned())
     );
     assert_eq!(gobj.interfaces[0].init_function, "my_interface_init");
 
@@ -487,9 +476,10 @@ fn test_interface_implementation() {
 fn test_interface_impl_multiple() {
     let project = parse_fixture("multi_interface.c");
     let file = project.files.values().next().expect("No files parsed");
+    let types = file.iter_all_gobject_types().collect::<Vec<_>>();
 
-    assert_eq!(extract_gobject_types(file).len(), 1);
-    let gobj = &extract_gobject_types(file)[0];
+    assert_eq!(types.len(), 1);
+    let gobj = &types[0];
 
     // Check type kind
     assert!(matches!(
@@ -512,13 +502,13 @@ fn test_interface_impl_multiple() {
 
     assert_eq!(
         gobj.interfaces[0].interface_type,
-        gobject_ast::GType::Identifier("GTK_TYPE_EDITABLE".to_owned())
+        GType::Identifier("GTK_TYPE_EDITABLE".to_owned())
     );
     assert_eq!(gobj.interfaces[0].init_function, "my_editable_init");
 
     assert_eq!(
         gobj.interfaces[1].interface_type,
-        gobject_ast::GType::Identifier("GTK_TYPE_SCROLLABLE".to_owned())
+        GType::Identifier("GTK_TYPE_SCROLLABLE".to_owned())
     );
     assert_eq!(gobj.interfaces[1].init_function, "my_scrollable_init");
 }
@@ -527,13 +517,11 @@ fn test_interface_impl_multiple() {
 fn test_boxed_type() {
     let project = parse_fixture("boxed_types.c");
     let file = project.files.values().next().expect("No files parsed");
+    let types = file.iter_all_gobject_types().collect::<Vec<_>>();
 
     // Check that we found the boxed type definition
     // G_DEFINE_BOXED_TYPE should be parsed
-    assert!(
-        !extract_gobject_types(file).is_empty(),
-        "No GObject types found"
-    );
+    assert!(!types.is_empty(), "No GObject types found");
 
     // Should have copy and free functions
     assert!(
@@ -550,14 +538,14 @@ fn test_boxed_type() {
 fn test_define_quark() {
     let project = parse_fixture("define_quark.c");
     let file = project.files.values().next().expect("No files parsed");
+    let types = file.iter_all_gobject_types().collect::<Vec<_>>();
 
-    let types = extract_gobject_types(file);
     assert_eq!(types.len(), 1);
 
     let gobj = &types[0];
     assert_eq!(gobj.function_prefix, "my_error");
 
-    let gobject_ast::model::types::GObjectTypeKind::DefineQuark {
+    let GObjectTypeKind::DefineQuark {
         quark_name,
         func_prefix,
     } = &gobj.kind
@@ -577,10 +565,11 @@ fn test_define_quark() {
 fn test_gtk_doc_comments() {
     let project = parse_fixture("annotations.h");
     let file = project.files.values().next().expect("No files parsed");
+    let types = file.iter_all_gobject_types().collect::<Vec<_>>();
 
     // Should have the declared type
-    assert_eq!(extract_gobject_types(file).len(), 1);
-    assert_eq!(extract_gobject_types(file)[0].type_name, "MyObject");
+    assert_eq!(types.len(), 1);
+    assert_eq!(types[0].type_name, "MyObject");
 
     // Should have all the documented functions
     assert!(
@@ -605,9 +594,10 @@ fn test_gtk_doc_comments() {
 fn test_custom_param_spec() {
     let project = parse_fixture("custom_param_spec.c");
     let file = project.files.values().next().expect("No files parsed");
+    let types = file.iter_all_gobject_types().collect::<Vec<_>>();
 
-    assert_eq!(extract_gobject_types(file).len(), 1);
-    let gobject_type = &extract_gobject_types(file)[0];
+    assert_eq!(types.len(), 1);
+    let gobject_type = &types[0];
 
     let class_init_name = gobject_type.class_init_function_name();
     let class_init = file
@@ -626,7 +616,6 @@ fn test_custom_param_spec() {
     assert_eq!(color_prop.blurb, Some("The object color".to_string()));
 
     // Custom param specs should be captured as Unknown
-    use gobject_ast::model::types::{ParamFlag, PropertyType};
     match &color_prop.property_type {
         PropertyType::Unknown { spec_function } => {
             assert_eq!(spec_function, "cogl_param_spec_color");

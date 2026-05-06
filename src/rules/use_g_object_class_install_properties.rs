@@ -1,7 +1,10 @@
-use gobject_ast::{Expression, Statement};
+use gobject_ast::{Expression, Statement, top_level::TopLevelItem};
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct UseGObjectClassInstallProperties;
 
@@ -14,8 +17,8 @@ impl Rule for UseGObjectClassInstallProperties {
         "Suggest g_object_class_install_properties for multiple g_object_class_install_property calls"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Complexity
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Complexity
     }
 
     fn fixable(&self) -> bool {
@@ -352,8 +355,6 @@ impl UseGObjectClassInstallProperties {
     /// Determine the array name, preferring "props" but using "obj_props" if
     /// "props" exists
     fn determine_array_name(&self, file: &gobject_ast::FileModel, _source: &[u8]) -> String {
-        use gobject_ast::{Statement, top_level::TopLevelItem};
-
         // Check if "props" is already used as a GParamSpec array
         for item in &file.top_level_items {
             if let TopLevelItem::Declaration(stmt) = item

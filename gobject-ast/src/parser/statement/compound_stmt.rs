@@ -19,11 +19,7 @@ impl Parser {
         })
     }
 
-    pub(in crate::parser) fn parse_function_body(
-        &self,
-        body_node: Node,
-        source: &[u8],
-    ) -> Vec<Statement> {
+    pub(crate) fn parse_function_body(&self, body_node: Node, source: &[u8]) -> Vec<Statement> {
         let mut statements = Vec::new();
 
         let mut cursor = body_node.walk();

@@ -1,6 +1,7 @@
 use tree_sitter::Node;
 
 use crate::{
+    Statement,
     model::{CaseLabel, SwitchCase, SwitchStatement},
     parser::Parser,
 };
@@ -34,7 +35,7 @@ impl Parser {
     fn parse_switch_cases(&self, body_node: Node, source: &[u8]) -> Vec<SwitchCase> {
         let mut cases = Vec::new();
         let mut cursor = body_node.walk();
-        let mut current_case: Option<(CaseLabel, Vec<crate::model::Statement>)> = None;
+        let mut current_case: Option<(CaseLabel, Vec<Statement>)> = None;
 
         for child in body_node.children(&mut cursor) {
             self.parse_switch_child(child, source, &mut cases, &mut current_case);
@@ -55,7 +56,7 @@ impl Parser {
         child: Node,
         source: &[u8],
         cases: &mut Vec<SwitchCase>,
-        current_case: &mut Option<(CaseLabel, Vec<crate::model::Statement>)>,
+        current_case: &mut Option<(CaseLabel, Vec<Statement>)>,
     ) {
         if child.kind() == "case_statement" {
             // Save the previous case if it exists

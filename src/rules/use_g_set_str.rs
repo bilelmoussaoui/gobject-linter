@@ -1,7 +1,10 @@
 use gobject_ast::{AssignmentOp, Expression, Statement, UnaryOp};
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct UseGSetStr;
 
@@ -14,8 +17,8 @@ impl Rule for UseGSetStr {
         "Suggest g_set_str() instead of manual g_free and g_strdup"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Complexity
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Complexity
     }
 
     fn fixable(&self) -> bool {

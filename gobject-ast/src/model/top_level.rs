@@ -1,6 +1,15 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
-use super::{SourceLocation, Statement};
+use crate::{
+    EnumInfo, GObjectType, TypeInfo, VariableDecl, VirtualFunction,
+    model::{
+        SourceLocation, Statement,
+        expression::{CallExpression, Expression},
+        types::{ParamSpecAssignment, Parameter, Property},
+    },
+};
 
 /// Represents a top-level item in a C file
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,7 +65,7 @@ pub enum PreprocessorDirective {
     },
     /// GObject type declaration/definition (G_DECLARE_*, G_DEFINE_*)
     GObjectType {
-        gobject_type: Box<super::types::GObjectType>,
+        gobject_type: Box<GObjectType>,
         location: SourceLocation,
     },
     /// G_DEFINE_AUTOPTR_CLEANUP_FUNC (Type, cleanup_func)
@@ -122,10 +131,10 @@ pub enum ConditionalKind {
 /// "GObject")
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StructField {
-    pub field_type: super::TypeInfo,
+    pub field_type: TypeInfo,
     /// Field name, if present (anonymous bitfields have none)
     pub field_name: Option<String>,
-    pub location: super::SourceLocation,
+    pub location: SourceLocation,
     /// Bit-width for bitfield members (`unsigned flags : 1` → `Some(1)`).
     #[serde(default)]
     pub bit_width: Option<u32>,
@@ -165,18 +174,18 @@ impl StructField {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TypedefTarget {
     /// Plain type alias: `typedef struct _Foo Foo`, `typedef gint MyInt`.
-    Type(super::TypeInfo),
+    Type(TypeInfo),
     /// Function-pointer alias: `typedef void (*FooCallback)(GObject *,
     /// gpointer)`.
     Callback {
-        return_type: super::TypeInfo,
-        parameters: Vec<super::types::Parameter>,
+        return_type: TypeInfo,
+        parameters: Vec<Parameter>,
     },
 }
 
 impl TypedefTarget {
     /// Return the inner `TypeInfo` if this is a plain type alias.
-    pub fn as_type(&self) -> Option<&super::TypeInfo> {
+    pub fn as_type(&self) -> Option<&TypeInfo> {
         match self {
             Self::Type(t) => Some(t),
             Self::Callback { .. } => None,
@@ -203,11 +212,11 @@ pub enum TypeDefItem {
         /// Virtual functions (function pointer fields) extracted from class
         /// structs (structs whose name ends with `Class`).
         #[serde(default)]
-        vfuncs: Vec<super::types::VirtualFunction>,
+        vfuncs: Vec<VirtualFunction>,
         location: SourceLocation,
     },
     Enum {
-        enum_info: Box<super::types::EnumInfo>,
+        enum_info: Box<EnumInfo>,
     },
 }
 
@@ -230,10 +239,10 @@ impl TypeDefItem {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FunctionDeclItem {
     pub name: String,
-    pub return_type: super::TypeInfo,
+    pub return_type: TypeInfo,
     pub is_static: bool,
     pub is_inline: bool,
-    pub parameters: Vec<super::types::Parameter>,
+    pub parameters: Vec<Parameter>,
     pub export_macros: Vec<String>,
     pub location: SourceLocation,
 }
@@ -241,10 +250,10 @@ pub struct FunctionDeclItem {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FunctionDefItem {
     pub name: String,
-    pub return_type: super::TypeInfo,
+    pub return_type: TypeInfo,
     pub is_static: bool,
     pub is_inline: bool,
-    pub parameters: Vec<super::types::Parameter>,
+    pub parameters: Vec<Parameter>,
     pub body_statements: Vec<Statement>,
     pub location: SourceLocation,
     pub body_location: Option<SourceLocation>,
@@ -254,46 +263,41 @@ impl FunctionDefItem {
     /// Find all calls to specific functions in the body
     /// Returns references to all CallExpression nodes that match any of the
     /// given function names
-    pub fn find_calls<'a>(
-        &'a self,
-        function_names: &[&str],
-    ) -> Vec<&'a super::expression::CallExpression> {
+    pub fn find_calls<'a>(&'a self, function_names: &[&str]) -> Vec<&'a CallExpression> {
         self.find_calls_matching(|name| function_names.contains(&name))
     }
 
     /// Find all calls matching a predicate in the body
-    pub fn find_calls_matching<F>(&self, predicate: F) -> Vec<&super::expression::CallExpression>
+    pub fn find_calls_matching<F>(&self, predicate: F) -> Vec<&CallExpression>
     where
         F: Fn(&str) -> bool,
     {
         self.body_statements
             .iter()
-            .flat_map(super::statement::Statement::iter_calls)
+            .flat_map(Statement::iter_calls)
             .filter(|call| call.function_name_str().is_some_and(&predicate))
             .collect()
     }
 
     /// Iterate all local variable declarations in the function body recursively
-    pub fn iter_local_declarations(&self) -> impl Iterator<Item = &super::statement::VariableDecl> {
+    pub fn iter_local_declarations(&self) -> impl Iterator<Item = &VariableDecl> {
         self.body_statements
             .iter()
-            .flat_map(super::statement::Statement::iter_declarations)
+            .flat_map(Statement::iter_declarations)
     }
 
     /// Collect all return values from the function body
-    pub fn collect_return_values(&self) -> Vec<&super::expression::Expression> {
+    pub fn collect_return_values(&self) -> Vec<&Expression> {
         self.body_statements
             .iter()
-            .flat_map(super::statement::Statement::iter_returns)
+            .flat_map(Statement::iter_returns)
             .filter_map(|r| r.value.as_ref())
             .collect()
     }
 
     /// Check if any variable of the given type is directly returned from the
     /// function
-    pub fn is_var_returned(&self, type_info: &crate::TypeInfo) -> bool {
-        use super::expression::Expression;
-
+    pub fn is_var_returned(&self, type_info: &TypeInfo) -> bool {
         for stmt in &self.body_statements {
             for ret in stmt.iter_returns() {
                 if let Some(Expression::Identifier(id)) = &ret.value {
@@ -316,9 +320,7 @@ impl FunctionDefItem {
 
     /// Check if any variable of the given type is passed to a cleanup call
     /// (g_object_unref, g_free, etc.)
-    pub fn is_var_passed_to_cleanup(&self, type_info: &crate::TypeInfo) -> bool {
-        use super::expression::Expression;
-
+    pub fn is_var_passed_to_cleanup(&self, type_info: &TypeInfo) -> bool {
         for stmt in &self.body_statements {
             for call in stmt.iter_calls() {
                 if call.is_cleanup_call()
@@ -350,8 +352,6 @@ impl FunctionDefItem {
         func_name: &str,
         arg_index: usize,
     ) -> bool {
-        use super::expression::Expression;
-
         self.body_statements.iter().any(|stmt| {
             stmt.iter_calls().any(|call| {
                 call.is_function(func_name)
@@ -365,19 +365,17 @@ impl FunctionDefItem {
     /// Check if any variable of the given type is allocated via an allocation
     /// call Uses `call.is_allocation_call()` to detect allocations by
     /// default
-    pub fn is_var_allocated(&self, type_info: &crate::TypeInfo) -> bool {
-        self.is_var_allocated_with(type_info, crate::CallExpression::is_allocation_call)
+    pub fn is_var_allocated(&self, type_info: &TypeInfo) -> bool {
+        self.is_var_allocated_with(type_info, CallExpression::is_allocation_call)
     }
 
     /// Check if any variable of the given type is allocated via a custom
     /// allocation predicate
     pub fn is_var_allocated_with(
         &self,
-        type_info: &crate::TypeInfo,
-        is_allocation: impl Fn(&super::expression::CallExpression) -> bool,
+        type_info: &TypeInfo,
+        is_allocation: impl Fn(&CallExpression) -> bool,
     ) -> bool {
-        use super::expression::Expression;
-
         for stmt in &self.body_statements {
             let mut found = false;
             stmt.walk(&mut |s| {
@@ -423,17 +421,17 @@ impl FunctionDefItem {
     }
 
     /// Find all g_object_class_install_properties calls in the function body
-    pub fn find_install_properties_calls(&self) -> Vec<&super::expression::CallExpression> {
+    pub fn find_install_properties_calls(&self) -> Vec<&CallExpression> {
         self.find_calls(&["g_object_class_install_properties"])
     }
 
     /// Map every named parameter and local variable to its `TypeInfo`.
     /// Parameters appear first; local declarations in body order after that,
     /// so an inner-scope shadowing declaration overwrites the outer one.
-    pub fn local_var_types(&self) -> std::collections::HashMap<String, super::TypeInfo> {
+    pub fn local_var_types(&self) -> std::collections::HashMap<String, TypeInfo> {
         let mut map = std::collections::HashMap::new();
         for param in &self.parameters {
-            if let super::types::Parameter::Regular {
+            if let Parameter::Regular {
                 name: Some(name),
                 type_info,
                 ..
@@ -453,28 +451,17 @@ impl FunctionDefItem {
     }
 
     /// Get a parameter by name
-    pub fn get_param_by_name(&self, name: &str) -> Option<&super::types::Parameter> {
-        self.parameters.iter().find(
-            |p| matches!(p, super::types::Parameter::Regular { name: Some(n), .. } if n == name),
-        )
+    pub fn get_param_by_name(&self, name: &str) -> Option<&Parameter> {
+        self.parameters
+            .iter()
+            .find(|p| matches!(p, Parameter::Regular { name: Some(n), .. } if n == name))
     }
 
     /// Find all param_spec assignments in the function body
     /// Handles array pattern (props[PROP_X] = ...), variable pattern
     /// (param_spec = ...), and override pattern
     /// (g_object_class_override_property(...))
-    pub fn find_param_spec_assignments(
-        &self,
-        source: &[u8],
-    ) -> Vec<super::types::ParamSpecAssignment> {
-        use std::collections::HashMap;
-
-        use super::{
-            Statement,
-            expression::Expression,
-            types::{ParamSpecAssignment, Property},
-        };
-
+    pub fn find_param_spec_assignments(&self, source: &[u8]) -> Vec<ParamSpecAssignment> {
         let mut assignments = Vec::new();
         let mut array_assignments: HashMap<String, Vec<usize>> = HashMap::new();
         let mut variable_assignments: HashMap<String, Vec<usize>> = HashMap::new();

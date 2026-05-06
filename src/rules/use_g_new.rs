@@ -1,7 +1,10 @@
 use gobject_ast::Expression;
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct UseGNew;
 
@@ -14,8 +17,8 @@ impl Rule for UseGNew {
         "Suggest g_new/g_new0 instead of g_malloc/g_malloc0 with sizeof for type safety"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Complexity
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Complexity
     }
 
     fn fixable(&self) -> bool {

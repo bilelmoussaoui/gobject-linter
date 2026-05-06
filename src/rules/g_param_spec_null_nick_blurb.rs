@@ -1,7 +1,13 @@
-use gobject_ast::{CallExpression, types::Property};
+use gobject_ast::{
+    CallExpression,
+    types::{ParamFlag, Property},
+};
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct GParamSpecNullNickBlurb;
 
@@ -14,8 +20,8 @@ impl Rule for GParamSpecNullNickBlurb {
         "Ensure g_param_spec_* functions have NULL for nick and blurb parameters"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Pedantic
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Pedantic
     }
 
     fn fixable(&self) -> bool {
@@ -73,7 +79,6 @@ impl GParamSpecNullNickBlurb {
 
         // Check if any custom flags that include static strings are present
         // If so, skip this rule as the project intentionally uses non-NULL nick/blurb
-        use gobject_ast::types::ParamFlag;
         let has_custom_static_flag = property.flags.iter().any(|flag| {
             if let ParamFlag::Unknown(name) = flag {
                 custom_static_flags.contains(name)
@@ -166,8 +171,6 @@ impl GParamSpecNullNickBlurb {
     /// After nick and blurb are set to NULL, compute the correct replacement
     /// flags string. Returns `None` if the flags are already correct.
     fn compute_new_flags(&self, current_flags: &[gobject_ast::types::ParamFlag]) -> Option<String> {
-        use gobject_ast::types::ParamFlag;
-
         // Check if we need to remove any flags
         let needs_removal = current_flags.iter().any(|f| {
             matches!(

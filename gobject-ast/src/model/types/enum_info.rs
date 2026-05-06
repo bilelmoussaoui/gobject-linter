@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::SourceLocation;
+use crate::{
+    SourceLocation,
+    model::{Expression, operators::BinaryOp},
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EnumInfo {
@@ -90,11 +93,9 @@ impl EnumInfo {
 }
 
 /// Check if an expression is a bit shift operation (e.g., 1 << 0)
-fn is_bit_shift_expr(expr: &super::super::Expression) -> bool {
-    use super::super::operators::BinaryOp;
-
+fn is_bit_shift_expr(expr: &Expression) -> bool {
     match expr {
-        super::super::Expression::Binary(bin) => matches!(bin.operator, BinaryOp::LeftShift),
+        Expression::Binary(bin) => matches!(bin.operator, BinaryOp::LeftShift),
         _ => false,
     }
 }
@@ -104,7 +105,7 @@ pub struct EnumValue {
     pub name: String,
     pub value: Option<i64>,
     /// The expression AST for the value (if present)
-    pub value_expr: Option<super::super::Expression>,
+    pub value_expr: Option<Expression>,
     /// Location of this enumerator node
     pub location: SourceLocation,
     /// Location of just the name

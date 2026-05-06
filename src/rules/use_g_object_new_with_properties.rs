@@ -1,7 +1,10 @@
-use gobject_ast::{Expression, Statement};
+use gobject_ast::{CallExpression, Expression, Statement};
 
-use super::Rule;
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Rule, Violation},
+};
 
 pub struct UseGObjectNewWithProperties;
 
@@ -14,8 +17,8 @@ impl Rule for UseGObjectNewWithProperties {
         "Suggest setting properties in g_object_new instead of separate g_object_set calls"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Complexity
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Complexity
     }
 
     fn check_func_impl(
@@ -46,7 +49,7 @@ impl UseGObjectNewWithProperties {
     fn check_statements(
         &self,
         statements: &[Statement],
-        empty_new_calls: &[&gobject_ast::CallExpression],
+        empty_new_calls: &[&CallExpression],
         file_path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
@@ -96,7 +99,7 @@ impl UseGObjectNewWithProperties {
     fn find_empty_new_in_statement(
         &self,
         stmt: &Statement,
-        empty_new_calls: &[&gobject_ast::CallExpression],
+        empty_new_calls: &[&CallExpression],
     ) -> Option<(String, gobject_ast::SourceLocation)> {
         match stmt {
             // Declaration: FooObject *obj = g_object_new(TYPE, NULL);
@@ -133,7 +136,7 @@ impl UseGObjectNewWithProperties {
 
     /// Check if a call is g_object_new with no properties (just NULL or type
     /// only)
-    fn is_g_object_new_empty(&self, call: &gobject_ast::CallExpression) -> bool {
+    fn is_g_object_new_empty(&self, call: &CallExpression) -> bool {
         if !call.is_function("g_object_new") {
             return false;
         }

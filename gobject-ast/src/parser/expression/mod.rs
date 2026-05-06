@@ -10,13 +10,16 @@ mod update;
 
 use tree_sitter::Node;
 
-use super::Parser;
-use crate::model::Expression;
+use crate::{
+    model::{
+        expression::{Designator, InitializerItem},
+        *,
+    },
+    parser::Parser,
+};
 
 impl Parser {
     pub(super) fn parse_expression(&self, node: Node, source: &[u8]) -> Option<Expression> {
-        use crate::model::*;
-
         match node.kind() {
             "call_expression" => self
                 .parse_call_expression(node, source)
@@ -243,9 +246,7 @@ impl Parser {
         &self,
         node: Node,
         source: &[u8],
-    ) -> Option<crate::model::InitializerListExpression> {
-        use crate::model::expression::{Designator, InitializerItem};
-
+    ) -> Option<InitializerListExpression> {
         let mut items = Vec::new();
         let mut cursor = node.walk();
 
@@ -321,7 +322,7 @@ impl Parser {
             }
         }
 
-        Some(crate::model::InitializerListExpression {
+        Some(InitializerListExpression {
             items,
             location: self.node_location(node),
         })

@@ -2,7 +2,11 @@ use std::path::Path;
 
 use serde_json::json;
 
-use crate::{config::Config, rules::Violation};
+use crate::{
+    config::{Config, RuleLevel},
+    rules::Violation,
+    scanner::create_all_rules,
+};
 
 /// Generate SARIF 2.1.0 output for violations
 pub fn generate_sarif(violations: &[Violation], config: &Config, project_root: &Path) -> String {
@@ -33,8 +37,6 @@ pub fn generate_sarif(violations: &[Violation], config: &Config, project_root: &
 
 /// Generate rule metadata for enabled rules only
 fn generate_rules_metadata(config: &Config) -> Vec<serde_json::Value> {
-    use crate::scanner::create_all_rules;
-
     let rules = create_all_rules(config);
     rules
         .iter()
@@ -152,11 +154,11 @@ fn generate_result(
 }
 
 /// Map rule level to SARIF level
-fn rule_level_to_sarif_level(level: crate::config::RuleLevel) -> &'static str {
+fn rule_level_to_sarif_level(level: RuleLevel) -> &'static str {
     match level {
-        crate::config::RuleLevel::Error => "error",
-        crate::config::RuleLevel::Warn => "warning",
-        crate::config::RuleLevel::Ignore => "none", // Should never happen
+        RuleLevel::Error => "error",
+        RuleLevel::Warn => "warning",
+        RuleLevel::Ignore => "none", // Should never happen
     }
 }
 

@@ -1,9 +1,12 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::LazyLock};
 
 use globset::{Glob, GlobSet, GlobSetBuilder};
 
-use super::{ConfigOption, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{ConfigOption, Rule, Violation},
+};
 
 pub struct UseGAutoptrInlineCleanup;
 
@@ -22,13 +25,11 @@ impl Rule for UseGAutoptrInlineCleanup {
         ))
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Complexity
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Complexity
     }
 
     fn config_options(&self) -> &'static [ConfigOption] {
-        use std::sync::LazyLock;
-
         static OPTIONS: LazyLock<Vec<ConfigOption>> = LazyLock::new(|| {
             vec![ConfigOption {
                 name: "ignore_types",

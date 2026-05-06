@@ -5,7 +5,9 @@ use gobject_ast::{
     model::{
         statement::ForInit,
         top_level::{TypeDefItem, TypedefTarget},
+        types::Parameter,
     },
+    top_level::TopLevelItem,
 };
 
 fn parse_fixture(name: &str) -> gobject_ast::Project {
@@ -173,9 +175,11 @@ fn test_anonymous_union_field_types_collected() {
         .expect("File should be parsed");
 
     let xdp_rule = file.iter_all_items().find_map(|item| match item {
-        gobject_ast::model::top_level::TopLevelItem::TypeDefinition(
-            td @ TypeDefItem::Typedef { name, .. },
-        ) if name == "XdpUsbRule" => Some(td),
+        TopLevelItem::TypeDefinition(td @ TypeDefItem::Typedef { name, .. })
+            if name == "XdpUsbRule" =>
+        {
+            Some(td)
+        }
         _ => None,
     });
 
@@ -285,9 +289,11 @@ fn test_bitfield_struct_parsing() {
     let typedef = file
         .iter_all_items()
         .find_map(|item| match item {
-            gobject_ast::model::top_level::TopLevelItem::TypeDefinition(
-                td @ TypeDefItem::Typedef { name, .. },
-            ) if name == "MyBitStruct" => Some(td),
+            TopLevelItem::TypeDefinition(td @ TypeDefItem::Typedef { name, .. })
+                if name == "MyBitStruct" =>
+            {
+                Some(td)
+            }
             _ => None,
         })
         .expect("MyBitStruct typedef not found");
@@ -331,7 +337,7 @@ fn test_callback_typedef_parsing() {
     let typedefs: Vec<&TypeDefItem> = file
         .iter_all_items()
         .filter_map(|item| match item {
-            gobject_ast::model::top_level::TopLevelItem::TypeDefinition(td) => Some(td),
+            TopLevelItem::TypeDefinition(td) => Some(td),
             _ => None,
         })
         .collect();
@@ -375,10 +381,10 @@ fn test_callback_typedef_parsing() {
     assert_eq!(return_type.base_type, "void");
     assert_eq!(return_type.pointer_depth, 0);
     assert_eq!(parameters.len(), 2);
-    let gobject_ast::model::types::Parameter::Regular { type_info: p0, .. } = &parameters[0] else {
+    let Parameter::Regular { type_info: p0, .. } = &parameters[0] else {
         panic!("expected Regular")
     };
-    let gobject_ast::model::types::Parameter::Regular { type_info: p1, .. } = &parameters[1] else {
+    let Parameter::Regular { type_info: p1, .. } = &parameters[1] else {
         panic!("expected Regular")
     };
     assert_eq!(p0.base_type, "MyObject");
@@ -421,7 +427,7 @@ fn test_callback_typedef_parsing() {
     assert_eq!(return_type.pointer_depth, 1);
     assert!(return_type.is_const);
     assert_eq!(parameters.len(), 1);
-    let gobject_ast::model::types::Parameter::Regular { type_info: p0, .. } = &parameters[0] else {
+    let Parameter::Regular { type_info: p0, .. } = &parameters[0] else {
         panic!("expected Regular")
     };
     assert_eq!(p0.base_type, "MyObject");
@@ -429,8 +435,6 @@ fn test_callback_typedef_parsing() {
 
 #[test]
 fn test_variadic_parameter_parsing() {
-    use gobject_ast::model::types::Parameter;
-
     let project = parse_fixture("variadic_func.h");
     let file = project.files.values().next().expect("No files parsed");
 

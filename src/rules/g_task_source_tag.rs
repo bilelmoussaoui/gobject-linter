@@ -1,7 +1,10 @@
 use gobject_ast::{Expression, Statement};
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct GTaskSourceTag;
 
@@ -14,8 +17,8 @@ impl Rule for GTaskSourceTag {
         "Ensure g_task_set_source_tag is called after g_task_new"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Pedantic
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Pedantic
     }
 
     fn fixable(&self) -> bool {

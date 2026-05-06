@@ -1,14 +1,20 @@
-use std::{fs, path::Path};
+use std::{
+    collections::{HashMap, HashSet},
+    fs,
+    path::Path,
+};
 
 use anyhow::Result;
 use colored::Colorize;
 use indicatif::ProgressBar;
 use rayon::prelude::*;
+use serde::Serialize;
 
 use crate::{
     ast_context::AstContext,
-    config::{Config, RuleConfig},
-    rules::*,
+    config::{Config, RuleConfig, RuleLevel},
+    inline_ignore,
+    rules::{ConfigOption, *},
 };
 
 /// Extract a source snippet from a file at the given line with context
@@ -91,7 +97,7 @@ fn filter_violations_in_place(
 
 pub struct RuleEntry {
     pub rule: Box<dyn Rule>,
-    pub level: crate::config::RuleLevel,
+    pub level: RuleLevel,
     pub rule_config: RuleConfig,
     pub min_glib_version: (u32, u32),
     pub requires_auto_cleanup: bool,
@@ -184,14 +190,14 @@ macro_rules! impl_create_all_rules {
                         rule: Box::new($rule_type),
                         level: if is_rule_compatible(config, $major, $minor) {
                             let default_level = if $opt_in {
-                                crate::config::RuleLevel::Ignore
+                                RuleLevel::Ignore
                             } else {
-                                config.default_level.unwrap_or(crate::config::RuleLevel::Warn)
+                                config.default_level.unwrap_or(RuleLevel::Warn)
                             };
                             let configured = config.rules.$config_field.level.unwrap_or(default_level);
                             apply_msvc_compatibility(config, stringify!($config_field), $requires_auto_cleanup, configured)
                         } else {
-                            crate::config::RuleLevel::Ignore
+                            RuleLevel::Ignore
                         },
                         rule_config: config.rules.$config_field.clone(),
                         min_glib_version: ($major, $minor),
@@ -220,11 +226,11 @@ fn apply_msvc_compatibility(
     config: &Config,
     rule_name: &str,
     requires_auto_cleanup: bool,
-    configured_level: crate::config::RuleLevel,
-) -> crate::config::RuleLevel {
+    configured_level: RuleLevel,
+) -> RuleLevel {
     match (rule_name, config.msvc_compatible) {
-        ("no_g_auto_macros", false) => return crate::config::RuleLevel::Ignore,
-        ("no_g_auto_macros", true) => return crate::config::RuleLevel::Error,
+        ("no_g_auto_macros", false) => return RuleLevel::Ignore,
+        ("no_g_auto_macros", true) => return RuleLevel::Error,
         (_, false) => return configured_level,
         // Continue
         (_, true) => (),
@@ -232,7 +238,7 @@ fn apply_msvc_compatibility(
 
     // Disable all rules that require auto cleanup attributes
     if requires_auto_cleanup {
-        return crate::config::RuleLevel::Ignore;
+        return RuleLevel::Ignore;
     }
 
     configured_level
@@ -250,8 +256,6 @@ fn validate_inline_ignores(
     rules: &[RuleEntry],
     project_root: &Path,
 ) -> Vec<String> {
-    use std::collections::HashSet;
-
     let mut warnings = Vec::new();
 
     // Collect all valid rule names
@@ -306,7 +310,7 @@ pub fn scan_with_ast(
         .files
         .iter()
         .map(|(path, file)| {
-            let ignores = crate::inline_ignore::parse_ignore_directives(file);
+            let ignores = inline_ignore::parse_ignore_directives(file);
             (path.as_path(), ignores)
         })
         .collect();
@@ -366,7 +370,7 @@ pub fn scan_with_ast(
 
     // Filter out violations that have inline ignore directives
     violations.retain(|v| {
-        !crate::inline_ignore::should_ignore_violation(&v.file, v.line, v.rule, &inline_ignores)
+        !inline_ignore::should_ignore_violation(&v.file, v.line, v.rule, &inline_ignores)
     });
 
     violations.sort_by(|a, b| {
@@ -394,9 +398,9 @@ pub fn list_all_rules(config: &Config) {
 
     for entry in &rules {
         let status = match entry.level {
-            crate::config::RuleLevel::Error => "E".red().bold(),
-            crate::config::RuleLevel::Warn => "W".yellow().bold(),
-            crate::config::RuleLevel::Ignore => "-".dimmed(),
+            RuleLevel::Error => "E".red().bold(),
+            RuleLevel::Warn => "W".yellow().bold(),
+            RuleLevel::Ignore => "-".dimmed(),
         };
         let name = entry.rule.name().cyan().bold();
         let category = format!("[{}]", entry.rule.category().as_str()).magenta();
@@ -412,8 +416,6 @@ pub fn list_all_rules(config: &Config) {
 
 /// List all available rules as JSON
 pub fn list_all_rules_json(config: &Config) -> String {
-    use serde::Serialize;
-
     #[derive(Serialize)]
     struct RuleMetadata {
         name: String,
@@ -426,7 +428,7 @@ pub fn list_all_rules_json(config: &Config) -> String {
         requires_meson: bool,
         min_glib_version: String,
         requires_auto_cleanup: bool,
-        config_options: Vec<crate::rules::ConfigOption>,
+        config_options: Vec<ConfigOption>,
     }
 
     #[derive(Serialize)]
@@ -449,14 +451,14 @@ pub fn list_all_rules_json(config: &Config) -> String {
                 "\"warn\""
             };
             let mut all_options = vec![
-                crate::rules::ConfigOption {
+                ConfigOption {
                     name: "level",
                     option_type: "string",
                     default_value: level_default,
                     example_value: "\"error\"",
                     description: "Rule severity level: \"error\", \"warn\", or \"ignore\"",
                 },
-                crate::rules::ConfigOption {
+                ConfigOption {
                     name: "ignore",
                     option_type: "array<string>",
                     default_value: "[]",
@@ -499,8 +501,6 @@ pub fn list_all_rules_json(config: &Config) -> String {
 /// Keep only the violation with the highest rule_index for each (file, line)
 /// pair
 fn deduplicate_by_rule_precedence(violations: &mut Vec<Violation>) {
-    use std::collections::HashMap;
-
     // Group violations by (file, line), keeping the one with highest rule_index
     let mut best: HashMap<(std::path::PathBuf, usize), usize> = HashMap::new();
 

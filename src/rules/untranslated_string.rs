@@ -1,10 +1,9 @@
 use gobject_ast::{Argument, Expression, Statement};
 
-use super::Rule;
 use crate::{
     ast_context::AstContext,
     config::Config,
-    rules::{Category, Violation},
+    rules::{Category, Rule, Violation},
 };
 
 pub struct UntranslatedString;

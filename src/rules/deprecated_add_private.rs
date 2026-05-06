@@ -1,5 +1,8 @@
-use super::Rule;
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Rule, Violation},
+};
 
 pub struct DeprecatedAddPrivate;
 
@@ -12,8 +15,8 @@ impl Rule for DeprecatedAddPrivate {
         "Detect deprecated g_type_class_add_private (use G_DEFINE_TYPE_WITH_PRIVATE instead)"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Restriction
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Restriction
     }
 
     fn check_func_impl(

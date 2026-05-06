@@ -1,9 +1,14 @@
 use std::collections::{HashMap, HashSet};
 
-use gobject_ast::model::{
-    AssignmentOp, TypeInfo,
-    expression::{Argument, Designator, Expression},
-    top_level::{PreprocessorDirective, TopLevelItem, TypeDefItem},
+use gobject_ast::{
+    SourceLocation,
+    model::{
+        AssignmentOp, TypeInfo,
+        expression::{Argument, Designator, Expression},
+        statement::Statement,
+        top_level::{PreprocessorDirective, TopLevelItem, TypeDefItem},
+        types::GObjectTypeKind,
+    },
 };
 
 use crate::{
@@ -207,9 +212,8 @@ fn collect_field_refs(ast_context: &AstContext) -> (HashSet<(String, String)>, H
     (qualified, unqualified)
 }
 
-type FuncDefMap<'a> =
-    HashMap<String, Vec<(&'a std::path::Path, bool, gobject_ast::SourceLocation)>>;
-type FuncDeclMap<'a> = HashMap<String, Vec<(&'a std::path::Path, gobject_ast::SourceLocation)>>;
+type FuncDefMap<'a> = HashMap<String, Vec<(&'a std::path::Path, bool, SourceLocation)>>;
+type FuncDeclMap<'a> = HashMap<String, Vec<(&'a std::path::Path, SourceLocation)>>;
 
 fn collect_function_maps<'a>(ast_context: &'a AstContext) -> (FuncDefMap<'a>, FuncDeclMap<'a>) {
     let mut defs: FuncDefMap = HashMap::new();
@@ -235,7 +239,7 @@ fn collect_function_maps<'a>(ast_context: &'a AstContext) -> (FuncDefMap<'a>, Fu
     (defs, decls)
 }
 
-type TypeDefMap<'a> = HashMap<String, Vec<(&'a std::path::Path, gobject_ast::SourceLocation)>>;
+type TypeDefMap<'a> = HashMap<String, Vec<(&'a std::path::Path, SourceLocation)>>;
 
 fn collect_type_defs<'a>(ast_context: &'a AstContext) -> TypeDefMap<'a> {
     let mut defs: TypeDefMap = HashMap::new();
@@ -264,7 +268,7 @@ fn collect_type_defs<'a>(ast_context: &'a AstContext) -> TypeDefMap<'a> {
     defs
 }
 
-type EnumValueDefMap<'a> = HashMap<String, Vec<(&'a std::path::Path, gobject_ast::SourceLocation)>>;
+type EnumValueDefMap<'a> = HashMap<String, Vec<(&'a std::path::Path, SourceLocation)>>;
 
 fn collect_enum_value_defs<'a>(ast_context: &'a AstContext) -> EnumValueDefMap<'a> {
     let mut defs: EnumValueDefMap = HashMap::new();
@@ -287,8 +291,7 @@ fn collect_enum_value_defs<'a>(ast_context: &'a AstContext) -> EnumValueDefMap<'
     defs
 }
 
-type FieldDefMap<'a> =
-    HashMap<String, Vec<(&'a std::path::Path, gobject_ast::SourceLocation, String)>>;
+type FieldDefMap<'a> = HashMap<String, Vec<(&'a std::path::Path, SourceLocation, String)>>;
 
 fn collect_field_defs<'a>(ast_context: &'a AstContext) -> FieldDefMap<'a> {
     let mut defs: FieldDefMap = HashMap::new();
@@ -356,8 +359,6 @@ fn collect_gobject_implicit_refs(
     func_refs: &mut HashSet<String>,
     type_refs: &mut HashSet<String>,
 ) {
-    use gobject_ast::model::types::GObjectTypeKind;
-
     for gt in file.iter_all_gobject_types() {
         if gt.is_interface() {
             func_refs.insert(gt.default_init_function_name());
@@ -410,11 +411,7 @@ fn collect_type_ref(type_info: &TypeInfo, refs: &mut HashSet<String>) {
     }
 }
 
-fn collect_type_refs_from_stmt(
-    stmt: &gobject_ast::model::statement::Statement,
-    refs: &mut HashSet<String>,
-) {
-    use gobject_ast::model::statement::Statement;
+fn collect_type_refs_from_stmt(stmt: &Statement, refs: &mut HashSet<String>) {
     stmt.walk(&mut |s| {
         if let Statement::Declaration(decl) = s {
             collect_type_ref(&decl.type_info, refs);
@@ -464,11 +461,7 @@ fn collect_type_refs_from_fields(
     }
 }
 
-fn collect_func_refs_from_stmt(
-    stmt: &gobject_ast::model::statement::Statement,
-    refs: &mut HashSet<String>,
-) {
-    use gobject_ast::model::statement::Statement;
+fn collect_func_refs_from_stmt(stmt: &Statement, refs: &mut HashSet<String>) {
     stmt.walk_expressions(&mut |expr| refs.extend(expr.collect_identifiers()));
     stmt.walk(&mut |s| {
         if let Statement::Preprocessor(PreprocessorDirective::Define {
@@ -512,13 +505,11 @@ fn extract_function_calls_from_text(text: &str, refs: &mut HashSet<String>) {
 
 fn collect_field_refs_from_stmt(
     ast_context: &AstContext,
-    stmt: &gobject_ast::model::statement::Statement,
+    stmt: &Statement,
     type_map: &HashMap<String, String>,
     qualified: &mut HashSet<(String, String)>,
     unqualified: &mut HashSet<String>,
 ) {
-    use gobject_ast::model::statement::Statement;
-
     stmt.walk_expressions(&mut |expr| {
         collect_field_reads_impl(ast_context, expr, false, type_map, qualified, unqualified);
     });

@@ -11,8 +11,14 @@ mod variable_decl;
 
 use tree_sitter::Node;
 
-use super::Parser;
-use crate::model::{CompoundStatement, Statement};
+use crate::{
+    model::{
+        CompoundStatement, Statement,
+        statement::{DoWhileStatement, ForInit, ForStatement, WhileStatement},
+    },
+    parser::Parser,
+    top_level::PreprocessorDirective,
+};
 
 impl Parser {
     /// Parse generic statement bodies (for SEH statements, etc.)
@@ -41,13 +47,7 @@ impl Parser {
         })
     }
 
-    fn parse_for_statement(
-        &self,
-        node: Node,
-        source: &[u8],
-    ) -> Option<crate::model::statement::ForStatement> {
-        use crate::model::statement::{ForInit, ForStatement};
-
+    fn parse_for_statement(&self, node: Node, source: &[u8]) -> Option<ForStatement> {
         let mut initializer = None;
         let mut condition = None;
         let mut update = None;
@@ -102,13 +102,7 @@ impl Parser {
         })
     }
 
-    fn parse_while_statement(
-        &self,
-        node: Node,
-        source: &[u8],
-    ) -> Option<crate::model::statement::WhileStatement> {
-        use crate::model::statement::WhileStatement;
-
+    fn parse_while_statement(&self, node: Node, source: &[u8]) -> Option<WhileStatement> {
         let mut condition = None;
         let mut body = Vec::new();
         let mut cursor = node.walk();
@@ -141,13 +135,7 @@ impl Parser {
         })
     }
 
-    fn parse_do_while_statement(
-        &self,
-        node: Node,
-        source: &[u8],
-    ) -> Option<crate::model::statement::DoWhileStatement> {
-        use crate::model::statement::DoWhileStatement;
-
+    fn parse_do_while_statement(&self, node: Node, source: &[u8]) -> Option<DoWhileStatement> {
         let mut condition = None;
         let mut body = Vec::new();
         let mut cursor = node.walk();
@@ -307,13 +295,11 @@ impl Parser {
                         .map(std::borrow::ToOwned::to_owned)
                 });
 
-                Some(Statement::Preprocessor(
-                    crate::model::top_level::PreprocessorDirective::Define {
-                        name,
-                        value,
-                        location: self.node_location(node),
-                    },
-                ))
+                Some(Statement::Preprocessor(PreprocessorDirective::Define {
+                    name,
+                    value,
+                    location: self.node_location(node),
+                }))
             }
             "preproc_call" | "preproc_defined" | "preproc_include" => {
                 // Other preprocessor directives - skip for now

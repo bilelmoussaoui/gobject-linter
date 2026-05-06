@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{SourceLocation, types::BasicType};
+use crate::model::{SourceLocation, types::BasicType};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AutoCleanupMacro {

@@ -1,5 +1,4 @@
-use super::Rule;
-use crate::{ast_context::AstContext, config::Config};
+use crate::{ast_context::AstContext, config::Config, rules::Rule};
 
 /// Rule that checks for functions declared in headers but never implemented
 pub struct MissingImplementation;
@@ -13,15 +12,15 @@ impl Rule for MissingImplementation {
         "Report functions declared in headers but not implemented"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Suspicious
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Suspicious
     }
 
     fn check_all(
         &self,
         ast_context: &AstContext,
         _config: &Config,
-        violations: &mut Vec<super::Violation>,
+        violations: &mut Vec<crate::rules::Violation>,
     ) {
         // Find all declared but not defined functions
         for (path, func) in self.find_declared_but_not_defined(ast_context) {

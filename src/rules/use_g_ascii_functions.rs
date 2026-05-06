@@ -1,5 +1,8 @@
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct UseGAsciiFunctions;
 
@@ -33,8 +36,8 @@ impl Rule for UseGAsciiFunctions {
         "Use g_ascii_* functions instead of locale-dependent C ctype functions"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Correctness
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Correctness
     }
 
     fn fixable(&self) -> bool {

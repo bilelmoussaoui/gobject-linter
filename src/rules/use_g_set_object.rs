@@ -1,7 +1,10 @@
 use gobject_ast::{AssignmentOp, Expression, Statement, UnaryOp};
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct UseGSetObject;
 
@@ -14,8 +17,8 @@ impl Rule for UseGSetObject {
         "Suggest g_set_object() instead of manual g_clear_object and g_object_ref"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Complexity
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Complexity
     }
 
     fn fixable(&self) -> bool {

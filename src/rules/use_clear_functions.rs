@@ -1,7 +1,10 @@
 use gobject_ast::{BinaryOp, Expression, IfStatement, Statement};
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 const UNREF_FUNCTIONS: &[&str] = &[
     "g_object_unref",
@@ -26,8 +29,8 @@ impl Rule for UseClearFunctions {
         "Suggest g_clear_object/g_clear_pointer instead of manual unref and NULL assignment"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Complexity
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Complexity
     }
 
     fn fixable(&self) -> bool {

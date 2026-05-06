@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use super::Expression;
-use crate::model::SourceLocation;
+use crate::{
+    TypeInfo,
+    model::{SourceLocation, expression::Expression},
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SizeofExpression {
@@ -12,7 +14,7 @@ pub struct SizeofExpression {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SizeofOperand {
-    Type(crate::TypeInfo),       // sizeof(MyType) or sizeof(struct MyType *)
+    Type(TypeInfo),              // sizeof(MyType) or sizeof(struct MyType *)
     Expression(Box<Expression>), // sizeof(expr)
 }
 

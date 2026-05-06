@@ -1,9 +1,12 @@
 use std::collections::{HashMap, HashSet};
 
-use gobject_ast::Statement;
+use gobject_ast::{Expression, SourceLocation, Statement, TypeInfo};
 
-use super::Rule;
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Rule, Violation},
+};
 
 pub struct UseGAutoptrGotoCleanup;
 
@@ -16,8 +19,8 @@ impl Rule for UseGAutoptrGotoCleanup {
         "Suggest g_autoptr instead of goto error cleanup pattern"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Complexity
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Complexity
     }
 
     fn check_func_impl(
@@ -74,20 +77,19 @@ impl UseGAutoptrGotoCleanup {
     fn find_allocated_variables(
         &self,
         statements: &[Statement],
-    ) -> HashMap<String, (gobject_ast::TypeInfo, gobject_ast::SourceLocation)> {
+    ) -> HashMap<String, (TypeInfo, SourceLocation)> {
         let mut result = HashMap::new();
 
-        let local_vars: HashMap<String, (gobject_ast::TypeInfo, gobject_ast::SourceLocation)> =
-            statements
-                .iter()
-                .flat_map(gobject_ast::Statement::iter_declarations)
-                .filter(|d| {
-                    !d.type_info.uses_auto_cleanup()
-                        && d.type_info.is_pointer()
-                        && d.is_simple_identifier()
-                })
-                .map(|d| (d.name.clone(), (d.type_info.clone(), d.location)))
-                .collect();
+        let local_vars: HashMap<String, (TypeInfo, SourceLocation)> = statements
+            .iter()
+            .flat_map(gobject_ast::Statement::iter_declarations)
+            .filter(|d| {
+                !d.type_info.uses_auto_cleanup()
+                    && d.type_info.is_pointer()
+                    && d.is_simple_identifier()
+            })
+            .map(|d| (d.name.clone(), (d.type_info.clone(), d.location)))
+            .collect();
 
         // Second pass: find assignments to those variables from allocation functions
         self.collect_allocated_vars(statements, &local_vars, &mut result);
@@ -98,11 +100,9 @@ impl UseGAutoptrGotoCleanup {
     fn collect_allocated_vars(
         &self,
         statements: &[Statement],
-        local_vars: &HashMap<String, (gobject_ast::TypeInfo, gobject_ast::SourceLocation)>,
-        result: &mut HashMap<String, (gobject_ast::TypeInfo, gobject_ast::SourceLocation)>,
+        local_vars: &HashMap<String, (TypeInfo, SourceLocation)>,
+        result: &mut HashMap<String, (TypeInfo, SourceLocation)>,
     ) {
-        use gobject_ast::Expression;
-
         for stmt in statements {
             stmt.walk(&mut |s| {
                 match s {

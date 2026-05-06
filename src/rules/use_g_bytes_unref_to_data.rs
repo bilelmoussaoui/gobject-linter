@@ -2,8 +2,11 @@ use gobject_ast::{
     Assignment, AssignmentOp, CallExpression, Expression, ExpressionStmt, Statement,
 };
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct UseGBytesUnrefToData;
 
@@ -16,8 +19,8 @@ impl Rule for UseGBytesUnrefToData {
         "Use g_bytes_unref_to_data() instead of g_bytes_get_data() + g_bytes_unref()"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Complexity
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Complexity
     }
 
     fn fixable(&self) -> bool {

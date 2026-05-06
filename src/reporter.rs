@@ -1,12 +1,14 @@
-use std::{collections::HashMap, env};
+use std::{collections::HashMap, env, io::IsTerminal};
 
 use colored::*;
 
-use crate::{config::Config, rules::Violation};
+use crate::{
+    config::{Config, RuleLevel},
+    rules::Violation,
+};
 
 pub fn report_violations(violations: &[Violation], verbose: bool, config: &Config) {
     // Check if we're outputting to a terminal
-    use std::io::IsTerminal;
     let use_hyperlinks = std::io::stdout().is_terminal();
 
     if violations.is_empty() {
@@ -45,9 +47,9 @@ pub fn report_violations(violations: &[Violation], verbose: bool, config: &Confi
         }
 
         let level_label = match violation.level {
-            crate::config::RuleLevel::Error => "error:".red().bold(),
-            crate::config::RuleLevel::Warn => "warning:".yellow().bold(),
-            crate::config::RuleLevel::Ignore => {
+            RuleLevel::Error => "error:".red().bold(),
+            RuleLevel::Warn => "warning:".yellow().bold(),
+            RuleLevel::Ignore => {
                 unreachable!("Ignored violations should not be reported")
             }
         };
@@ -68,14 +70,14 @@ pub fn report_summary(violations: &[Violation], fixable: &HashMap<&str, bool>) {
     // Aggregate counts per rule and capture level (all violations of same rule
     // should have same level)
     let mut counts: HashMap<&str, usize> = HashMap::new();
-    let mut levels: HashMap<&str, crate::config::RuleLevel> = HashMap::new();
+    let mut levels: HashMap<&str, RuleLevel> = HashMap::new();
     for v in violations {
         *counts.entry(v.rule).or_insert(0) += 1;
         levels.entry(v.rule).or_insert(v.level);
     }
 
     // Build sorted rows: (rule, count, level, fixable), descending by count.
-    let mut rows: Vec<(&str, usize, crate::config::RuleLevel, bool)> = counts
+    let mut rows: Vec<(&str, usize, RuleLevel, bool)> = counts
         .iter()
         .map(|(&rule, &count)| {
             (
@@ -156,9 +158,9 @@ pub fn report_summary(violations: &[Violation], fixable: &HashMap<&str, bool>) {
     for (rule, count, level, is_fixable) in &rows {
         let count_str = count.to_string().yellow().to_string();
         let (level_str, level_len) = match level {
-            crate::config::RuleLevel::Error => ("error".red().to_string(), 5),
-            crate::config::RuleLevel::Warn => ("warn".yellow().to_string(), 4),
-            crate::config::RuleLevel::Ignore => {
+            RuleLevel::Error => ("error".red().to_string(), 5),
+            RuleLevel::Warn => ("warn".yellow().to_string(), 4),
+            RuleLevel::Ignore => {
                 unreachable!("Ignored violations should not be in summary")
             }
         };

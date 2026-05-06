@@ -211,7 +211,7 @@ impl Expression {
                     .arguments
                     .iter()
                     .map(|arg| match arg {
-                        crate::model::expression::Argument::Expression(e) => e.to_text(),
+                        Argument::Expression(e) => e.to_text(),
                     })
                     .collect::<Vec<_>>()
                     .join(", ");

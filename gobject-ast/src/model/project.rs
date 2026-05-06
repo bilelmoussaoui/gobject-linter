@@ -2,7 +2,16 @@ use std::{collections::HashMap, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use super::{Comment, top_level::TopLevelItem};
+use crate::{
+    GObjectType, SourceLocation, TypeInfo, VariableDecl,
+    model::{
+        Comment, Statement,
+        expression::Expression,
+        top_level::{FunctionDefItem, TopLevelItem},
+        types::{EnumInfo, ParamSpecAssignment},
+    },
+    top_level::{FunctionDeclItem, PreprocessorDirective, TypeDefItem, TypedefTarget},
+};
 
 /// The complete project model - a map of files to their content
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -76,28 +85,21 @@ impl FileModel {
 
     /// Iterate through all includes in the file (including those in #ifdef
     /// blocks)
-    pub fn iter_all_includes(
-        &self,
-    ) -> impl Iterator<Item = (&str, bool, crate::SourceLocation)> + '_ {
+    pub fn iter_all_includes(&self) -> impl Iterator<Item = (&str, bool, SourceLocation)> + '_ {
         self.iter_items_recursive(&self.top_level_items)
-            .filter_map(|item| {
-                use crate::top_level::PreprocessorDirective;
-                match item {
-                    TopLevelItem::Preprocessor(PreprocessorDirective::Include {
-                        path,
-                        is_system,
-                        location,
-                    }) => Some((path.as_str(), *is_system, *location)),
-                    _ => None,
-                }
+            .filter_map(|item| match item {
+                TopLevelItem::Preprocessor(PreprocessorDirective::Include {
+                    path,
+                    is_system,
+                    location,
+                }) => Some((path.as_str(), *is_system, *location)),
+                _ => None,
             })
     }
 
     /// Iterate through all function definitions in the file (including those in
     /// #ifdef blocks)
-    pub fn iter_function_definitions(
-        &self,
-    ) -> impl Iterator<Item = &super::top_level::FunctionDefItem> + '_ {
+    pub fn iter_function_definitions(&self) -> impl Iterator<Item = &FunctionDefItem> + '_ {
         self.iter_items_recursive(&self.top_level_items)
             .filter_map(|item| match item {
                 TopLevelItem::FunctionDefinition(func) => Some(func),
@@ -106,18 +108,14 @@ impl FileModel {
     }
 
     /// Iterate through class_init functions
-    pub fn iter_class_init_functions(
-        &self,
-    ) -> impl Iterator<Item = &super::top_level::FunctionDefItem> + '_ {
+    pub fn iter_class_init_functions(&self) -> impl Iterator<Item = &FunctionDefItem> + '_ {
         self.iter_function_definitions()
             .filter(|f| f.name.ends_with("_class_init"))
     }
 
     /// Iterate through all function declarations in the file (including those
     /// in #ifdef blocks)
-    pub fn iter_function_declarations(
-        &self,
-    ) -> impl Iterator<Item = &super::top_level::FunctionDeclItem> + '_ {
+    pub fn iter_function_declarations(&self) -> impl Iterator<Item = &FunctionDeclItem> + '_ {
         self.iter_items_recursive(&self.top_level_items)
             .filter_map(|item| match item {
                 TopLevelItem::FunctionDeclaration(func) => Some(func),
@@ -138,30 +136,24 @@ impl FileModel {
 
     /// Iterate through all GObject type declarations (including those in #ifdef
     /// blocks)
-    pub fn iter_all_gobject_types(&self) -> impl Iterator<Item = &super::types::GObjectType> + '_ {
+    pub fn iter_all_gobject_types(&self) -> impl Iterator<Item = &GObjectType> + '_ {
         self.iter_items_recursive(&self.top_level_items)
-            .filter_map(|item| {
-                use crate::top_level::PreprocessorDirective;
-                match item {
-                    TopLevelItem::Preprocessor(PreprocessorDirective::GObjectType {
-                        gobject_type,
-                        ..
-                    }) => Some(gobject_type.as_ref()),
-                    _ => None,
-                }
+            .filter_map(|item| match item {
+                TopLevelItem::Preprocessor(PreprocessorDirective::GObjectType {
+                    gobject_type,
+                    ..
+                }) => Some(gobject_type.as_ref()),
+                _ => None,
             })
     }
 
     /// Find the class or interface struct for a given `GObjectType`.
     /// Returns `None` for final types (no class struct) and when the struct
     /// was not found in this file.
-    pub fn find_class_struct_for(
-        &self,
-        gobject_type: &super::types::GObjectType,
-    ) -> Option<&crate::top_level::TypeDefItem> {
+    pub fn find_class_struct_for(&self, gobject_type: &GObjectType) -> Option<&TypeDefItem> {
         let name = gobject_type.class_struct_name()?;
         self.iter_class_structs().find(|td| {
-            if let crate::top_level::TypeDefItem::Struct { name: n, .. } = td {
+            if let TypeDefItem::Struct { name: n, .. } = td {
                 n.trim_start_matches('_') == name
             } else {
                 false
@@ -171,8 +163,7 @@ impl FileModel {
 
     /// Iterate through all class structs (structs ending with `Class` or
     /// `Interface` that have at least one vfunc).
-    pub fn iter_class_structs(&self) -> impl Iterator<Item = &crate::top_level::TypeDefItem> + '_ {
-        use crate::top_level::TypeDefItem;
+    pub fn iter_class_structs(&self) -> impl Iterator<Item = &TypeDefItem> + '_ {
         self.iter_items_recursive(&self.top_level_items)
             .filter_map(|item| match item {
                 TopLevelItem::TypeDefinition(td @ TypeDefItem::Struct { vfuncs, .. })
@@ -185,23 +176,20 @@ impl FileModel {
     }
 
     /// Iterate through all enum definitions (including those in #ifdef blocks)
-    pub fn iter_all_enums(&self) -> impl Iterator<Item = &super::types::EnumInfo> + '_ {
+    pub fn iter_all_enums(&self) -> impl Iterator<Item = &EnumInfo> + '_ {
         self.iter_items_recursive(&self.top_level_items)
-            .filter_map(|item| {
-                use crate::top_level::TypeDefItem;
-                match item {
-                    TopLevelItem::TypeDefinition(TypeDefItem::Enum { enum_info }) => {
-                        Some(enum_info.as_ref())
-                    }
-                    _ => None,
+            .filter_map(|item| match item {
+                TopLevelItem::TypeDefinition(TypeDefItem::Enum { enum_info }) => {
+                    Some(enum_info.as_ref())
                 }
+                _ => None,
             })
     }
 
     /// Iterate through property enums (enums that appear to define GObject
     /// properties) Filters for enums where first member starts with PROP_
     /// or ends with _PROP_0
-    pub fn iter_property_enums(&self) -> impl Iterator<Item = &super::types::EnumInfo> + '_ {
+    pub fn iter_property_enums(&self) -> impl Iterator<Item = &EnumInfo> + '_ {
         self.iter_all_enums().filter(|e| e.is_property_enum())
     }
 
@@ -222,9 +210,7 @@ impl FileModel {
         base_type: &str,
         is_pointer: bool,
         sentinel_name: Option<&str>,
-    ) -> Vec<&super::statement::VariableDecl> {
-        use super::{Statement, expression::Expression};
-
+    ) -> Vec<&VariableDecl> {
         self.iter_all_items()
             .filter_map(|item| {
                 let TopLevelItem::Declaration(stmt) = item else {
@@ -255,13 +241,8 @@ impl FileModel {
     /// Returns the function and its param_spec assignments
     pub fn find_class_init_for_property_enum(
         &self,
-        enum_info: &super::types::EnumInfo,
-    ) -> Option<(
-        &super::top_level::FunctionDefItem,
-        Vec<super::types::ParamSpecAssignment>,
-    )> {
-        use super::{expression::Expression, types::ParamSpecAssignment};
-
+        enum_info: &EnumInfo,
+    ) -> Option<(&FunctionDefItem, Vec<ParamSpecAssignment>)> {
         // Get N_PROPS name if present
         let n_props_name = enum_info
             .values
@@ -360,8 +341,7 @@ impl FileModel {
     /// `typedef [struct|union] _Foo Foo` (i.e., typedefs that have no inline
     /// struct body). Yields `(typedef_name, target_TypeInfo)` so callers can
     /// inspect `target_type.base_type`, `.is_struct`, and `.is_union`.
-    pub fn iter_typedef_pairs(&self) -> impl Iterator<Item = (&str, &super::TypeInfo)> + '_ {
-        use crate::top_level::{TypeDefItem, TypedefTarget};
+    pub fn iter_typedef_pairs(&self) -> impl Iterator<Item = (&str, &TypeInfo)> + '_ {
         self.iter_all_items().filter_map(|item| match item {
             TopLevelItem::TypeDefinition(TypeDefItem::Typedef {
                 name,
@@ -380,8 +360,6 @@ impl FileModel {
         &'a self,
         items: &'a [TopLevelItem],
     ) -> Box<dyn Iterator<Item = &'a TopLevelItem> + 'a> {
-        use crate::top_level::PreprocessorDirective;
-
         Box::new(items.iter().flat_map(move |item| match item {
             TopLevelItem::Preprocessor(PreprocessorDirective::Conditional { body, .. })
             | TopLevelItem::Preprocessor(PreprocessorDirective::GObjectDeclsBlock {

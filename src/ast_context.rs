@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Result;
 use globset::GlobSet;
-use gobject_ast::{Parser, Project};
+use gobject_ast::{FileModel, Project, parser::Parser};
 use ignore::WalkBuilder;
 use indicatif::ProgressBar;
 use rayon::prelude::*;
@@ -109,7 +109,7 @@ impl AstContext {
     }
 
     /// Iterate over all files in the project
-    pub fn iter_all_files(&self) -> impl Iterator<Item = (&Path, &gobject_ast::FileModel)> {
+    pub fn iter_all_files(&self) -> impl Iterator<Item = (&Path, &FileModel)> {
         self.project
             .files
             .iter()
@@ -117,7 +117,7 @@ impl AstContext {
     }
 
     /// Iterate over all C files (extension .c) in the project
-    pub fn iter_c_files(&self) -> impl Iterator<Item = (&Path, &gobject_ast::FileModel)> {
+    pub fn iter_c_files(&self) -> impl Iterator<Item = (&Path, &FileModel)> {
         self.project
             .files
             .iter()
@@ -126,7 +126,7 @@ impl AstContext {
     }
 
     /// Iterate over all header files (extension .h) in the project
-    pub fn iter_header_files(&self) -> impl Iterator<Item = (&Path, &gobject_ast::FileModel)> {
+    pub fn iter_header_files(&self) -> impl Iterator<Item = (&Path, &FileModel)> {
         self.project
             .files
             .iter()
@@ -136,7 +136,7 @@ impl AstContext {
 
     /// Iterate over all files that are not part of the public API: all `.c`
     /// files and any `.h` files that meson does not mark as installed/public.
-    pub fn iter_private_files(&self) -> impl Iterator<Item = (&Path, &gobject_ast::FileModel)> {
+    pub fn iter_private_files(&self) -> impl Iterator<Item = (&Path, &FileModel)> {
         self.project.files.iter().filter_map(|(path, file)| {
             let p = path.as_path();
             if path.extension().is_some_and(|ext| ext == "c") {

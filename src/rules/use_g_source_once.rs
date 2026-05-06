@@ -1,7 +1,10 @@
 use gobject_ast::{Expression, Statement, model::types::BasicType};
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct UseGSourceOnce;
 
@@ -14,8 +17,8 @@ impl Rule for UseGSourceOnce {
         "Suggest using g_idle_add_once/g_timeout_add_once/g_timeout_add_seconds_once when callback always returns G_SOURCE_REMOVE"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Complexity
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Complexity
     }
 
     fn fixable(&self) -> bool {

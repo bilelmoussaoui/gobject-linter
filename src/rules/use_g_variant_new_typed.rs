@@ -1,7 +1,10 @@
 use gobject_ast::Expression;
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct UseGVariantNewTyped;
 
@@ -14,8 +17,8 @@ impl Rule for UseGVariantNewTyped {
         "Prefer g_variant_new_string/boolean/etc over g_variant_new with format strings"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Style
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Style
     }
 
     fn fixable(&self) -> bool {

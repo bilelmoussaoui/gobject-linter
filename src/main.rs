@@ -1,4 +1,8 @@
-use std::path::PathBuf;
+use std::{
+    collections::{HashMap, HashSet},
+    io::{IsTerminal, Read},
+    path::PathBuf,
+};
 
 use anyhow::Result;
 use clap::Parser;
@@ -6,6 +10,7 @@ use gobject_linter::{
     ast_context, config, config::OutputFormat, fixer, output, reporter, rules::Category, scanner,
 };
 use indicatif::{ProgressBar, ProgressStyle};
+use unidiff::PatchSet;
 
 #[derive(Parser, Debug)]
 #[command(name = "gobject-linter")]
@@ -115,7 +120,6 @@ fn main() -> Result<()> {
         // Machine-readable formats never use colors
         colored::control::set_override(false);
     } else {
-        use std::io::IsTerminal;
         if !std::io::stdout().is_terminal() {
             colored::control::set_override(false);
         }
@@ -230,7 +234,6 @@ fn main() -> Result<()> {
     // Filter violations to changed lines when a diff is provided
     if let Some(diff_path) = &args.diff {
         let diff_content = if diff_path == std::path::Path::new("-") {
-            use std::io::Read;
             let mut buf = String::new();
             std::io::stdin().read_to_string(&mut buf)?;
             buf
@@ -238,9 +241,6 @@ fn main() -> Result<()> {
             std::fs::read_to_string(diff_path)?
         };
 
-        use std::collections::{HashMap, HashSet};
-
-        use unidiff::PatchSet;
         let mut patch = PatchSet::new();
         let _ = patch.parse(&diff_content);
 

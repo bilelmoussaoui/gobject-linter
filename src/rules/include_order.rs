@@ -1,7 +1,15 @@
-use std::path::Path;
+use std::{path::Path, sync::LazyLock};
 
-use super::{ConfigOption, Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use gobject_ast::{
+    Include,
+    top_level::{PreprocessorDirective, TopLevelItem},
+};
+
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{ConfigOption, Fix, Rule, Violation},
+};
 
 pub struct IncludeOrder;
 
@@ -14,8 +22,8 @@ impl Rule for IncludeOrder {
         "Enforce consistent include ordering: config header (configurable), associated header, standard C/POSIX headers, system headers, project headers"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Style
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Style
     }
 
     fn fixable(&self) -> bool {
@@ -23,8 +31,6 @@ impl Rule for IncludeOrder {
     }
 
     fn config_options(&self) -> &'static [ConfigOption] {
-        use std::sync::LazyLock;
-
         static OPTIONS: LazyLock<Vec<ConfigOption>> = LazyLock::new(|| {
             vec![ConfigOption {
                 name: "config_header",
@@ -74,8 +80,6 @@ impl IncludeOrder {
         config_header: &str,
         violations: &mut Vec<Violation>,
     ) {
-        use gobject_ast::top_level::{PreprocessorDirective, TopLevelItem};
-
         // Collect all top-level includes
         let mut top_level_includes = Vec::new();
 
@@ -86,7 +90,7 @@ impl IncludeOrder {
                     is_system,
                     location,
                 }) => {
-                    top_level_includes.push(gobject_ast::Include {
+                    top_level_includes.push(Include {
                         path: path.clone(),
                         is_system: *is_system,
                         location: *location,
@@ -116,7 +120,7 @@ impl IncludeOrder {
     /// All includes should be sorted and moved to be consecutive at the start
     fn check_and_fix_group_scattered(
         &self,
-        includes: &[gobject_ast::Include],
+        includes: &[Include],
         file_path: &Path,
         source: &[u8],
         config_header: &str,
@@ -205,7 +209,7 @@ impl IncludeOrder {
     fn generate_sorted_includes_text(
         &self,
         expected_order: &[&str],
-        includes: &[gobject_ast::Include],
+        includes: &[Include],
         file_path: &Path,
         config_header: &str,
         trailing_newlines: usize,
@@ -273,7 +277,7 @@ impl IncludeOrder {
     fn compute_expected_order<'a>(
         &self,
         file_path: &Path,
-        includes: &'a [gobject_ast::Include],
+        includes: &'a [Include],
         config_header: &str,
     ) -> Vec<&'a str> {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -285,7 +289,7 @@ impl IncludeOrder {
             Project = 4,    // "..."
         }
 
-        let mut grouped: Vec<(&gobject_ast::Include, IncludeGroup)> = includes
+        let mut grouped: Vec<(&Include, IncludeGroup)> = includes
             .iter()
             .map(|inc| {
                 let group = if inc.path == config_header {

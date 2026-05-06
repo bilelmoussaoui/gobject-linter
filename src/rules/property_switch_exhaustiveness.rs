@@ -1,7 +1,10 @@
-use gobject_ast::{ParamFlag, PropertyType};
+use gobject_ast::{Expression, ParamFlag, PropertyType, SwitchStatement};
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{ConfigOption, Fix, Rule, Violation},
+};
 
 pub struct PropertySwitchExhaustiveness;
 
@@ -14,31 +17,31 @@ impl Rule for PropertySwitchExhaustiveness {
         "Ensure get_property/set_property switch statements handle all required properties"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Correctness
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Correctness
     }
 
     fn fixable(&self) -> bool {
         true
     }
 
-    fn config_options(&self) -> &'static [super::ConfigOption] {
+    fn config_options(&self) -> &'static [ConfigOption] {
         &[
-            super::ConfigOption {
+            ConfigOption {
                 name: "style",
                 option_type: "string",
                 default_value: "\"typed\"",
                 example_value: "\"legacy\"",
                 description: "Property enum style: \"typed\" (strict, requires enum casts and all properties in switches) or \"legacy\" (relaxed, only checks read-write properties)",
             },
-            super::ConfigOption {
+            ConfigOption {
                 name: "readable_flags",
                 option_type: "array<string>",
                 default_value: "[]",
                 example_value: "[\"MY_LIB_READABLE\", \"MY_LIB_READWRITE\"]",
                 description: "Additional flag names indicating readable properties (G_PARAM_READABLE and G_PARAM_READWRITE are always included)",
             },
-            super::ConfigOption {
+            ConfigOption {
                 name: "writable_flags",
                 option_type: "array<string>",
                 default_value: "[]",
@@ -214,8 +217,6 @@ impl PropertySwitchExhaustiveness {
         class_init: &gobject_ast::top_level::FunctionDefItem,
         field_name: &str,
     ) -> Option<String> {
-        use gobject_ast::Expression;
-
         class_init
             .body_statements
             .iter()
@@ -353,7 +354,7 @@ impl PropertySwitchExhaustiveness {
                 if !auto_fixable_properties.is_empty() {
                     // Only remove default case in typed mode with enum cast
                     let can_remove_default = style == "typed"
-                        && matches!(switch_stmt.condition, gobject_ast::Expression::Cast(_))
+                        && matches!(switch_stmt.condition, Expression::Cast(_))
                         && switch_stmt.has_default_case()
                         && !has_non_fixable;
 
@@ -398,7 +399,7 @@ impl PropertySwitchExhaustiveness {
                 // handled (only in typed mode)
                 if style == "typed"
                     && missing_properties.is_empty()
-                    && matches!(switch_stmt.condition, gobject_ast::Expression::Cast(_))
+                    && matches!(switch_stmt.condition, Expression::Cast(_))
                     && switch_stmt.has_default_case()
                 {
                     let (start, end) = self.find_default_case_range(switch_stmt, &file.source);
@@ -416,9 +417,7 @@ impl PropertySwitchExhaustiveness {
     }
 
     /// Check if a switch condition is on a property ID variable
-    fn is_property_switch(&self, condition: &gobject_ast::Expression) -> bool {
-        use gobject_ast::Expression;
-
+    fn is_property_switch(&self, condition: &Expression) -> bool {
         match condition {
             // Direct: switch (prop_id)
             Expression::Identifier(id) => {
@@ -435,7 +434,7 @@ impl PropertySwitchExhaustiveness {
     fn generate_insert_cases_fix(
         &self,
         prop_names: &[&str],
-        switch_stmt: &gobject_ast::SwitchStatement,
+        switch_stmt: &SwitchStatement,
         source: &[u8],
     ) -> Fix {
         let insertion_point = self.find_case_insertion_point(switch_stmt, source);
@@ -457,7 +456,7 @@ impl PropertySwitchExhaustiveness {
     fn generate_replace_default_with_cases_fix(
         &self,
         prop_names: &[&str],
-        switch_stmt: &gobject_ast::SwitchStatement,
+        switch_stmt: &SwitchStatement,
         source: &[u8],
     ) -> Fix {
         let (case_indent, body_indent) = self.detect_indentation(switch_stmt, source);
@@ -480,7 +479,7 @@ impl PropertySwitchExhaustiveness {
     /// Find the range to delete for the default case (used when replacing it)
     fn find_default_case_range(
         &self,
-        switch_stmt: &gobject_ast::SwitchStatement,
+        switch_stmt: &SwitchStatement,
         source: &[u8],
     ) -> (usize, usize) {
         let default_case = switch_stmt
@@ -507,11 +506,7 @@ impl PropertySwitchExhaustiveness {
     }
 
     /// Find the byte position where a new case should be inserted
-    fn find_case_insertion_point(
-        &self,
-        switch_stmt: &gobject_ast::SwitchStatement,
-        source: &[u8],
-    ) -> usize {
+    fn find_case_insertion_point(&self, switch_stmt: &SwitchStatement, source: &[u8]) -> usize {
         // If there's a default case, insert before it
         if let Some(default_case) = switch_stmt.default_case() {
             let (line_start, _) = default_case.label.location.find_line_bounds(source);
@@ -542,11 +537,7 @@ impl PropertySwitchExhaustiveness {
     /// Detect indentation levels from existing cases
     /// Returns (case_indent, body_indent) where body_indent is for statements
     /// inside the case
-    fn detect_indentation(
-        &self,
-        switch_stmt: &gobject_ast::SwitchStatement,
-        source: &[u8],
-    ) -> (String, String) {
+    fn detect_indentation(&self, switch_stmt: &SwitchStatement, source: &[u8]) -> (String, String) {
         // Try to find a case with at least one statement in its body
         for case in &switch_stmt.cases {
             if let Some(first_stmt) = case.body.first() {

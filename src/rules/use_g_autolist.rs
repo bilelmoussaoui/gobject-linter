@@ -1,7 +1,12 @@
 use std::collections::HashMap;
 
-use super::Rule;
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use gobject_ast::{Expression, expression::Argument, top_level::FunctionDefItem};
+
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Rule, Violation},
+};
 
 pub struct UseGAutolist;
 
@@ -14,15 +19,15 @@ impl Rule for UseGAutolist {
         "Suggest g_autolist/g_autoslist instead of manual g_list_free_full/g_slist_free_full cleanup"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Complexity
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Complexity
     }
 
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::top_level::FunctionDefItem,
+        func: &FunctionDefItem,
         path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
@@ -33,7 +38,7 @@ impl Rule for UseGAutolist {
 impl UseGAutolist {
     fn check_function(
         &self,
-        func: &gobject_ast::top_level::FunctionDefItem,
+        func: &FunctionDefItem,
         file_path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
@@ -91,13 +96,7 @@ impl UseGAutolist {
     /// Check if any call to the free function uses a basic destructor (g_free,
     /// free, etc.) This indicates a list of primitive types that don't
     /// support g_autoptr
-    fn uses_basic_destructor(
-        &self,
-        func: &gobject_ast::top_level::FunctionDefItem,
-        free_func: &str,
-    ) -> bool {
-        use gobject_ast::{Expression, expression::Argument};
-
+    fn uses_basic_destructor(&self, func: &FunctionDefItem, free_func: &str) -> bool {
         let calls = func.find_calls(&[free_func]);
 
         for call in calls {

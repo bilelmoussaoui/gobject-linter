@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use gobject_ast::model::types::{DefineKind, GObjectTypeKind};
+
 use crate::{
     ast_context::AstContext,
     config::Config,
@@ -46,8 +48,6 @@ impl Rule for MissingAutoptrCleanup {
 
         for (path, file) in ast_context.iter_all_files() {
             for gobject_type in file.iter_all_gobject_types() {
-                use gobject_ast::model::types::{DefineKind, GObjectTypeKind};
-
                 match &gobject_type.kind {
                     // Boxed and pointer types don't have automatic autoptr support
                     GObjectTypeKind::DefineBoxed { .. }

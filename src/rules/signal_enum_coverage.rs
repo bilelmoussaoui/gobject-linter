@@ -1,5 +1,10 @@
-use super::Rule;
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use gobject_ast::{Expression, Statement};
+
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Rule, Violation},
+};
 
 pub struct SignalEnumCoverage;
 
@@ -12,8 +17,8 @@ impl Rule for SignalEnumCoverage {
         "Ensure all signal enum values have corresponding g_signal_new calls"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Correctness
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Correctness
     }
 
     fn check_all(
@@ -79,8 +84,6 @@ impl SignalEnumCoverage {
         file: &'a gobject_ast::FileModel,
         enum_info: &gobject_ast::EnumInfo,
     ) -> Option<&'a gobject_ast::top_level::FunctionDefItem> {
-        use gobject_ast::Expression;
-
         // Get N_SIGNALS name if present
         let n_signals_name = enum_info
             .values
@@ -109,7 +112,7 @@ impl SignalEnumCoverage {
                 uses_signal_enum = func
                     .body_statements
                     .iter()
-                    .flat_map(gobject_ast::Statement::iter_assignments)
+                    .flat_map(Statement::iter_assignments)
                     .any(|a| {
                         matches!(&*a.lhs, Expression::Subscript(sub)
                             if matches!(&*sub.array, Expression::Identifier(id)
@@ -123,7 +126,7 @@ impl SignalEnumCoverage {
                 uses_signal_enum = func
                     .body_statements
                     .iter()
-                    .flat_map(gobject_ast::Statement::iter_assignments)
+                    .flat_map(Statement::iter_assignments)
                     .any(|a| {
                         if let Expression::Subscript(sub) = &*a.lhs
                             && let Expression::Identifier(index_id) = &*sub.index
@@ -151,13 +154,11 @@ impl SignalEnumCoverage {
         &self,
         class_init: &gobject_ast::top_level::FunctionDefItem,
     ) -> std::collections::HashSet<String> {
-        use gobject_ast::Expression;
-
         // Array assignment: signals[SIGNAL_NAME] = g_signal_new(...)
         class_init
             .body_statements
             .iter()
-            .flat_map(gobject_ast::Statement::iter_assignments)
+            .flat_map(Statement::iter_assignments)
             .filter_map(|a| {
                 if let Expression::Subscript(sub) = &*a.lhs
                     && let Expression::Identifier(enum_id) = &*sub.index

@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::BasicType;
-use crate::model::expression::Expression;
+use crate::model::{expression::Expression, types::BasicType};
 
 /// A GLib GType reference — either a macro/define or a `_get_type()` call.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

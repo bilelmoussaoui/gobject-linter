@@ -1,7 +1,10 @@
 use gobject_ast::{Expression, Statement};
 
-use super::Rule;
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Rule, Violation},
+};
 
 pub struct GSourceIdNotStored;
 
@@ -14,8 +17,8 @@ impl Rule for GSourceIdNotStored {
         "Warn when GSource timeout/idle functions are called without storing the returned ID"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Suspicious
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Suspicious
     }
 
     fn check_func_impl(

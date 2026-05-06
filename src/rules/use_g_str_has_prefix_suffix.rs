@@ -1,7 +1,10 @@
-use gobject_ast::{BinaryOp, Expression};
+use gobject_ast::{Argument, BinaryOp, Expression};
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct UseGStrHasPrefixSuffix;
 
@@ -14,8 +17,8 @@ impl Rule for UseGStrHasPrefixSuffix {
         "Use g_str_has_prefix/g_str_has_suffix() instead of manual strncmp/strcmp comparisons"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Style
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Style
     }
 
     fn fixable(&self) -> bool {
@@ -215,12 +218,8 @@ impl UseGStrHasPrefixSuffix {
 
     /// Validates that arg is `<str_expr> + strlen(<str_expr>) -
     /// strlen("suffix")` and returns `str_expr` if so.
-    fn extract_suffix_base(
-        &self,
-        arg: &gobject_ast::Argument,
-        suffix_text: &str,
-    ) -> Option<String> {
-        let gobject_ast::Argument::Expression(expr) = arg;
+    fn extract_suffix_base(&self, arg: &Argument, suffix_text: &str) -> Option<String> {
+        let Argument::Expression(expr) = arg;
 
         // Top level: X - strlen("suffix")
         let Expression::Binary(top_bin) = &**expr else {
@@ -258,8 +257,8 @@ impl UseGStrHasPrefixSuffix {
     }
 
     /// Returns true if arg is strlen(expected_text)
-    fn is_strlen_of(&self, arg: &gobject_ast::Argument, expected_text: &str) -> bool {
-        let gobject_ast::Argument::Expression(expr) = arg;
+    fn is_strlen_of(&self, arg: &Argument, expected_text: &str) -> bool {
+        let Argument::Expression(expr) = arg;
 
         let Expression::Call(call) = &**expr else {
             return false;

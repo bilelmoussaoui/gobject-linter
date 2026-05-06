@@ -1,11 +1,11 @@
-use std::{collections::HashMap, fs, path::Path};
+use std::{collections::HashMap, fmt, fs, path::Path};
 
 use anyhow::{Context, Result};
 use clap::ValueEnum;
 use globset::{Glob, GlobSet, GlobSetBuilder};
-use serde::Deserialize;
+use serde::{Deserialize, de};
 
-use crate::rules::*;
+use crate::{for_each_rule, rules::*};
 
 #[derive(Default, Debug, Clone, Copy, ValueEnum, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -39,8 +39,6 @@ fn deserialize_glib_version<'de, D>(deserializer: D) -> Result<Option<(u32, u32)
 where
     D: serde::Deserializer<'de>,
 {
-    use serde::de;
-
     let version_str: Option<String> = Option::deserialize(deserializer)?;
 
     match version_str {
@@ -136,13 +134,9 @@ impl<'de> Deserialize<'de> for RuleConfig {
     where
         D: serde::Deserializer<'de>,
     {
-        use std::fmt;
-
-        use serde::de::{self, MapAccess, Visitor};
-
         struct RuleConfigVisitor;
 
-        impl<'de> Visitor<'de> for RuleConfigVisitor {
+        impl<'de> serde::de::Visitor<'de> for RuleConfigVisitor {
             type Value = RuleConfig;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -189,7 +183,7 @@ impl<'de> Deserialize<'de> for RuleConfig {
 
             fn visit_map<M>(self, mut map: M) -> Result<RuleConfig, M::Error>
             where
-                M: MapAccess<'de>,
+                M: serde::de::MapAccess<'de>,
             {
                 let mut level: Option<RuleLevel> = None;
                 let mut ignore = None;
@@ -252,7 +246,7 @@ macro_rules! impl_rules_config {
     };
 }
 
-crate::for_each_rule!(impl_rules_config);
+for_each_rule!(impl_rules_config);
 
 impl Config {
     pub fn load(path: &Path) -> Result<Self> {
@@ -317,7 +311,7 @@ impl Config {
             };
         }
 
-        crate::for_each_rule!(impl_get_rule_config)
+        for_each_rule!(impl_get_rule_config)
     }
 
     /// Get mutable reference to a rule config by field name
@@ -333,7 +327,7 @@ impl Config {
             };
         }
 
-        crate::for_each_rule!(impl_get_rule_config_mut)
+        for_each_rule!(impl_get_rule_config_mut)
     }
 
     /// Enable only specific rules, disabling all others
@@ -345,7 +339,7 @@ impl Config {
                     vec![$(stringify!($config_field)),*]
                 };
             }
-            crate::for_each_rule!(collect_rule_names)
+            for_each_rule!(collect_rule_names)
         };
 
         for rule_name in rule_names {
@@ -369,7 +363,7 @@ impl Config {
             };
         }
 
-        crate::for_each_rule!(impl_enable_only_rules);
+        for_each_rule!(impl_enable_only_rules);
         Ok(())
     }
 
@@ -382,7 +376,7 @@ impl Config {
                     vec![$(stringify!($config_field)),*]
                 };
             }
-            crate::for_each_rule!(collect_rule_names)
+            for_each_rule!(collect_rule_names)
         };
 
         for rule_name in rule_names {
@@ -404,12 +398,12 @@ impl Config {
             };
         }
 
-        crate::for_each_rule!(impl_disable_rules);
+        for_each_rule!(impl_disable_rules);
         Ok(())
     }
 
     /// Filter rules by category, disabling all others
-    pub fn filter_by_category(&mut self, category: crate::rules::Category) -> Result<()> {
+    pub fn filter_by_category(&mut self, category: Category) -> Result<()> {
         macro_rules! impl_filter_by_category {
             ($(($config_field:ident, $rule_type:ident, $major:literal, $minor:literal, $requires_auto_cleanup:literal, $opt_in:literal)),* $(,)?) => {
                 {
@@ -424,7 +418,7 @@ impl Config {
             };
         }
 
-        crate::for_each_rule!(impl_filter_by_category);
+        for_each_rule!(impl_filter_by_category);
         Ok(())
     }
 }

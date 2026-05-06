@@ -2,12 +2,10 @@ use std::{collections::HashMap, fs, path::Path};
 
 use anyhow::{Context, Result};
 
-use crate::rules::Violation;
+use crate::rules::{Fix, Violation};
 
 /// Apply fixes to files
 pub fn apply_fixes(violations: &[Violation]) -> Result<usize> {
-    use crate::rules::Fix;
-
     // Count violations with fixes (not individual fixes)
     let total_violations_with_fixes = violations.iter().filter(|v| !v.fixes.is_empty()).count();
 

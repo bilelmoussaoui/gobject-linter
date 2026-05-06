@@ -1,7 +1,12 @@
 use tree_sitter::Node;
 
-use super::Parser;
-use crate::model::{top_level::*, *};
+use crate::{
+    model::{
+        top_level::{ConditionalKind, StructField, *},
+        *,
+    },
+    parser::Parser,
+};
 
 impl Parser {
     /// Extract return type from a function declaration or definition
@@ -177,14 +182,14 @@ impl Parser {
                         .is_some_and(|text| text == "#ifndef");
 
                     if is_ifndef {
-                        super::top_level::ConditionalKind::Ifndef
+                        ConditionalKind::Ifndef
                     } else {
-                        super::top_level::ConditionalKind::Ifdef
+                        ConditionalKind::Ifdef
                     }
                 } else {
                     match node.kind() {
-                        "preproc_ifndef" => super::top_level::ConditionalKind::Ifndef,
-                        "preproc_if" => super::top_level::ConditionalKind::If,
+                        "preproc_ifndef" => ConditionalKind::Ifndef,
+                        "preproc_if" => ConditionalKind::If,
                         _ => unreachable!(),
                     }
                 };
@@ -230,7 +235,7 @@ impl Parser {
 
                 Some(TopLevelItem::Preprocessor(
                     PreprocessorDirective::Conditional {
-                        kind: super::top_level::ConditionalKind::Elif,
+                        kind: ConditionalKind::Elif,
                         condition,
                         body,
                         location: self.node_location(node),
@@ -242,7 +247,7 @@ impl Parser {
 
                 Some(TopLevelItem::Preprocessor(
                     PreprocessorDirective::Conditional {
-                        kind: super::top_level::ConditionalKind::Else,
+                        kind: ConditionalKind::Else,
                         condition: None,
                         body,
                         location: self.node_location(node),
@@ -572,13 +577,7 @@ impl Parser {
 
     /// Extract field declarations from a `field_declaration_list` tree-sitter
     /// node.
-    fn extract_struct_fields_from_body(
-        &self,
-        body: Node,
-        source: &[u8],
-    ) -> Vec<crate::model::top_level::StructField> {
-        use crate::model::top_level::StructField;
-
+    fn extract_struct_fields_from_body(&self, body: Node, source: &[u8]) -> Vec<StructField> {
         let mut fields = Vec::new();
         let mut cursor = body.walk();
 

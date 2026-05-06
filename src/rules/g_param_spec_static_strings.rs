@@ -1,7 +1,15 @@
-use gobject_ast::{CallExpression, types::Property};
+use std::sync::LazyLock;
 
-use super::{ConfigOption, Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use gobject_ast::{
+    CallExpression,
+    types::{ParamFlag, Property},
+};
+
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{ConfigOption, Fix, Rule, Violation},
+};
 
 pub struct GParamSpecStaticStrings;
 
@@ -14,8 +22,8 @@ impl Rule for GParamSpecStaticStrings {
         "Ensure *_param_spec_* calls use G_PARAM_STATIC_STRINGS flag for string literals"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Perf
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Perf
     }
 
     fn fixable(&self) -> bool {
@@ -23,8 +31,6 @@ impl Rule for GParamSpecStaticStrings {
     }
 
     fn config_options(&self) -> &'static [ConfigOption] {
-        use std::sync::LazyLock;
-
         static OPTIONS: LazyLock<Vec<ConfigOption>> = LazyLock::new(|| {
             vec![ConfigOption {
                 name: "static_flags",
@@ -94,7 +100,6 @@ impl GParamSpecStaticStrings {
         let blurb_is_literal = property.blurb.is_some();
 
         // Check what static flags are present using the typed ParamFlag enum
-        use gobject_ast::types::ParamFlag;
         let has_static_strings = property.flags.contains(&ParamFlag::StaticStrings);
         let has_static_name = property.flags.contains(&ParamFlag::StaticName);
         let has_static_nick = property.flags.contains(&ParamFlag::StaticNick);
@@ -160,12 +165,7 @@ impl GParamSpecStaticStrings {
     }
 
     /// Return the flags that should be added, given which args are literals
-    fn needed_flags(
-        &self,
-        nick_is_literal: bool,
-        blurb_is_literal: bool,
-    ) -> Vec<gobject_ast::types::ParamFlag> {
-        use gobject_ast::types::ParamFlag;
+    fn needed_flags(&self, nick_is_literal: bool, blurb_is_literal: bool) -> Vec<ParamFlag> {
         match (nick_is_literal, blurb_is_literal) {
             (true, true) => vec![ParamFlag::StaticStrings],
             (true, false) => vec![ParamFlag::StaticName, ParamFlag::StaticNick],
@@ -176,13 +176,7 @@ impl GParamSpecStaticStrings {
 
     /// Build the replacement flags string: remove static flags and add the
     /// needed ones
-    fn build_fixed_flags(
-        &self,
-        current_flags: &[gobject_ast::types::ParamFlag],
-        needed_flags: &[gobject_ast::types::ParamFlag],
-    ) -> String {
-        use gobject_ast::types::ParamFlag;
-
+    fn build_fixed_flags(&self, current_flags: &[ParamFlag], needed_flags: &[ParamFlag]) -> String {
         // Filter out static flags, keep everything else
         let mut new_flags: Vec<ParamFlag> = current_flags
             .iter()

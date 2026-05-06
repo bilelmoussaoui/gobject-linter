@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-use super::{GType, Signal, function::Parameter};
-use crate::SourceLocation;
+use crate::{
+    SourceLocation, Statement, TypeInfo,
+    model::types::{GType, Signal, function::Parameter},
+    top_level::FunctionDefItem,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GObjectType {
@@ -15,8 +18,8 @@ pub struct GObjectType {
     pub interfaces: Vec<InterfaceImplementation>, // G_IMPLEMENT_INTERFACE
     pub has_private: bool,                        /* G_ADD_PRIVATE in *_WITH_CODE, or
                                                    * *_WITH_PRIVATE */
-    pub code_block_statements: Vec<super::super::Statement>, // Statements from *_WITH_CODE macros
-    pub export_macros: Vec<String>,                          // e.g., ["CLUTTER_EXPORT"]
+    pub code_block_statements: Vec<Statement>, // Statements from *_WITH_CODE macros
+    pub export_macros: Vec<String>,            // e.g., ["CLUTTER_EXPORT"]
     pub location: SourceLocation,
 }
 
@@ -82,11 +85,7 @@ impl GObjectType {
     }
 
     /// Extract signals from a class_init function
-    pub fn extract_signals(
-        &self,
-        class_init_func: &crate::top_level::FunctionDefItem,
-        source: &[u8],
-    ) -> Vec<Signal> {
+    pub fn extract_signals(&self, class_init_func: &FunctionDefItem, source: &[u8]) -> Vec<Signal> {
         class_init_func
             .find_calls_matching(|name| name.starts_with("g_signal_new"))
             .iter()
@@ -98,7 +97,7 @@ impl GObjectType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VirtualFunction {
     pub name: String,
-    pub return_type: crate::TypeInfo,
+    pub return_type: TypeInfo,
     pub parameters: Vec<Parameter>,
 }
 

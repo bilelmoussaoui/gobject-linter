@@ -1,7 +1,10 @@
-use gobject_ast::{Expression, UnaryOp};
+use gobject_ast::{BinaryOp, Expression, UnaryOp};
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct StrcmpExplicitComparison;
 
@@ -14,8 +17,8 @@ impl Rule for StrcmpExplicitComparison {
         "Require explicit comparison with 0 for strcmp/g_strcmp0 (returns 0 for equality, not TRUE)"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Correctness
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Correctness
     }
 
     fn fixable(&self) -> bool {
@@ -48,8 +51,6 @@ impl StrcmpExplicitComparison {
         match condition {
             // Binary expression: check if it's a comparison with strcmp, or recurse for logical ops
             Expression::Binary(binary) => {
-                use gobject_ast::BinaryOp;
-
                 // If it's a comparison operator, don't flag strcmp calls on either side
                 // (they already have explicit comparison)
                 match binary.operator {

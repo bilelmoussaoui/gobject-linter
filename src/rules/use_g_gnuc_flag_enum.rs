@@ -1,5 +1,8 @@
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct UseGGnucFlagEnum;
 
@@ -12,8 +15,8 @@ impl Rule for UseGGnucFlagEnum {
         "Use G_GNUC_FLAG_ENUM for enums that represent bit flags"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Style
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Style
     }
 
     fn fixable(&self) -> bool {

@@ -1,5 +1,8 @@
-use super::Rule;
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Rule, Violation},
+};
 
 pub struct PropertyEnumCoverage;
 
@@ -12,8 +15,8 @@ impl Rule for PropertyEnumCoverage {
         "Ensure all property enum values have corresponding g_param_spec or g_object_class_override_property"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Correctness
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Correctness
     }
 
     fn check_all(

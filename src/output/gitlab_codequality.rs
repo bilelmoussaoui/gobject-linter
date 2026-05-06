@@ -5,7 +5,10 @@ use std::{
 
 use serde_json::json;
 
-use crate::rules::Violation;
+use crate::{
+    config::RuleLevel,
+    rules::{Category, Violation},
+};
 
 pub fn generate_gitlab_codequality(violations: &[Violation], project_root: &Path) -> String {
     let issues = violations
@@ -63,8 +66,6 @@ fn generate_issue(violation: &Violation, project_root: &Path) -> serde_json::Val
 // The severity of the violation, can be one of info, minor, major, critical, or
 // blocker.
 fn rule_level_to_codequality_severity(violation: &Violation) -> &'static str {
-    use crate::{config::RuleLevel, rules::Category};
-
     match (violation.level, violation.category) {
         (RuleLevel::Error, _) => "blocker",
         // Bump Correctness and Perf to critical if they are warnings

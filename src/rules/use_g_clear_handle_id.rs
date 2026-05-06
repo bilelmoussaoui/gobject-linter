@@ -1,7 +1,10 @@
-use gobject_ast::{Expression, Statement};
+use gobject_ast::{Expression, SourceLocation, Statement};
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct UseGClearHandleId;
 
@@ -14,8 +17,8 @@ impl Rule for UseGClearHandleId {
         "Suggest g_clear_handle_id instead of manual cleanup and zero assignment"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Complexity
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Complexity
     }
 
     fn fixable(&self) -> bool {
@@ -96,7 +99,7 @@ impl UseGClearHandleId {
                     // Find braces around the statements
                     let first_start = if_stmt.then_body[0].location().start_byte;
                     let (mut brace_start, brace_end) =
-                        gobject_ast::SourceLocation::find_braces_around(first_start, source);
+                        SourceLocation::find_braces_around(first_start, source);
 
                     // Include the newline before the brace in the replacement
                     while brace_start > 0 && source[brace_start - 1] != b'\n' {
@@ -106,7 +109,7 @@ impl UseGClearHandleId {
 
                     // Extract indentation from the line after the brace
                     let brace_location =
-                        gobject_ast::SourceLocation::new(0, 0, brace_start + 1, brace_start + 1);
+                        SourceLocation::new(0, 0, brace_start + 1, brace_start + 1);
                     let indent = brace_location.extract_line_indentation(source);
                     let formatted_replacement = format!("\n{}{}", indent, replacement);
 
@@ -191,12 +194,7 @@ impl UseGClearHandleId {
         &self,
         statements: &[Statement],
         source: &[u8],
-    ) -> Vec<(
-        String,
-        String,
-        gobject_ast::SourceLocation,
-        gobject_ast::SourceLocation,
-    )> {
+    ) -> Vec<(String, String, SourceLocation, SourceLocation)> {
         let mut results = Vec::new();
 
         Statement::for_each_pair(statements, |first, second| {

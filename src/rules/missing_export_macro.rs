@@ -96,20 +96,3 @@ impl Rule for MissingExportMacro {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_rule_name() {
-        let rule = MissingExportMacro;
-        assert_eq!(rule.name(), "missing_export_macro");
-    }
-
-    #[test]
-    fn test_rule_category() {
-        let rule = MissingExportMacro;
-        assert_eq!(rule.category(), Category::Correctness);
-    }
-}

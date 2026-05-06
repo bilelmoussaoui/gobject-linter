@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 
-use super::Rule;
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Rule, Violation},
+};
 
 pub struct UseGAutofree;
 
@@ -14,8 +17,8 @@ impl Rule for UseGAutofree {
         "Suggest g_autofree for string/buffer types instead of manual g_free"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Complexity
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Complexity
     }
 
     fn check_func_impl(

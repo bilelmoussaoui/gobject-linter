@@ -1,5 +1,8 @@
-use super::{Rule, Violation};
-use crate::{ast_context::AstContext, config::Config};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Rule, Violation},
+};
 
 pub struct NoGAutoMacros;
 
@@ -12,8 +15,8 @@ impl Rule for NoGAutoMacros {
         "Forbid g_auto* macros (g_autoptr, g_autofree, etc.) for MSVC compatibility"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Portability
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Portability
     }
 
     fn fixable(&self) -> bool {

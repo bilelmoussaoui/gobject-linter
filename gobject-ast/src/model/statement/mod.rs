@@ -25,8 +25,9 @@ pub use switch_stmt::{CaseLabel, SwitchCase, SwitchStatement};
 pub use variable_decl::VariableDecl;
 pub use while_stmt::{DoWhileStatement, WhileStatement};
 
-use super::top_level::PreprocessorDirective;
-use crate::model::{CallExpression, Expression, SourceLocation};
+use crate::model::{
+    Assignment, CallExpression, Expression, SourceLocation, top_level::PreprocessorDirective,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Statement {
@@ -282,10 +283,8 @@ impl Statement {
     /// Iterator over all top-level assignment statements in this statement tree
     /// (recursive). Only yields assignments that are the entire expression
     /// statement, not assignments nested inside other expressions.
-    pub fn iter_assignments<'s>(
-        &'s self,
-    ) -> impl Iterator<Item = &'s crate::model::Assignment> + 's {
-        let mut results: Vec<&'s crate::model::Assignment> = Vec::new();
+    pub fn iter_assignments<'s>(&'s self) -> impl Iterator<Item = &'s Assignment> + 's {
+        let mut results: Vec<&'s Assignment> = Vec::new();
         self.walk(&mut |s| {
             if let Self::Expression(expr_stmt) = s
                 && let Expression::Assignment(assign) = &expr_stmt.expr
@@ -349,7 +348,7 @@ impl Statement {
     }
 
     /// Extract the assignment expression if this is an assignment statement
-    pub fn extract_assignment(&self) -> Option<&crate::model::Assignment> {
+    pub fn extract_assignment(&self) -> Option<&Assignment> {
         if let Self::Expression(expr_stmt) = self
             && let Expression::Assignment(assign) = &expr_stmt.expr
         {
@@ -360,7 +359,7 @@ impl Statement {
 
     /// Check if this statement assigns NULL to the target variable
     pub fn is_null_assignment_to(&self, var_name: &str) -> bool {
-        self.is_assignment_to(var_name, super::expression::Expression::is_null)
+        self.is_assignment_to(var_name, Expression::is_null)
     }
 
     /// Iterate over consecutive pairs of statements

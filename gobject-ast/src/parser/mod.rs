@@ -158,7 +158,7 @@ impl Parser {
         &self,
         node: Node,
         source: &[u8],
-    ) -> Option<crate::model::types::GObjectType> {
+    ) -> Option<GObjectType> {
         // Collect export macros from gobject_export_macro children
         let export_macros: Vec<String> = {
             let mut cursor = node.walk();

@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::model::{SourceLocation, expression::Expression, statement::Statement};
+use crate::{
+    VariableDecl,
+    model::{SourceLocation, expression::Expression, statement::Statement},
+};
 
 /// The initializer clause of a `for` statement.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9,7 +12,7 @@ pub enum ForInit {
     Expr(Box<Expression>),
     /// Declaration initializer: `for (int i = 0; ...)` or `for (GList *l =
     /// list; ...)`
-    Decl(Box<super::VariableDecl>),
+    Decl(Box<VariableDecl>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

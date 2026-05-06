@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, sync::LazyLock};
 
 use gobject_ast::{
     TypeInfo,
@@ -6,8 +6,11 @@ use gobject_ast::{
     types::Parameter,
 };
 
-use super::{ConfigOption, Fix, Rule, Violation};
-use crate::{ast_context::AstContext, config::Config};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{ConfigOption, Fix, Rule, Violation},
+};
 
 pub struct TypeStyle;
 
@@ -20,8 +23,8 @@ impl Rule for TypeStyle {
         "Enforce consistent use of GLib or C standard type aliases"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Style
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Style
     }
 
     fn fixable(&self) -> bool {
@@ -29,8 +32,6 @@ impl Rule for TypeStyle {
     }
 
     fn config_options(&self) -> &'static [ConfigOption] {
-        use std::sync::LazyLock;
-
         static OPTIONS: LazyLock<Vec<ConfigOption>> = LazyLock::new(|| {
             vec![ConfigOption {
                 name: "style",

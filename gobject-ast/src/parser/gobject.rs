@@ -1,9 +1,15 @@
 use tree_sitter::Node;
 
-use super::Parser;
-use crate::model::{
-    Expression,
-    types::{DeclareKind, DefineKind, GObjectType, GObjectTypeKind, GType, VirtualFunction},
+use crate::{
+    Statement,
+    model::{
+        Expression,
+        types::{
+            DeclareKind, DefineKind, GObjectType, GObjectTypeKind, GType, InterfaceImplementation,
+            VirtualFunction,
+        },
+    },
+    parser::Parser,
 };
 
 impl Parser {
@@ -322,13 +328,7 @@ impl Parser {
         parent: Node,
         source: &[u8],
         _arg_values: &[&str],
-    ) -> (
-        Vec<crate::model::types::InterfaceImplementation>,
-        bool,
-        Vec<crate::model::Statement>,
-    ) {
-        use crate::model::types::InterfaceImplementation;
-
+    ) -> (Vec<InterfaceImplementation>, bool, Vec<Statement>) {
         let mut interfaces = Vec::new();
         let mut has_private = false;
         let code_statements = Vec::new();

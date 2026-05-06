@@ -1,7 +1,13 @@
-use gobject_ast::{CallExpression, Expression, types::Property};
+use gobject_ast::{
+    CallExpression, Expression,
+    types::{ParamFlag, Property},
+};
 
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct PropertyCanonicalName;
 
@@ -14,8 +20,8 @@ impl Rule for PropertyCanonicalName {
         "Ensure property names are canonical (use dashes, not underscores)"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Correctness
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Correctness
     }
 
     fn fixable(&self) -> bool {
@@ -64,7 +70,6 @@ impl PropertyCanonicalName {
         }
 
         // Check if flags contain G_PARAM_STATIC_NAME or G_PARAM_STATIC_STRINGS
-        use gobject_ast::types::ParamFlag;
         let has_static_name = property.flags.contains(&ParamFlag::StaticName)
             || property.flags.contains(&ParamFlag::StaticStrings);
 

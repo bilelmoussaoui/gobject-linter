@@ -1,5 +1,8 @@
-use super::{Fix, Rule};
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Fix, Rule, Violation},
+};
 
 pub struct GErrorInit;
 
@@ -12,8 +15,8 @@ impl Rule for GErrorInit {
         "Ensure GError* variables are initialized to NULL"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Correctness
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Correctness
     }
 
     fn fixable(&self) -> bool {

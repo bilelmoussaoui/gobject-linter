@@ -2,8 +2,11 @@ use std::collections::HashMap;
 
 use gobject_ast::GObjectTypeKind;
 
-use super::Rule;
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Rule, Violation},
+};
 
 pub struct MatchingDeclareDefine;
 
@@ -16,8 +19,8 @@ impl Rule for MatchingDeclareDefine {
         "Ensure G_DECLARE_* and G_DEFINE_* macros are used consistently"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Pedantic
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Pedantic
     }
 
     fn check_all(

@@ -1,5 +1,8 @@
-use super::Rule;
-use crate::{ast_context::AstContext, config::Config, rules::Violation};
+use crate::{
+    ast_context::AstContext,
+    config::Config,
+    rules::{Rule, Violation},
+};
 
 pub struct UseGStrlcpy;
 
@@ -12,8 +15,8 @@ impl Rule for UseGStrlcpy {
         "Use g_strlcpy/g_strlcat instead of unsafe strcpy/strcat/strncat"
     }
 
-    fn category(&self) -> super::Category {
-        super::Category::Correctness
+    fn category(&self) -> crate::rules::Category {
+        crate::rules::Category::Correctness
     }
 
     fn fixable(&self) -> bool {
