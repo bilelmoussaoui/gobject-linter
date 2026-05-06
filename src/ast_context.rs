@@ -10,7 +10,7 @@ use ignore::WalkBuilder;
 use indicatif::ProgressBar;
 use rayon::prelude::*;
 
-use crate::meson::MesonHeaders;
+use crate::{meson::MesonHeaders, type_alias_map::TypeAliasMap};
 
 /// AST-based project context that replaces the old tree-sitter based
 /// ProjectContext
@@ -19,6 +19,7 @@ pub struct AstContext {
     /// Header visibility from meson introspection.
     /// None means no meson info was available
     pub meson_headers: Option<MesonHeaders>,
+    type_aliases: TypeAliasMap,
 }
 
 impl AstContext {
@@ -73,9 +74,12 @@ impl AstContext {
             project.files.extend(file_project.files);
         }
 
+        let type_aliases = TypeAliasMap::build(&project);
+
         Ok(Self {
             project,
             meson_headers,
+            type_aliases,
         })
     }
 
@@ -94,7 +98,14 @@ impl AstContext {
             self.project.files.remove(file_path);
         }
 
+        self.type_aliases = TypeAliasMap::build(&self.project);
+
         Ok(())
+    }
+
+    /// Typedef/struct-tag alias map for the whole project.
+    pub fn type_aliases(&self) -> &TypeAliasMap {
+        &self.type_aliases
     }
 
     /// Iterate over all files in the project

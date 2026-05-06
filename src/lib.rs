@@ -7,3 +7,4 @@ pub mod output;
 pub mod reporter;
 pub mod rules;
 pub mod scanner;
+pub mod type_alias_map;

@@ -7,7 +7,6 @@ mod field_access;
 mod identifier;
 mod initializer_list;
 mod literal;
-mod macro_call;
 mod offsetof;
 mod sizeof;
 mod subscript;
@@ -26,7 +25,6 @@ pub use literal::{
     BooleanExpression, CharLiteralExpression, CommentExpression, GenericExpression, NullExpression,
     NumberLiteralExpression, StringLiteralExpression,
 };
-pub use macro_call::MacroCallExpression;
 pub use offsetof::{OffsetOfExpression, StructField};
 use serde::{Deserialize, Serialize};
 pub use sizeof::{SizeofExpression, SizeofOperand};
@@ -39,7 +37,6 @@ use crate::model::SourceLocation;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Expression {
     Call(CallExpression),
-    MacroCall(MacroCallExpression),
     Assignment(Assignment),
     Binary(BinaryExpression),
     Unary(UnaryExpression),
@@ -65,7 +62,6 @@ impl Expression {
     pub fn location(&self) -> &SourceLocation {
         match self {
             Expression::Call(c) => &c.location,
-            Expression::MacroCall(m) => &m.location,
             Expression::Assignment(a) => &a.location,
             Expression::Binary(b) => &b.location,
             Expression::Unary(u) => &u.location,
@@ -108,12 +104,6 @@ impl Expression {
             Expression::Call(call) => {
                 call.function.walk(f);
                 for arg in &call.arguments {
-                    let Argument::Expression(e) = arg;
-                    e.walk(f);
-                }
-            }
-            Expression::MacroCall(macro_call) => {
-                for arg in &macro_call.arguments {
                     let Argument::Expression(e) = arg;
                     e.walk(f);
                 }
@@ -261,9 +251,6 @@ impl Expression {
     pub fn extract_string_value(&self) -> Option<String> {
         match self {
             Expression::StringLiteral(lit) => Some(lit.value.trim_matches('"').to_string()),
-            Expression::MacroCall(macro_call) => {
-                macro_call.extract_string_literal().map(|s| s.to_string())
-            }
             _ => None,
         }
     }

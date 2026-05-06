@@ -81,20 +81,6 @@ impl PropertyCanonicalName {
 
         let string_lit_location = match expr {
             Expression::StringLiteral(lit) => &lit.location,
-            Expression::MacroCall(macro_call) => {
-                // Find the string literal inside the macro
-                let Some(gobject_ast::Argument::Expression(inner_expr)) =
-                    macro_call.arguments.first()
-                else {
-                    return; // Macro has no arguments
-                };
-
-                if let Expression::StringLiteral(lit) = inner_expr.as_ref() {
-                    &lit.location
-                } else {
-                    return; // Macro argument is not a string literal
-                }
-            }
             _ => return, // Unexpected structure
         };
 

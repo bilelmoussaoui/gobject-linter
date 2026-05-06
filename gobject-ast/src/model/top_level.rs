@@ -427,6 +427,31 @@ impl FunctionDefItem {
         self.find_calls(&["g_object_class_install_properties"])
     }
 
+    /// Map every named parameter and local variable to its `TypeInfo`.
+    /// Parameters appear first; local declarations in body order after that,
+    /// so an inner-scope shadowing declaration overwrites the outer one.
+    pub fn local_var_types(&self) -> std::collections::HashMap<String, super::TypeInfo> {
+        let mut map = std::collections::HashMap::new();
+        for param in &self.parameters {
+            if let super::types::Parameter::Regular {
+                name: Some(name),
+                type_info,
+                ..
+            } = param
+            {
+                map.insert(name.clone(), type_info.clone());
+            }
+        }
+        for stmt in &self.body_statements {
+            stmt.walk(&mut |s| {
+                if let Statement::Declaration(decl) = s {
+                    map.insert(decl.name.clone(), decl.type_info.clone());
+                }
+            });
+        }
+        map
+    }
+
     /// Get a parameter by name
     pub fn get_param_by_name(&self, name: &str) -> Option<&super::types::Parameter> {
         self.parameters.iter().find(

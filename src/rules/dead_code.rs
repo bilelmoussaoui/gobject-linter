@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use gobject_ast::model::{
-    TypeInfo,
-    expression::{Designator, Expression},
+    AssignmentOp, TypeInfo,
+    expression::{Argument, Designator, Expression},
     top_level::{PreprocessorDirective, TopLevelItem, TypeDefItem},
 };
 
@@ -51,11 +51,9 @@ impl Rule for DeadCode {
             return;
         }
 
-        let aliases = AliasMaps::new(ast_context);
         let (func_defs, func_decls) = collect_function_maps(ast_context);
-        let (func_refs, type_refs) = aliases.collect_references(ast_context);
-        let (field_refs_qualified, field_refs_unqualified) =
-            aliases.collect_field_refs(ast_context);
+        let (func_refs, type_refs) = collect_references(ast_context);
+        let (field_refs_qualified, field_refs_unqualified) = collect_field_refs(ast_context);
 
         let type_defs = collect_type_defs(ast_context);
         let field_defs = collect_field_defs(ast_context);
@@ -68,250 +66,145 @@ impl Rule for DeadCode {
             &func_refs,
             violations,
         );
-        self.report_type_violations(&type_defs, &type_refs, &aliases, violations);
+        self.report_type_violations(ast_context, &type_defs, &type_refs, violations);
         self.report_enum_value_violations(&enum_value_defs, &func_refs, violations);
         self.report_field_violations(
+            ast_context,
             &field_defs,
             &field_refs_qualified,
             &field_refs_unqualified,
-            &aliases,
             violations,
         );
     }
 }
 
-struct AliasMaps {
-    typedef_to_tag: HashMap<String, String>,
-    tag_to_typedef: HashMap<String, String>,
+fn collect_references(ast_context: &AstContext) -> (HashSet<String>, HashSet<String>) {
+    let mut func_refs: HashSet<String> = HashSet::new();
+    let mut type_refs: HashSet<String> = HashSet::new();
+
+    for (_path, file) in ast_context.iter_all_files() {
+        for func in file.iter_function_definitions() {
+            collect_type_ref(&func.return_type, &mut type_refs);
+            for param in &func.parameters {
+                if let gobject_ast::model::types::Parameter::Regular { type_info, .. } = param {
+                    collect_type_ref(type_info, &mut type_refs);
+                }
+            }
+            for stmt in &func.body_statements {
+                collect_func_refs_from_stmt(stmt, &mut func_refs);
+                collect_type_refs_from_stmt(stmt, &mut type_refs);
+            }
+        }
+
+        for func in file.iter_function_declarations() {
+            collect_type_ref(&func.return_type, &mut type_refs);
+            for param in &func.parameters {
+                if let gobject_ast::model::types::Parameter::Regular { type_info, .. } = param {
+                    collect_type_ref(type_info, &mut type_refs);
+                }
+            }
+        }
+
+        for item in file.iter_all_items() {
+            if let TopLevelItem::Declaration(decl) = item {
+                collect_func_refs_from_stmt(decl, &mut func_refs);
+            }
+            collect_type_refs_from_top_level_item(item, &mut type_refs);
+            match item {
+                TopLevelItem::Preprocessor(PreprocessorDirective::Define {
+                    value: Some(value),
+                    ..
+                }) => {
+                    extract_function_calls_from_text(value, &mut func_refs);
+                }
+                TopLevelItem::Preprocessor(
+                    PreprocessorDirective::AutoptrCleanupFunc {
+                        type_name,
+                        cleanup_function,
+                        ..
+                    }
+                    | PreprocessorDirective::AutoCleanupClearFunc {
+                        type_name,
+                        cleanup_function,
+                        ..
+                    },
+                ) => {
+                    func_refs.insert(cleanup_function.clone());
+                    type_refs.insert(type_name.clone());
+                }
+                _ => {}
+            }
+        }
+
+        collect_gobject_implicit_refs(file, &mut func_refs, &mut type_refs);
+
+        for enum_info in file.iter_all_enums() {
+            for value in &enum_info.values {
+                if let Some(expr) = &value.value_expr {
+                    func_refs.extend(expr.collect_identifiers());
+                }
+            }
+        }
+    }
+
+    (func_refs, type_refs)
 }
 
-impl AliasMaps {
-    fn new(ast_context: &AstContext) -> Self {
-        let mut typedef_to_tag: HashMap<String, String> = HashMap::new();
-        let mut tag_to_typedef: HashMap<String, String> = HashMap::new();
+fn collect_field_refs(ast_context: &AstContext) -> (HashSet<(String, String)>, HashSet<String>) {
+    let mut qualified: HashSet<(String, String)> = HashSet::new();
+    let mut unqualified: HashSet<String> = HashSet::new();
+    let empty_map: HashMap<String, String> = HashMap::new();
 
-        // G_DECLARE_FINAL_TYPE etc. expand to `typedef struct _Foo Foo` at compile
-        // time; synthesise that alias for every known GObject type our parser sees.
-        for (_path, file) in ast_context.iter_all_files() {
-            for (name, target) in file.iter_typedef_pairs() {
-                typedef_to_tag.insert(name.to_owned(), target.base_type.clone());
-                if target.is_struct || target.is_union {
-                    tag_to_typedef.insert(target.base_type.clone(), name.to_owned());
-                }
-            }
-            for gt in file.iter_all_gobject_types() {
-                let tag = format!("_{}", gt.type_name);
-                typedef_to_tag
-                    .entry(gt.type_name.clone())
-                    .or_insert_with(|| tag.clone());
-                tag_to_typedef
-                    .entry(tag)
-                    .or_insert_with(|| gt.type_name.clone());
-            }
-        }
-
-        Self {
-            typedef_to_tag,
-            tag_to_typedef,
-        }
-    }
-
-    fn canonical<'a>(&'a self, name: &'a str) -> &'a str {
-        self.typedef_to_tag
-            .get(name)
-            .map(|s| s.as_str())
-            .unwrap_or(name)
-    }
-
-    fn is_referenced(&self, name: &str, refs: &HashSet<String>) -> bool {
-        refs.contains(name)
-            || self
-                .typedef_to_tag
-                .get(name)
-                .is_some_and(|t| refs.contains(t))
-            || self
-                .tag_to_typedef
-                .get(name)
-                .is_some_and(|a| refs.contains(a))
-    }
-
-    fn field_is_referenced(
-        &self,
-        struct_name: &str,
-        field_name: &str,
-        qualified: &HashSet<(String, String)>,
-    ) -> bool {
-        let has = |s: &str| qualified.contains(&(s.to_owned(), field_name.to_owned()));
-        has(struct_name)
-            || self.typedef_to_tag.get(struct_name).is_some_and(|t| has(t))
-            || self.tag_to_typedef.get(struct_name).is_some_and(|a| has(a))
-    }
-
-    fn type_map_for(
-        &self,
-        func: &gobject_ast::model::top_level::FunctionDefItem,
-    ) -> HashMap<String, String> {
-        use gobject_ast::model::statement::Statement;
-        let mut map: HashMap<String, String> = HashMap::new();
-        for param in &func.parameters {
-            if let gobject_ast::model::types::Parameter::Regular {
-                name: Some(name),
-                type_info,
-                ..
-            } = param
-            {
-                let base = &type_info.base_type;
-                if !base.is_empty() {
-                    map.insert(name.clone(), self.canonical(base).to_owned());
-                }
-            }
-        }
-        for stmt in &func.body_statements {
-            stmt.walk(&mut |s| {
-                if let Statement::Declaration(decl) = s {
-                    let base = &decl.type_info.base_type;
-                    if !base.is_empty() {
-                        map.insert(decl.name.clone(), self.canonical(base).to_owned());
-                    }
-                }
-            });
-        }
-        map
-    }
-
-    fn insert_qualified(
-        &self,
-        type_name: &str,
-        field_name: &str,
-        qualified: &mut HashSet<(String, String)>,
-    ) {
-        qualified.insert((type_name.to_owned(), field_name.to_owned()));
-        if let Some(alias) = self.tag_to_typedef.get(type_name) {
-            qualified.insert((alias.clone(), field_name.to_owned()));
-        }
-        if let Some(tag) = self.typedef_to_tag.get(type_name) {
-            qualified.insert((tag.clone(), field_name.to_owned()));
-        }
-    }
-
-    fn collect_references(&self, ast_context: &AstContext) -> (HashSet<String>, HashSet<String>) {
-        let mut func_refs: HashSet<String> = HashSet::new();
-        let mut type_refs: HashSet<String> = HashSet::new();
-
-        for (_path, file) in ast_context.iter_all_files() {
-            for func in file.iter_function_definitions() {
-                collect_type_ref(&func.return_type, &mut type_refs);
-                for param in &func.parameters {
-                    if let gobject_ast::model::types::Parameter::Regular { type_info, .. } = param {
-                        collect_type_ref(type_info, &mut type_refs);
-                    }
-                }
-                for stmt in &func.body_statements {
-                    collect_func_refs_from_stmt(stmt, &mut func_refs);
-                    collect_type_refs_from_stmt(stmt, &mut type_refs);
-                }
-            }
-
-            for func in file.iter_function_declarations() {
-                collect_type_ref(&func.return_type, &mut type_refs);
-                for param in &func.parameters {
-                    if let gobject_ast::model::types::Parameter::Regular { type_info, .. } = param {
-                        collect_type_ref(type_info, &mut type_refs);
-                    }
-                }
-            }
-
-            for item in file.iter_all_items() {
-                if let TopLevelItem::Declaration(decl) = item {
-                    collect_func_refs_from_stmt(decl, &mut func_refs);
-                }
-                collect_type_refs_from_top_level_item(item, &mut type_refs);
-                match item {
-                    TopLevelItem::Preprocessor(PreprocessorDirective::Define {
-                        value: Some(value),
-                        ..
-                    }) => {
-                        extract_function_calls_from_text(value, &mut func_refs);
-                    }
-                    TopLevelItem::Preprocessor(
-                        PreprocessorDirective::AutoptrCleanupFunc {
-                            type_name,
-                            cleanup_function,
-                            ..
-                        }
-                        | PreprocessorDirective::AutoCleanupClearFunc {
-                            type_name,
-                            cleanup_function,
-                            ..
-                        },
-                    ) => {
-                        func_refs.insert(cleanup_function.clone());
-                        type_refs.insert(type_name.clone());
-                    }
-                    _ => {}
-                }
-            }
-
-            collect_gobject_implicit_refs(file, &mut func_refs, &mut type_refs);
-
-            for enum_info in file.iter_all_enums() {
-                for value in &enum_info.values {
-                    if let Some(expr) = &value.value_expr {
-                        func_refs.extend(expr.collect_identifiers());
-                    }
-                }
+    for (_path, file) in ast_context.iter_all_files() {
+        for func in file.iter_function_definitions() {
+            let type_map: HashMap<String, String> = func
+                .local_var_types()
+                .into_iter()
+                .filter(|(_, ti)| !ti.base_type.is_empty())
+                .map(|(name, ti)| {
+                    (
+                        name,
+                        ast_context
+                            .type_aliases()
+                            .canonical(&ti.base_type)
+                            .to_owned(),
+                    )
+                })
+                .collect();
+            for stmt in &func.body_statements {
+                collect_field_refs_from_stmt(
+                    ast_context,
+                    stmt,
+                    &type_map,
+                    &mut qualified,
+                    &mut unqualified,
+                );
             }
         }
 
-        (func_refs, type_refs)
-    }
-
-    fn collect_field_refs(
-        &self,
-        ast_context: &AstContext,
-    ) -> (HashSet<(String, String)>, HashSet<String>) {
-        let mut qualified: HashSet<(String, String)> = HashSet::new();
-        let mut unqualified: HashSet<String> = HashSet::new();
-        let empty_map: HashMap<String, String> = HashMap::new();
-
-        for (_path, file) in ast_context.iter_all_files() {
-            for func in file.iter_function_definitions() {
-                let type_map = self.type_map_for(func);
-                for stmt in &func.body_statements {
+        for item in file.iter_all_items() {
+            match item {
+                TopLevelItem::Declaration(stmt) => {
                     collect_field_refs_from_stmt(
+                        ast_context,
                         stmt,
-                        &type_map,
-                        self,
+                        &empty_map,
                         &mut qualified,
                         &mut unqualified,
                     );
                 }
-            }
-
-            for item in file.iter_all_items() {
-                match item {
-                    TopLevelItem::Declaration(stmt) => {
-                        collect_field_refs_from_stmt(
-                            stmt,
-                            &empty_map,
-                            self,
-                            &mut qualified,
-                            &mut unqualified,
-                        );
-                    }
-                    TopLevelItem::Preprocessor(PreprocessorDirective::Define {
-                        value: Some(value),
-                        ..
-                    }) => {
-                        extract_field_refs_from_text(value, &mut unqualified);
-                    }
-                    _ => {}
+                TopLevelItem::Preprocessor(PreprocessorDirective::Define {
+                    value: Some(value),
+                    ..
+                }) => {
+                    extract_field_refs_from_text(value, &mut unqualified);
                 }
+                _ => {}
             }
         }
-
-        (qualified, unqualified)
     }
+
+    (qualified, unqualified)
 }
 
 type FuncDefMap<'a> =
@@ -618,34 +511,16 @@ fn extract_function_calls_from_text(text: &str, refs: &mut HashSet<String>) {
 }
 
 fn collect_field_refs_from_stmt(
+    ast_context: &AstContext,
     stmt: &gobject_ast::model::statement::Statement,
     type_map: &HashMap<String, String>,
-    aliases: &AliasMaps,
     qualified: &mut HashSet<(String, String)>,
     unqualified: &mut HashSet<String>,
 ) {
     use gobject_ast::model::statement::Statement;
 
     stmt.walk_expressions(&mut |expr| {
-        expr.walk(&mut |e| match e {
-            Expression::FieldAccess(f) => {
-                if let Expression::Identifier(id) = f.base.as_ref()
-                    && let Some(type_name) = type_map.get(&id.name)
-                {
-                    aliases.insert_qualified(type_name, &f.field, qualified);
-                    return;
-                }
-                unqualified.insert(f.field.clone());
-            }
-            Expression::InitializerList(init) => {
-                for item in &init.items {
-                    if let Some(Designator::Field(name)) = &item.designator {
-                        unqualified.insert(name.clone());
-                    }
-                }
-            }
-            _ => {}
-        });
+        collect_field_reads_impl(ast_context, expr, false, type_map, qualified, unqualified);
     });
 
     stmt.walk(&mut |s| {
@@ -656,6 +531,201 @@ fn collect_field_refs_from_stmt(
             extract_field_refs_from_text(value, unqualified);
         }
     });
+}
+
+/// `is_write_lhs` is true when `expr` is the direct LHS of a plain `=`
+/// assignment
+fn collect_field_reads_impl(
+    ast_context: &AstContext,
+    expr: &Expression,
+    is_write_lhs: bool,
+    type_map: &HashMap<String, String>,
+    qualified: &mut HashSet<(String, String)>,
+    unqualified: &mut HashSet<String>,
+) {
+    match expr {
+        Expression::FieldAccess(f) => {
+            if !is_write_lhs {
+                if let Expression::Identifier(id) = f.base.as_ref()
+                    && let Some(type_name) = type_map.get(&id.name)
+                {
+                    ast_context
+                        .type_aliases()
+                        .insert_qualified(type_name, &f.field, qualified);
+                } else {
+                    unqualified.insert(f.field.clone());
+                }
+            }
+            collect_field_reads_impl(
+                ast_context,
+                &f.base,
+                false,
+                type_map,
+                qualified,
+                unqualified,
+            );
+        }
+        Expression::Assignment(assign) => {
+            let lhs_is_write = assign.operator == AssignmentOp::Assign;
+            collect_field_reads_impl(
+                ast_context,
+                &assign.lhs,
+                lhs_is_write,
+                type_map,
+                qualified,
+                unqualified,
+            );
+            collect_field_reads_impl(
+                ast_context,
+                &assign.rhs,
+                false,
+                type_map,
+                qualified,
+                unqualified,
+            );
+        }
+        Expression::InitializerList(init) => {
+            for item in &init.items {
+                if let Some(Designator::Field(name)) = &item.designator {
+                    unqualified.insert(name.clone());
+                }
+                if let Some(Designator::Subscript(idx)) = &item.designator {
+                    collect_field_reads_impl(
+                        ast_context,
+                        idx,
+                        false,
+                        type_map,
+                        qualified,
+                        unqualified,
+                    );
+                }
+                collect_field_reads_impl(
+                    ast_context,
+                    &item.value,
+                    false,
+                    type_map,
+                    qualified,
+                    unqualified,
+                );
+            }
+        }
+        Expression::Call(call) => {
+            collect_field_reads_impl(
+                ast_context,
+                &call.function,
+                false,
+                type_map,
+                qualified,
+                unqualified,
+            );
+            for arg in &call.arguments {
+                let Argument::Expression(e) = arg;
+                collect_field_reads_impl(ast_context, e, false, type_map, qualified, unqualified);
+            }
+        }
+        Expression::Binary(b) => {
+            collect_field_reads_impl(
+                ast_context,
+                &b.left,
+                false,
+                type_map,
+                qualified,
+                unqualified,
+            );
+            collect_field_reads_impl(
+                ast_context,
+                &b.right,
+                false,
+                type_map,
+                qualified,
+                unqualified,
+            );
+        }
+        Expression::Unary(u) => {
+            collect_field_reads_impl(
+                ast_context,
+                &u.operand,
+                false,
+                type_map,
+                qualified,
+                unqualified,
+            );
+        }
+        Expression::Update(u) => {
+            collect_field_reads_impl(
+                ast_context,
+                &u.operand,
+                false,
+                type_map,
+                qualified,
+                unqualified,
+            );
+        }
+        Expression::Cast(c) => {
+            collect_field_reads_impl(
+                ast_context,
+                &c.operand,
+                false,
+                type_map,
+                qualified,
+                unqualified,
+            );
+        }
+        Expression::Conditional(c) => {
+            collect_field_reads_impl(
+                ast_context,
+                &c.condition,
+                false,
+                type_map,
+                qualified,
+                unqualified,
+            );
+            collect_field_reads_impl(
+                ast_context,
+                &c.then_expr,
+                false,
+                type_map,
+                qualified,
+                unqualified,
+            );
+            collect_field_reads_impl(
+                ast_context,
+                &c.else_expr,
+                false,
+                type_map,
+                qualified,
+                unqualified,
+            );
+        }
+        Expression::Subscript(s) => {
+            collect_field_reads_impl(
+                ast_context,
+                &s.array,
+                false,
+                type_map,
+                qualified,
+                unqualified,
+            );
+            collect_field_reads_impl(
+                ast_context,
+                &s.index,
+                false,
+                type_map,
+                qualified,
+                unqualified,
+            );
+        }
+        Expression::Identifier(_)
+        | Expression::StringLiteral(_)
+        | Expression::NumberLiteral(_)
+        | Expression::Null(_)
+        | Expression::Boolean(_)
+        | Expression::Sizeof(_)
+        | Expression::CharLiteral(_)
+        | Expression::Comment(_)
+        | Expression::OffsetOf(_)
+        | Expression::Generic(_) => {}
+    }
 }
 
 fn extract_field_refs_from_text(text: &str, unqualified: &mut HashSet<String>) {
@@ -755,13 +825,16 @@ impl DeadCode {
 
     fn report_type_violations(
         &self,
+        ast_context: &AstContext,
         type_defs: &TypeDefMap,
         type_refs: &HashSet<String>,
-        aliases: &AliasMaps,
         violations: &mut Vec<Violation>,
     ) {
         for (type_name, defs) in type_defs {
-            if aliases.is_referenced(type_name, type_refs) {
+            if ast_context
+                .type_aliases()
+                .is_referenced(type_name, type_refs)
+            {
                 continue;
             }
             for (def_path, location) in defs {
@@ -798,10 +871,10 @@ impl DeadCode {
 
     fn report_field_violations(
         &self,
+        ast_context: &AstContext,
         field_defs: &FieldDefMap,
         field_refs_qualified: &HashSet<(String, String)>,
         field_refs_unqualified: &HashSet<String>,
-        aliases: &AliasMaps,
         violations: &mut Vec<Violation>,
     ) {
         for (field_name, defs) in field_defs {
@@ -809,14 +882,18 @@ impl DeadCode {
                 continue;
             }
             for (def_path, location, struct_name) in defs {
-                if aliases.field_is_referenced(struct_name, field_name, field_refs_qualified) {
+                if ast_context.type_aliases().field_is_referenced(
+                    struct_name,
+                    field_name,
+                    field_refs_qualified,
+                ) {
                     continue;
                 }
                 violations.push(self.violation(
                     def_path,
                     location.line,
                     location.column,
-                    format!("Field '{}' in '{}' is never used", field_name, struct_name),
+                    format!("Field '{}' in '{}' is never read", field_name, struct_name),
                 ));
             }
         }

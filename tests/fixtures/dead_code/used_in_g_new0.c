@@ -14,5 +14,8 @@ foo(GPtrArray *imgs)
     items[0].uncompressed_crc = 0;
     items[0].uncompressed_size = 0;
     items[0].compressed_size = 0;
-    (void)items;
+    g_debug("crc=%u size=%u compressed=%u",
+            items[0].uncompressed_crc,
+            items[0].uncompressed_size,
+            items[0].compressed_size);
 }
