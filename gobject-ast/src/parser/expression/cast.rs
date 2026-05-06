@@ -9,9 +9,7 @@ impl Parser {
     pub(crate) fn parse_cast_expression(&self, node: Node, source: &[u8]) -> Option<Expression> {
         // Get the type node
         let type_node = node.child_by_field_name("type")?;
-        let type_text = std::str::from_utf8(&source[type_node.byte_range()])
-            .ok()?
-            .to_owned();
+        let type_text = std::str::from_utf8(&source[type_node.byte_range()]).ok()?;
 
         // Parse type info from the type text
         let type_location = self.node_location(type_node);

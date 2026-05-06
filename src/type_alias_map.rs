@@ -45,18 +45,21 @@ impl TypeAliasMap {
     pub fn canonical<'a>(&'a self, name: &'a str) -> &'a str {
         self.typedef_to_tag
             .get(name)
-            .map(|s| s.as_str())
-            .unwrap_or(name)
+            .map_or(name, std::string::String::as_str)
     }
 
     /// Return the typedef alias for a struct tag, if one exists.
     pub fn typedef_for_tag<'a>(&'a self, tag: &'a str) -> Option<&'a str> {
-        self.tag_to_typedef.get(tag).map(|s| s.as_str())
+        self.tag_to_typedef
+            .get(tag)
+            .map(std::string::String::as_str)
     }
 
     /// Return the struct tag for a typedef name, if one exists.
     pub fn tag_for_typedef<'a>(&'a self, name: &'a str) -> Option<&'a str> {
-        self.typedef_to_tag.get(name).map(|s| s.as_str())
+        self.typedef_to_tag
+            .get(name)
+            .map(std::string::String::as_str)
     }
 
     /// True if `name` or any of its aliases appears in `refs`.

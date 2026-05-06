@@ -29,11 +29,10 @@ pub fn generate_gcc(violations: &[Violation]) {
     for violation in violations {
         // Make path relative to CWD if possible
         let display_path = if let Some(ref cwd) = cwd {
-            violation
-                .file
-                .strip_prefix(cwd)
-                .map(|p| p.display().to_string())
-                .unwrap_or_else(|_| violation.file.display().to_string())
+            violation.file.strip_prefix(cwd).map_or_else(
+                |_| violation.file.display().to_string(),
+                |p| p.display().to_string(),
+            )
         } else {
             violation.file.display().to_string()
         };

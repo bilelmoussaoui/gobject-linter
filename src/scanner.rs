@@ -469,7 +469,10 @@ pub fn list_all_rules_json(config: &Config) -> String {
             RuleMetadata {
                 name: entry.rule.name().to_string(),
                 description: entry.rule.description().to_string(),
-                long_description: entry.rule.long_description().map(|s| s.to_string()),
+                long_description: entry
+                    .rule
+                    .long_description()
+                    .map(std::string::ToString::to_string),
                 category: entry.rule.category().as_str().to_string(),
                 fixable: entry.rule.fixable(),
                 opt_in: entry.opt_in,

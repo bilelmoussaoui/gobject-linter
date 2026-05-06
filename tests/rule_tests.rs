@@ -26,7 +26,7 @@ fn build_context_for_file(
     if let Some(fixture_dir) = test_file.parent()
         && let Ok(entries) = fs::read_dir(fixture_dir)
     {
-        for entry in entries.filter_map(|e| e.ok()) {
+        for entry in entries.filter_map(std::result::Result::ok) {
             let path = entry.path();
             if path.extension().is_some_and(|ext| ext == "h") {
                 let h_dest = temp_dir.path().join(path.file_name().unwrap());
@@ -94,7 +94,7 @@ fn run_fixture_tests(rule_name: &str, rule: &dyn Rule) {
 
     let mut test_files: Vec<_> = fs::read_dir(&fixtures_dir)
         .unwrap()
-        .filter_map(|e| e.ok())
+        .filter_map(std::result::Result::ok)
         .filter(|e| {
             let path = e.path();
             // Test *.c and standalone *.h files (not already tested as part of .c)
@@ -167,14 +167,16 @@ fn run_fixture_tests(rule_name: &str, rule: &dyn Rule) {
                     .arg(&expected_path)
                     .arg(&actual_path)
                     .output()
-                    .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
-                    .unwrap_or_else(|_| {
-                        format!(
-                            "Failed to run diff\n--- expected ---\n{}\n--- got ---\n{}",
-                            expected.trim(),
-                            actual_stderr.trim()
-                        )
-                    });
+                    .map_or_else(
+                        |_| {
+                            format!(
+                                "Failed to run diff\n--- expected ---\n{}\n--- got ---\n{}",
+                                expected.trim(),
+                                actual_stderr.trim()
+                            )
+                        },
+                        |o| String::from_utf8_lossy(&o.stdout).to_string(),
+                    );
 
                 failures.push(format!(
                     "fixture {rule_name}/{stem}: violations mismatch\n{}",
@@ -208,14 +210,16 @@ fn run_fixture_tests(rule_name: &str, rule: &dyn Rule) {
                     .arg(&expected_path)
                     .arg(&actual_path)
                     .output()
-                    .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
-                    .unwrap_or_else(|_| {
-                        format!(
-                            "Failed to run diff\n--- expected ---\n{}\n--- got ---\n{}",
-                            expected_fixed.trim(),
-                            actual_fixed.trim()
-                        )
-                    });
+                    .map_or_else(
+                        |_| {
+                            format!(
+                                "Failed to run diff\n--- expected ---\n{}\n--- got ---\n{}",
+                                expected_fixed.trim(),
+                                actual_fixed.trim()
+                            )
+                        },
+                        |o| String::from_utf8_lossy(&o.stdout).to_string(),
+                    );
 
                 failures.push(format!(
                     "fixture {rule_name}/{stem}: fix output mismatch\n{}",
@@ -258,14 +262,16 @@ fn run_fixture_tests(rule_name: &str, rule: &dyn Rule) {
                         .arg(&expected_path)
                         .arg(&actual_path)
                         .output()
-                        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
-                        .unwrap_or_else(|_| {
-                            format!(
-                                "Failed to run diff\n--- expected ---\n{}\n--- got ---\n{}",
-                                expected.trim(),
-                                actual_fixed_stderr.trim()
-                            )
-                        });
+                        .map_or_else(
+                            |_| {
+                                format!(
+                                    "Failed to run diff\n--- expected ---\n{}\n--- got ---\n{}",
+                                    expected.trim(),
+                                    actual_fixed_stderr.trim()
+                                )
+                            },
+                            |o| String::from_utf8_lossy(&o.stdout).to_string(),
+                        );
 
                     failures.push(format!(
                         "fixture {rule_name}/{stem}: post-fix violations mismatch\n{}",

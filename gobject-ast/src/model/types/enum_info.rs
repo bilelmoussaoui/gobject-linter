@@ -66,17 +66,12 @@ impl EnumInfo {
             total_count += 1;
 
             // Check if the value expression is a bit shift operation
-            let is_bit_shift = value
-                .value_expr
-                .as_ref()
-                .map(is_bit_shift_expr)
-                .unwrap_or(false);
+            let is_bit_shift = value.value_expr.as_ref().is_some_and(is_bit_shift_expr);
 
             // Check if the evaluated value is a power of 2 (or 0)
             let is_power_of_two = value
                 .value
-                .map(|num| num == 0 || (num > 0 && (num & (num - 1)) == 0))
-                .unwrap_or(false);
+                .is_some_and(|num| num == 0 || (num > 0 && (num & (num - 1)) == 0));
 
             if is_bit_shift || is_power_of_two {
                 flag_like_count += 1;
@@ -176,6 +171,6 @@ impl EnumValue {
         self.value_location
             .as_ref()
             .and_then(|loc| loc.as_str(source))
-            .map(|s| s.trim())
+            .map(str::trim)
     }
 }

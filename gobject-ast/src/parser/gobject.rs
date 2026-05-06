@@ -154,7 +154,7 @@ impl Parser {
                     .find(|c| c.kind() == "argument_list")
                     .and_then(|al| {
                         let mut cursor = al.walk();
-                        al.children(&mut cursor).find(|c| c.is_named())
+                        al.children(&mut cursor).find(tree_sitter::Node::is_named)
                     })
                     .and_then(|n| std::str::from_utf8(&source[n.byte_range()]).ok())
                     .unwrap_or("")

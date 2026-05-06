@@ -201,7 +201,7 @@ impl UseGClearHandleId {
 
         Statement::for_each_pair(statements, |first, second| {
             if let Some((var_name, cleanup_func)) = self.extract_handle_cleanup(first, source)
-                && second.is_assignment_to(&var_name, |expr| expr.is_zero())
+                && second.is_assignment_to(&var_name, gobject_ast::Expression::is_zero)
             {
                 results.push((
                     var_name,

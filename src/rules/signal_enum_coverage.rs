@@ -109,7 +109,7 @@ impl SignalEnumCoverage {
                 uses_signal_enum = func
                     .body_statements
                     .iter()
-                    .flat_map(|s| s.iter_assignments())
+                    .flat_map(gobject_ast::Statement::iter_assignments)
                     .any(|a| {
                         matches!(&*a.lhs, Expression::Subscript(sub)
                             if matches!(&*sub.array, Expression::Identifier(id)
@@ -123,7 +123,7 @@ impl SignalEnumCoverage {
                 uses_signal_enum = func
                     .body_statements
                     .iter()
-                    .flat_map(|s| s.iter_assignments())
+                    .flat_map(gobject_ast::Statement::iter_assignments)
                     .any(|a| {
                         if let Expression::Subscript(sub) = &*a.lhs
                             && let Expression::Identifier(index_id) = &*sub.index
@@ -157,7 +157,7 @@ impl SignalEnumCoverage {
         class_init
             .body_statements
             .iter()
-            .flat_map(|s| s.iter_assignments())
+            .flat_map(gobject_ast::Statement::iter_assignments)
             .filter_map(|a| {
                 if let Expression::Subscript(sub) = &*a.lhs
                     && let Expression::Identifier(enum_id) = &*sub.index

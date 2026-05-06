@@ -128,7 +128,10 @@ impl UseGStrHasPrefixSuffix {
             return;
         }
 
-        let str_arg_text = call.get_arg(0).map(|e| e.to_text()).unwrap_or_default();
+        let str_arg_text = call
+            .get_arg(0)
+            .map(gobject_ast::Expression::to_text)
+            .unwrap_or_default();
 
         let replacement = if *operator == BinaryOp::Equal {
             format!("g_str_has_prefix ({str_arg_text}, \"{prefix_text}\")")

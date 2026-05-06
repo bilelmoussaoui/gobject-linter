@@ -37,13 +37,13 @@ impl Parser {
         // Extract type text
         let (full_type_text, start_byte, end_byte) = if let Some(type_n) = type_node {
             let text = std::str::from_utf8(&source[type_n.byte_range()]).unwrap_or("void");
-            (text.to_string(), type_n.start_byte(), type_n.end_byte())
+            (text, type_n.start_byte(), type_n.end_byte())
         } else {
-            (String::from("void"), node.start_byte(), node.start_byte())
+            ("void", node.start_byte(), node.start_byte())
         };
 
         let full_text = if qualifiers.is_empty() {
-            full_type_text
+            full_type_text.to_owned()
         } else {
             format!("{} {}", qualifiers.join(" "), full_type_text)
         };
@@ -55,7 +55,7 @@ impl Parser {
             end_byte,
         );
 
-        TypeInfo::new(full_text, location)
+        TypeInfo::new(&full_text, location)
     }
 
     /// Parse a number literal string, handling both decimal and hexadecimal
@@ -128,7 +128,7 @@ impl Parser {
                 let value = node.child_by_field_name("value").and_then(|value_node| {
                     std::str::from_utf8(&source[value_node.byte_range()])
                         .ok()
-                        .map(|s| s.to_owned())
+                        .map(std::borrow::ToOwned::to_owned)
                 });
 
                 Some(TopLevelItem::Preprocessor(PreprocessorDirective::Define {
@@ -224,7 +224,7 @@ impl Parser {
                 let condition = node
                     .child_by_field_name("condition")
                     .and_then(|c| std::str::from_utf8(&source[c.byte_range()]).ok())
-                    .map(|s| s.to_owned());
+                    .map(std::borrow::ToOwned::to_owned);
 
                 let body = self.parse_conditional_body(node, source);
 
@@ -337,7 +337,7 @@ impl Parser {
                             parameters,
                             export_macros: export_macros
                                 .into_iter()
-                                .map(|s| s.to_owned())
+                                .map(std::borrow::ToOwned::to_owned)
                                 .collect(),
                             location: self.node_location(node),
                         }));
@@ -602,12 +602,9 @@ impl Parser {
                         let field_name = child
                             .child_by_field_name("declarator")
                             .and_then(|d| self.extract_field_declarator_name(d, source))
-                            .map(|s| s.to_owned());
+                            .map(std::borrow::ToOwned::to_owned);
                         fields.push(StructField {
-                            field_type: crate::TypeInfo::new(
-                                String::new(),
-                                self.node_location(type_node),
-                            ),
+                            field_type: TypeInfo::new("", self.node_location(type_node)),
                             field_name,
                             location: self.node_location(child),
                             bit_width: None,
@@ -616,18 +613,17 @@ impl Parser {
                         continue;
                     }
 
-                    let type_text: Option<String> = match type_node.kind() {
+                    let type_text = match type_node.kind() {
                         "type_identifier" | "primitive_type" | "sized_type_specifier" => {
                             std::str::from_utf8(&source[type_node.byte_range()])
                                 .ok()
-                                .map(|s| s.trim().to_owned())
+                                .map(str::trim)
                         }
                         "struct_specifier" | "union_specifier" | "enum_specifier" => {
                             // Named tag: grab the name so type_references tracks it.
                             type_node
                                 .child_by_field_name("name")
                                 .and_then(|n| std::str::from_utf8(&source[n.byte_range()]).ok())
-                                .map(|s| s.to_owned())
                         }
                         _ => None,
                     };
@@ -637,12 +633,12 @@ impl Parser {
                         continue;
                     }
 
-                    let field_type = crate::TypeInfo::new(text, self.node_location(type_node));
+                    let field_type = TypeInfo::new(text, self.node_location(type_node));
 
                     let field_name = child
                         .child_by_field_name("declarator")
                         .and_then(|d| self.extract_field_declarator_name(d, source))
-                        .map(|s| s.to_owned());
+                        .map(std::borrow::ToOwned::to_owned);
 
                     let bit_width = {
                         let mut cursor = child.walk();
@@ -763,8 +759,7 @@ impl Parser {
         } else {
             let type_node = node.child_by_field_name("type")?;
             let target_text = std::str::from_utf8(&source[type_node.byte_range()]).ok()?;
-            let target_type =
-                crate::TypeInfo::new(target_text.to_owned(), self.node_location(type_node));
+            let target_type = TypeInfo::new(target_text, self.node_location(type_node));
             TypedefTarget::Type(target_type)
         };
 
@@ -793,7 +788,7 @@ impl Parser {
             let name = node.child_by_field_name("name").and_then(|name_node| {
                 std::str::from_utf8(&source[name_node.byte_range()])
                     .ok()
-                    .map(|s| s.to_owned())
+                    .map(std::borrow::ToOwned::to_owned)
             });
 
             return Some(EnumInfo {
@@ -840,7 +835,7 @@ impl Parser {
                     if next.kind() == "type_identifier" {
                         std::str::from_utf8(&source[next.byte_range()])
                             .ok()
-                            .map(|s| s.to_owned())
+                            .map(std::borrow::ToOwned::to_owned)
                     } else if next.kind() == "expression_statement" {
                         std::str::from_utf8(&source[next.byte_range()])
                             .ok()
@@ -879,7 +874,7 @@ impl Parser {
                     let name = child.child_by_field_name("name").and_then(|name_node| {
                         std::str::from_utf8(&source[name_node.byte_range()])
                             .ok()
-                            .map(|s| s.to_owned())
+                            .map(std::borrow::ToOwned::to_owned)
                     });
 
                     return Some(EnumInfo {
@@ -1000,7 +995,7 @@ impl Parser {
             let param_location = type_node
                 .map(|node| self.node_location(node))
                 .unwrap_or_default();
-            let type_info = TypeInfo::new(full_text, param_location);
+            let type_info = TypeInfo::new(&full_text, param_location);
 
             parameters.push(Parameter::Regular {
                 name: name.map(ToOwned::to_owned),
@@ -1128,7 +1123,7 @@ impl Parser {
         // Split into name and arguments
         let parts: Vec<&str> = args.splitn(2, ' ').collect();
         let name = parts[0].to_string();
-        let arguments = parts.get(1).map(|s| s.to_string());
+        let arguments = parts.get(1).map(std::string::ToString::to_string);
 
         PragmaKind::Other { name, arguments }
     }

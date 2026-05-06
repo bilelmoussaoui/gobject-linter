@@ -304,7 +304,7 @@ impl Parser {
                 let value = node.child_by_field_name("value").and_then(|value_node| {
                     std::str::from_utf8(&source[value_node.byte_range()])
                         .ok()
-                        .map(|s| s.to_owned())
+                        .map(std::borrow::ToOwned::to_owned)
                 });
 
                 Some(Statement::Preprocessor(

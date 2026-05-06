@@ -219,7 +219,7 @@ impl PropertySwitchExhaustiveness {
         class_init
             .body_statements
             .iter()
-            .flat_map(|s| s.iter_assignments())
+            .flat_map(gobject_ast::Statement::iter_assignments)
             .find_map(|assignment| {
                 if let Expression::FieldAccess(field_access) = &*assignment.lhs
                     && field_access.field == field_name

@@ -80,7 +80,7 @@ impl UseGAutoptrGotoCleanup {
         let local_vars: HashMap<String, (gobject_ast::TypeInfo, gobject_ast::SourceLocation)> =
             statements
                 .iter()
-                .flat_map(|s| s.iter_declarations())
+                .flat_map(gobject_ast::Statement::iter_declarations)
                 .filter(|d| {
                     !d.type_info.uses_auto_cleanup()
                         && d.type_info.is_pointer()

@@ -138,7 +138,7 @@ impl GObjectBackend {
     async fn lint_document(&self, uri: &Url) -> Result<()> {
         let path = uri
             .to_file_path()
-            .map_err(|_| tower_lsp::jsonrpc::Error::invalid_params("Invalid file path"))?;
+            .map_err(|()| tower_lsp::jsonrpc::Error::invalid_params("Invalid file path"))?;
 
         // Initialize workspace if not already done
         if self.workspace_root.lock().await.is_none() {
@@ -277,7 +277,7 @@ impl LanguageServer for GObjectBackend {
     async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
         let path = match params.text_document.uri.to_file_path() {
             Ok(p) => p,
-            Err(_) => return Ok(None),
+            Err(()) => return Ok(None),
         };
 
         let content = match std::fs::read(&path) {

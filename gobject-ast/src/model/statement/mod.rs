@@ -360,7 +360,7 @@ impl Statement {
 
     /// Check if this statement assigns NULL to the target variable
     pub fn is_null_assignment_to(&self, var_name: &str) -> bool {
-        self.is_assignment_to(var_name, |expr| expr.is_null())
+        self.is_assignment_to(var_name, super::expression::Expression::is_null)
     }
 
     /// Iterate over consecutive pairs of statements

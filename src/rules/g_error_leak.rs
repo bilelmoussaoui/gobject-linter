@@ -39,7 +39,10 @@ impl Rule for GErrorLeak {
                 // Check if it's a GError* variable initialized to NULL
                 if decl.type_info.is_base_type("GError")
                     && decl.type_info.is_pointer()
-                    && decl.initializer.as_ref().is_some_and(|init| init.is_null())
+                    && decl
+                        .initializer
+                        .as_ref()
+                        .is_some_and(gobject_ast::Expression::is_null)
                 {
                     gerror_vars.push((decl.name.clone(), decl.location));
                 }

@@ -117,7 +117,7 @@ impl Parser {
 
         // Fallback for ALL-CAPS names emitted as macro_modifier at the
         // declaration level.
-        if var_name.is_none_or(|n| n.is_empty())
+        if var_name.is_none_or(str::is_empty)
             && let Some(name) = macro_modifier_name
         {
             var_name = Some(name);
@@ -137,7 +137,7 @@ impl Parser {
         //
         // Distinguish the two by checking for an auto-cleanup macro in type_parts.
         if var_name.is_none() && declarator.kind() == "identifier" {
-            let tentative = TypeInfo::new(type_parts.join(" "), SourceLocation::default());
+            let tentative = TypeInfo::new(&type_parts.join(" "), SourceLocation::default());
             if tentative.auto_cleanup.is_some() {
                 // Pattern (b): move identifier into type so base_type is correct.
                 // Use an empty placeholder for the variable name since it is
@@ -168,7 +168,7 @@ impl Parser {
         } else {
             SourceLocation::default()
         };
-        let type_info = TypeInfo::new(full_text, type_location);
+        let type_info = TypeInfo::new(&full_text, type_location);
 
         Some(VariableDecl {
             type_info,

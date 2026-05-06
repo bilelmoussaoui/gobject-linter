@@ -4,6 +4,12 @@ resolver = "2"
 
 [workspace.lints.clippy]
 use_self = "warn"
+redundant_closure_for_method_calls = "warn"
+cloned_instead_of_copied = "warn"
+semicolon_if_nothing_returned = "warn"
+map_unwrap_or = "warn"
+ignored_unit_patterns = "warn"
+needless_pass_by_value = "warn"
 
 [package]
 name = "gobject-linter"

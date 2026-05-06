@@ -165,8 +165,7 @@ impl UseGObjectClassInstallProperties {
         let object_class_var = class_init
             .iter_local_declarations()
             .find(|decl| decl.type_info.base_type == "GObjectClass")
-            .map(|decl| decl.name.clone())
-            .unwrap_or_else(|| "object_class".to_string());
+            .map_or_else(|| "object_class".to_string(), |decl| decl.name.clone());
 
         // Get indentation for the install_properties call
         let indentation = if let Some(first_call) = install_calls.first() {
@@ -300,7 +299,7 @@ impl UseGObjectClassInstallProperties {
             if let Some(decl) = class_init
                 .body_statements
                 .iter()
-                .flat_map(|s| s.iter_declarations())
+                .flat_map(gobject_ast::Statement::iter_declarations)
                 .find(|decl| decl.name == var_name && decl.type_info.base_type == "GParamSpec")
             {
                 fixes.push(Fix::delete_line(&decl.location, source));

@@ -53,7 +53,7 @@ impl Rule for GParamSpecStaticStrings {
             .and_then(|v| v.as_array())
             .map(|arr| {
                 arr.iter()
-                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .filter_map(|v| v.as_str().map(std::string::ToString::to_string))
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
@@ -134,7 +134,7 @@ impl GParamSpecStaticStrings {
         let new_flags = self.build_fixed_flags(&property.flags, &needed);
         let needed_desc = needed
             .iter()
-            .map(|f| f.as_str())
+            .map(gobject_ast::ParamFlag::as_str)
             .collect::<Vec<_>>()
             .join(" | ");
 
@@ -206,7 +206,7 @@ impl GParamSpecStaticStrings {
         } else {
             new_flags
                 .iter()
-                .map(|f| f.as_str())
+                .map(gobject_ast::ParamFlag::as_str)
                 .collect::<Vec<_>>()
                 .join(" | ")
         }

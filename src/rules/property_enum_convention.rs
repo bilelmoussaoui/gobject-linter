@@ -76,10 +76,15 @@ impl PropertyEnumConvention {
                 .iter_property_enums()
                 .filter(|e| {
                     // Apply same checks as main loop to see if this enum will be transformed
-                    let has_prop_0 = e.values.first().map(|v| v.is_prop_0()).unwrap_or(false);
+                    let has_prop_0 = e
+                        .values
+                        .first()
+                        .is_some_and(gobject_ast::EnumValue::is_prop_0);
 
-                    let has_n_props_at_end =
-                        e.values.last().map(|v| v.is_prop_last()).unwrap_or(false);
+                    let has_n_props_at_end = e
+                        .values
+                        .last()
+                        .is_some_and(gobject_ast::EnumValue::is_prop_last);
 
                     let has_n_props_in_middle = e
                         .values
@@ -108,14 +113,12 @@ impl PropertyEnumConvention {
                 let has_prop_0 = enum_info
                     .values
                     .first()
-                    .map(|v| v.is_prop_0())
-                    .unwrap_or(false);
+                    .is_some_and(gobject_ast::EnumValue::is_prop_0);
 
                 let has_n_props = enum_info
                     .values
                     .last()
-                    .map(|v| v.is_prop_last())
-                    .unwrap_or(false);
+                    .is_some_and(gobject_ast::EnumValue::is_prop_last);
 
                 // Check if N_PROPS appears in the middle (not last) - this is the override
                 // properties pattern
@@ -188,8 +191,7 @@ impl PropertyEnumConvention {
                                     && !v.is_prop_last()
                                     && !property_map.get(&v.name).copied().unwrap_or(false)
                             })
-                            .map(|v| v.name.clone())
-                            .unwrap_or_else(|| second_to_last.name.clone())
+                            .map_or_else(|| second_to_last.name.clone(), |v| v.name.clone())
                     } else {
                         second_to_last.name.clone()
                     }
@@ -343,13 +345,11 @@ impl PropertyEnumConvention {
                 let has_prop_0 = enum_info
                     .values
                     .first()
-                    .map(|v| v.is_prop_0())
-                    .unwrap_or(false);
+                    .is_some_and(gobject_ast::EnumValue::is_prop_0);
                 let has_n_props = enum_info
                     .values
                     .last()
-                    .map(|v| v.is_prop_last())
-                    .unwrap_or(false);
+                    .is_some_and(gobject_ast::EnumValue::is_prop_last);
 
                 // Skip old-style enums (already handled above)
                 if has_prop_0 || has_n_props {
@@ -663,7 +663,7 @@ impl PropertyEnumConvention {
         for assignment in func
             .body_statements
             .iter()
-            .flat_map(|s| s.iter_assignments())
+            .flat_map(gobject_ast::Statement::iter_assignments)
         {
             if let gobject_ast::Expression::FieldAccess(field) = &*assignment.lhs
                 && let gobject_ast::Expression::Identifier(ident) = assignment.rhs.as_ref()

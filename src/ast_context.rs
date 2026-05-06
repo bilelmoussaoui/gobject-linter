@@ -40,7 +40,7 @@ impl AstContext {
             .git_exclude(true) // Respect .git/info/exclude
             .require_git(false) // Work in non-git directories too
             .build()
-            .filter_map(|e| e.ok())
+            .filter_map(std::result::Result::ok)
             .filter(|e| {
                 e.path()
                     .extension()

@@ -268,7 +268,7 @@ impl FunctionDefItem {
     {
         self.body_statements
             .iter()
-            .flat_map(|s| s.iter_calls())
+            .flat_map(super::statement::Statement::iter_calls)
             .filter(|call| call.function_name_str().is_some_and(&predicate))
             .collect()
     }
@@ -277,14 +277,14 @@ impl FunctionDefItem {
     pub fn iter_local_declarations(&self) -> impl Iterator<Item = &super::statement::VariableDecl> {
         self.body_statements
             .iter()
-            .flat_map(|s| s.iter_declarations())
+            .flat_map(super::statement::Statement::iter_declarations)
     }
 
     /// Collect all return values from the function body
     pub fn collect_return_values(&self) -> Vec<&super::expression::Expression> {
         self.body_statements
             .iter()
-            .flat_map(|s| s.iter_returns())
+            .flat_map(super::statement::Statement::iter_returns)
             .filter_map(|r| r.value.as_ref())
             .collect()
     }
@@ -366,7 +366,7 @@ impl FunctionDefItem {
     /// call Uses `call.is_allocation_call()` to detect allocations by
     /// default
     pub fn is_var_allocated(&self, type_info: &crate::TypeInfo) -> bool {
-        self.is_var_allocated_with(type_info, |call| call.is_allocation_call())
+        self.is_var_allocated_with(type_info, crate::CallExpression::is_allocation_call)
     }
 
     /// Check if any variable of the given type is allocated via a custom

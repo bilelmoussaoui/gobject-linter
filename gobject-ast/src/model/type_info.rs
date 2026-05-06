@@ -79,7 +79,7 @@ pub struct TypeInfo {
 }
 
 impl TypeInfo {
-    pub fn new(type_string: String, location: SourceLocation) -> Self {
+    pub fn new(type_string: &str, location: SourceLocation) -> Self {
         let trimmed = type_string.trim();
         let auto_cleanup = Self::parse_auto_cleanup(trimmed);
 
@@ -87,7 +87,7 @@ impl TypeInfo {
         let mut filtered_parts: Vec<&str> = Vec::new();
         let mut is_const = false;
 
-        let macro_name = auto_cleanup.as_ref().map(|a| a.name());
+        let macro_name = auto_cleanup.as_ref().map(AutoCleanupMacro::name);
         let mut is_volatile = false;
 
         for part in &parts {
@@ -291,31 +291,31 @@ mod tests {
 
     #[test]
     fn test_parse_type_info() {
-        let t = TypeInfo::new("g_autofree char *".into(), SourceLocation::default());
+        let t = TypeInfo::new("g_autofree char *", SourceLocation::default());
         assert_eq!(t.auto_cleanup, Some(AutoCleanupMacro::Autofree));
         assert_eq!(t.base_type, "char");
         assert_eq!(t.pointer_depth, 1);
 
         let t = TypeInfo::new(
-            "g_autofree FuZipFirmwareWriteItem *".into(),
+            "g_autofree FuZipFirmwareWriteItem *",
             SourceLocation::default(),
         );
         assert_eq!(t.auto_cleanup, Some(AutoCleanupMacro::Autofree));
         assert_eq!(t.base_type, "FuZipFirmwareWriteItem");
 
-        let t = TypeInfo::new("const g_autofree char *".into(), SourceLocation::default());
+        let t = TypeInfo::new("const g_autofree char *", SourceLocation::default());
         assert_eq!(t.auto_cleanup, Some(AutoCleanupMacro::Autofree));
         assert!(t.is_const);
         assert_eq!(t.base_type, "char");
 
-        let t = TypeInfo::new("g_autoptr(GFile)".into(), SourceLocation::default());
+        let t = TypeInfo::new("g_autoptr(GFile)", SourceLocation::default());
         assert_eq!(
             t.auto_cleanup,
             Some(AutoCleanupMacro::Autoptr("GFile".into()))
         );
         assert_eq!(t.base_type, "GFile");
 
-        let t = TypeInfo::new("g_autoptr (GFile)".into(), SourceLocation::default());
+        let t = TypeInfo::new("g_autoptr (GFile)", SourceLocation::default());
         assert_eq!(
             t.auto_cleanup,
             Some(AutoCleanupMacro::Autoptr("GFile".into()))
@@ -323,7 +323,7 @@ mod tests {
         assert_eq!(t.base_type, "GFile");
 
         let t = TypeInfo::new(
-            "g_autoptr (GdmConfigCommandHandler)".into(),
+            "g_autoptr (GdmConfigCommandHandler)",
             SourceLocation::default(),
         );
         assert_eq!(
@@ -332,63 +332,63 @@ mod tests {
         );
         assert_eq!(t.base_type, "GdmConfigCommandHandler");
 
-        let t = TypeInfo::new("g_auto(GString)".into(), SourceLocation::default());
+        let t = TypeInfo::new("g_auto(GString)", SourceLocation::default());
         assert_eq!(
             t.auto_cleanup,
             Some(AutoCleanupMacro::Auto("GString".into()))
         );
         assert_eq!(t.base_type, "GString");
 
-        let t = TypeInfo::new("g_auto (GString)".into(), SourceLocation::default());
+        let t = TypeInfo::new("g_auto (GString)", SourceLocation::default());
         assert_eq!(
             t.auto_cleanup,
             Some(AutoCleanupMacro::Auto("GString".into()))
         );
         assert_eq!(t.base_type, "GString");
 
-        let t = TypeInfo::new("g_autolist(GFile)".into(), SourceLocation::default());
+        let t = TypeInfo::new("g_autolist(GFile)", SourceLocation::default());
         assert_eq!(
             t.auto_cleanup,
             Some(AutoCleanupMacro::Autolist("GFile".into()))
         );
         assert_eq!(t.base_type, "GFile");
 
-        let t = TypeInfo::new("g_autolist (GFile)".into(), SourceLocation::default());
+        let t = TypeInfo::new("g_autolist (GFile)", SourceLocation::default());
         assert_eq!(
             t.auto_cleanup,
             Some(AutoCleanupMacro::Autolist("GFile".into()))
         );
         assert_eq!(t.base_type, "GFile");
 
-        let t = TypeInfo::new("g_autoslist(GFile)".into(), SourceLocation::default());
+        let t = TypeInfo::new("g_autoslist(GFile)", SourceLocation::default());
         assert_eq!(
             t.auto_cleanup,
             Some(AutoCleanupMacro::Autoslist("GFile".into()))
         );
         assert_eq!(t.base_type, "GFile");
 
-        let t = TypeInfo::new("g_autoslist (GFile)".into(), SourceLocation::default());
+        let t = TypeInfo::new("g_autoslist (GFile)", SourceLocation::default());
         assert_eq!(
             t.auto_cleanup,
             Some(AutoCleanupMacro::Autoslist("GFile".into()))
         );
         assert_eq!(t.base_type, "GFile");
 
-        let t = TypeInfo::new("g_autoqueue(GFile)".into(), SourceLocation::default());
+        let t = TypeInfo::new("g_autoqueue(GFile)", SourceLocation::default());
         assert_eq!(
             t.auto_cleanup,
             Some(AutoCleanupMacro::Autoqueue("GFile".into()))
         );
         assert_eq!(t.base_type, "GFile");
 
-        let t = TypeInfo::new("g_autoqueue (GFile)".into(), SourceLocation::default());
+        let t = TypeInfo::new("g_autoqueue (GFile)", SourceLocation::default());
         assert_eq!(
             t.auto_cleanup,
             Some(AutoCleanupMacro::Autoqueue("GFile".into()))
         );
         assert_eq!(t.base_type, "GFile");
 
-        let t = TypeInfo::new("char *".into(), SourceLocation::default());
+        let t = TypeInfo::new("char *", SourceLocation::default());
         assert_eq!(t.auto_cleanup, None);
         assert_eq!(t.base_type, "char");
         assert_eq!(t.pointer_depth, 1);

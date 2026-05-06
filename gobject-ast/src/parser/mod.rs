@@ -89,7 +89,7 @@ impl Parser {
             .git_exclude(true)
             .require_git(false)
             .build()
-            .filter_map(|e| e.ok())
+            .filter_map(std::result::Result::ok)
             .filter(|e| {
                 e.path()
                     .extension()

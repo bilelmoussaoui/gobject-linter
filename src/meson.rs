@@ -205,7 +205,7 @@ pub fn find_build_dir(project_root: &Path, config_build_dir: Option<&str>) -> Op
 
     // 3. Search for any directory containing meson-info/
     if let Ok(entries) = std::fs::read_dir(project_root) {
-        for entry in entries.filter_map(|e| e.ok()) {
+        for entry in entries.filter_map(std::result::Result::ok) {
             let path = entry.path();
             if path.is_dir() && is_build_dir(&path) {
                 return Some(path);

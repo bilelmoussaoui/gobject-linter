@@ -242,8 +242,7 @@ impl InconsistentFunctionSignature {
                         let param_id = dn
                             .as_deref()
                             .or(fn_.as_deref())
-                            .map(|n| format!("'{n}'"))
-                            .unwrap_or_else(|| format!("{}", i + 1));
+                            .map_or_else(|| format!("{}", i + 1), |n| format!("'{n}'"));
                         violations.push(self.violation(
                             path,
                             line,

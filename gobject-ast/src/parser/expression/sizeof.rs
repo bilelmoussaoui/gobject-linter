@@ -25,9 +25,7 @@ impl Parser {
 
                 // tree-sitter gives us type_descriptor for explicit type contexts
                 "type_descriptor" => {
-                    let type_text = std::str::from_utf8(&source[child.byte_range()])
-                        .ok()?
-                        .to_owned();
+                    let type_text = std::str::from_utf8(&source[child.byte_range()]).ok()?;
                     let type_info = crate::TypeInfo::new(type_text, self.node_location(child));
                     operand = Some(SizeofOperand::Type(type_info));
                 }
