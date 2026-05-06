@@ -289,17 +289,13 @@ impl Parser {
                     return Some(struct_item);
                 }
 
-                // Check if this is a function declaration.
-                // Skip declarations that contain parse errors — they may have
-                // garbage return types produced by unrecognised syntax (e.g.
-                // Objective-C @interface/@end blocks in mixed-language headers).
-                if node.has_error() {
-                    return None;
-                }
-
                 let func_declarator = self.find_function_declarator_in_node(node);
 
                 if let Some(func_decl) = func_declarator {
+                    // Skip function declarations that contain parse errors
+                    if node.has_error() {
+                        return None;
+                    }
                     // Extract function name
                     if let Some(name) = self.extract_declarator_name(func_decl, source) {
                         tracing::debug!("Found function declarator with name: {}", name);

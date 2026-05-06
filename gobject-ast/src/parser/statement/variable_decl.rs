@@ -13,6 +13,11 @@ impl Parser {
         let mut first_type_node: Option<Node> = None;
         let mut last_type_node: Option<Node> = None;
         let mut is_static = false;
+        // tree-sitter-c parses ALL-CAPS identifiers (e.g. `MY_ARRAY`) as a
+        // `macro_modifier` sibling of the declarator rather than as an
+        // identifier inside the array_declarator. Capture it as a fallback.
+        let mut macro_modifier_name: Option<&str> = None;
+        let mut macro_modifier_location = SourceLocation::default();
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
@@ -47,6 +52,12 @@ impl Parser {
                         first_type_node = Some(child);
                     }
                     last_type_node = Some(child);
+                }
+                "macro_modifier" => {
+                    if let Ok(text) = std::str::from_utf8(&source[child.byte_range()]) {
+                        macro_modifier_name = Some(text);
+                        macro_modifier_location = self.node_location(child);
+                    }
                 }
                 // Declarations with initializer: int x = 5;
                 "init_declarator" => {
@@ -102,6 +113,15 @@ impl Parser {
                     initializer = self.parse_expression(child, source);
                 }
             }
+        }
+
+        // Fallback for ALL-CAPS names emitted as macro_modifier at the
+        // declaration level.
+        if var_name.is_none_or(|n| n.is_empty())
+            && let Some(name) = macro_modifier_name
+        {
+            var_name = Some(name);
+            var_name_location = macro_modifier_location;
         }
 
         // When the declarator is a bare identifier leaf its .children() is
