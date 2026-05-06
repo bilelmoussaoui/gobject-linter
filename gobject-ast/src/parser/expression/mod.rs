@@ -218,6 +218,16 @@ impl Parser {
                 // Skip parse errors gracefully
                 None
             }
+            "generic_expression" => {
+                // store as raw text, no rule needs to inspect it
+                let text = std::str::from_utf8(&source[node.byte_range()])
+                    .ok()?
+                    .to_owned();
+                Some(Expression::Generic(GenericExpression {
+                    text,
+                    location: self.node_location(node),
+                }))
+            }
             _ => {
                 // Unknown expression type - fail loudly so we implement it immediately
                 todo!(
