@@ -7,7 +7,12 @@ use crate::{
     rules::Violation,
 };
 
-pub fn report_violations(violations: &[Violation], verbose: bool, config: &Config, duration: Duration) {
+pub fn report_violations(
+    violations: &[Violation],
+    verbose: bool,
+    config: &Config,
+    duration: Duration,
+) {
     // Check if we're outputting to a terminal
     let use_hyperlinks = std::io::stdout().is_terminal();
 
@@ -133,18 +138,42 @@ pub fn report_summary(
 
     let top = format!(
         "┌{:─<cw$}┬{:─<rw$}┬{:─<lw$}┬{:─<fw$}┬{:─<tw$}┐",
-        "", "", "", "", "",
-        cw = count_w + 2, rw = rule_w + 2, lw = level_w + 2, fw = fix_w + 2, tw = time_w + 2,
+        "",
+        "",
+        "",
+        "",
+        "",
+        cw = count_w + 2,
+        rw = rule_w + 2,
+        lw = level_w + 2,
+        fw = fix_w + 2,
+        tw = time_w + 2,
     );
     let sep = format!(
         "├{:─<cw$}┼{:─<rw$}┼{:─<lw$}┼{:─<fw$}┼{:─<tw$}┤",
-        "", "", "", "", "",
-        cw = count_w + 2, rw = rule_w + 2, lw = level_w + 2, fw = fix_w + 2, tw = time_w + 2,
+        "",
+        "",
+        "",
+        "",
+        "",
+        cw = count_w + 2,
+        rw = rule_w + 2,
+        lw = level_w + 2,
+        fw = fix_w + 2,
+        tw = time_w + 2,
     );
     let bot = format!(
         "└{:─<cw$}┴{:─<rw$}┴{:─<lw$}┴{:─<fw$}┴{:─<tw$}┘",
-        "", "", "", "", "",
-        cw = count_w + 2, rw = rule_w + 2, lw = level_w + 2, fw = fix_w + 2, tw = time_w + 2,
+        "",
+        "",
+        "",
+        "",
+        "",
+        cw = count_w + 2,
+        rw = rule_w + 2,
+        lw = level_w + 2,
+        fw = fix_w + 2,
+        tw = time_w + 2,
     );
 
     println!("{}", top);
@@ -155,7 +184,11 @@ pub fn report_summary(
         "Level".bold(),
         "Autofix".bold(),
         "Time".bold(),
-        cw = count_w, rw = rule_w, lw = level_w, fw = fix_w, tw = time_w,
+        cw = count_w,
+        rw = rule_w,
+        lw = level_w,
+        fw = fix_w,
+        tw = time_w,
     );
     println!("{}", sep);
 
@@ -184,11 +217,16 @@ pub fn report_summary(
 
         println!(
             "│ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │",
-            count_str, " ".repeat(count_pad),
-            rule_str, " ".repeat(rule_pad),
-            level_str, " ".repeat(level_pad),
-            fix_str, " ".repeat(fix_pad),
-            time_colored, " ".repeat(time_pad),
+            count_str,
+            " ".repeat(count_pad),
+            rule_str,
+            " ".repeat(rule_pad),
+            level_str,
+            " ".repeat(level_pad),
+            fix_str,
+            " ".repeat(fix_pad),
+            time_colored,
+            " ".repeat(time_pad),
         );
     }
 

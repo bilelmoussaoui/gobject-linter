@@ -170,9 +170,7 @@ impl UseGSourceOnce {
                 return None;
             }
 
-            if let Some(fix) =
-                self.fix_definition_return_type(target_file, func, ast_context)
-            {
+            if let Some(fix) = self.fix_definition_return_type(target_file, func, ast_context) {
                 fixes.push(fix);
             }
 
@@ -188,9 +186,7 @@ impl UseGSourceOnce {
             if func.name != callback_name {
                 continue;
             }
-            if let Some(fix) =
-                self.fix_declaration_return_type(target_file, func, ast_context)
-            {
+            if let Some(fix) = self.fix_declaration_return_type(target_file, func, ast_context) {
                 fixes.push(fix);
             }
         }

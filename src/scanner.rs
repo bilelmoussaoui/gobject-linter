@@ -17,6 +17,8 @@ use crate::{
     rules::{ConfigOption, *},
 };
 
+pub type ScanResult = Result<(Vec<Violation>, Vec<(&'static str, std::time::Duration)>)>;
+
 /// Extract a source snippet from a file at the given line with context
 fn get_source_snippet(file_path: &Path, line: usize) -> Option<String> {
     let content = fs::read_to_string(file_path).ok()?;
@@ -299,7 +301,8 @@ pub fn scan_with_ast(
     config: &Config,
     project_root: &Path,
     spinner: Option<&ProgressBar>,
-) -> Result<(Vec<Violation>, Vec<(&'static str, std::time::Duration)>)> {
+    generate_snippets: bool,
+) -> ScanResult {
     let mut violations = Vec::new();
 
     // Parse inline ignore directives from all files
@@ -349,7 +352,9 @@ pub fn scan_with_ast(
                 v.level = entry.level;
             }
 
-            populate_snippets(&mut rule_violations, 0);
+            if generate_snippets {
+                populate_snippets(&mut rule_violations, 0);
+            }
             let filter_result = filter_violations_in_place(
                 &mut rule_violations,
                 0,

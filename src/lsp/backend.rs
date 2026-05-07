@@ -171,7 +171,7 @@ impl GObjectBackend {
         // Run scanner with locked AST context
         let ast_context_guard = self.ast_context.lock().await;
         let violations = match ast_context_guard.as_ref() {
-            Some(ctx) => match scanner::scan_with_ast(ctx, &config, &workspace_root, None) {
+            Some(ctx) => match scanner::scan_with_ast(ctx, &config, &workspace_root, None, false) {
                 Ok((v, _)) => v,
                 Err(e) => {
                     self.client

@@ -228,8 +228,13 @@ fn main() -> Result<()> {
 
     // Run AST-based rules
     let scan_start = std::time::Instant::now();
-    let (mut violations, rule_timings) =
-        scanner::scan_with_ast(&ast_context, &config, &project_root, spinner.as_ref())?;
+    let (mut violations, rule_timings) = scanner::scan_with_ast(
+        &ast_context,
+        &config,
+        &project_root,
+        spinner.as_ref(),
+        !args.summary && !args.fix,
+    )?;
     let scan_duration = scan_start.elapsed();
     let analysis_duration = parse_duration + scan_duration;
 

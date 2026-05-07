@@ -26,7 +26,7 @@ fn test_inline_ignore() {
         .unwrap();
 
     let (violations, _) =
-        scanner::scan_with_ast(&ctx, &config, temp_dir.path(), None).expect("failed to scan");
+        scanner::scan_with_ast(&ctx, &config, temp_dir.path(), None, true).expect("failed to scan");
 
     // Note: This test will also print a warning to stderr about "some_other_rule"
     // being invalid (which is expected behavior - we validate rule names in
@@ -111,7 +111,7 @@ fn test_inline_ignore_wildcards() {
         .unwrap();
 
     let (violations, _) =
-        scanner::scan_with_ast(&ctx, &config, temp_dir.path(), None).expect("failed to scan");
+        scanner::scan_with_ast(&ctx, &config, temp_dir.path(), None, true).expect("failed to scan");
 
     // Both strcpy calls should be ignored by wildcards (all and *)
     assert_eq!(
@@ -154,7 +154,7 @@ void test(void) {
     // Note: This will print a warning to stderr about "invalid_rule_name"
     // We can't easily capture stderr in tests, but the warning is printed
     let (violations, _) =
-        scanner::scan_with_ast(&ctx, &config, temp_dir.path(), None).expect("failed to scan");
+        scanner::scan_with_ast(&ctx, &config, temp_dir.path(), None, true).expect("failed to scan");
 
     // The violation should NOT be suppressed because the rule name doesn't match
     // (we warn about the invalid name, but don't suppress the actual violation)
