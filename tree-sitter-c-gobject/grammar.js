@@ -18,6 +18,7 @@ module.exports = grammar(C, {
     $._gobject_end_decls,             // G_END_DECLS
     $._macro_modifier_name,           // any other ALL_CAPS identifier (CLUTTER_EXPORT etc.)
     $.gobject_export_macro,           // ALL_CAPS macro immediately preceding G_DECLARE_*/G_DEFINE_*
+    $._gobject_ignore_macro,          // G_GNUC_BEGIN_IGNORE_DEPRECATIONS etc.
   ],
 
   conflicts: ($, original) => [
@@ -59,6 +60,7 @@ module.exports = grammar(C, {
       $.gobject_type_macro,
       $.gobject_decls_block,
       $.gobject_macro_statement,
+      $._gobject_ignore_macro,
       original,
     ),
 
@@ -66,6 +68,7 @@ module.exports = grammar(C, {
       $.gobject_type_macro,
       $.gobject_decls_block,
       $.gobject_macro_statement,
+      $._gobject_ignore_macro,
       original,
     ),
 

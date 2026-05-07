@@ -8,6 +8,7 @@ typedef enum {
     GOBJECT_END_DECLS,             /* G_END_DECLS                                */
     MACRO_MODIFIER_NAME,           /* any other ALL_CAPS ident                  */
     GOBJECT_EXPORT_MACRO,          /* ALL_CAPS ident immediately before G_DECLARE_* or G_DEFINE_* */
+    GOBJECT_IGNORE_MACRO,          /* G_GNUC_BEGIN_IGNORE_DEPRECATIONS etc.     */
 } TokenType;
 
 void *tree_sitter_c_gobject_external_scanner_create(void) { return NULL; }
@@ -161,6 +162,17 @@ bool tree_sitter_c_gobject_external_scanner_scan(
 
     if (valid_symbols[GOBJECT_END_DECLS] && strcmp(buf, "G_END_DECLS") == 0) {
         lexer->result_symbol = GOBJECT_END_DECLS;
+        return true;
+    }
+
+    /* G_GNUC_BEGIN_IGNORE_DEPRECATIONS / G_GNUC_END_IGNORE_DEPRECATIONS —
+     * standalone macros that expand to _Pragma directives.  They appear
+     * without a semicolon inside function bodies and at top-level.
+     * Emit them as a zero-width ignored token so the parser skips them. */
+    if (valid_symbols[GOBJECT_IGNORE_MACRO] &&
+        (strcmp(buf, "G_GNUC_BEGIN_IGNORE_DEPRECATIONS") == 0 ||
+         strcmp(buf, "G_GNUC_END_IGNORE_DEPRECATIONS") == 0)) {
+        lexer->result_symbol = GOBJECT_IGNORE_MACRO;
         return true;
     }
 

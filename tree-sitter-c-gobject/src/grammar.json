@@ -27,6 +27,10 @@
           "name": "gobject_macro_statement"
         },
         {
+          "type": "SYMBOL",
+          "name": "_gobject_ignore_macro"
+        },
+        {
           "type": "CHOICE",
           "members": [
             {
@@ -108,6 +112,10 @@
         {
           "type": "SYMBOL",
           "name": "gobject_macro_statement"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_gobject_ignore_macro"
         },
         {
           "type": "CHOICE",
@@ -9966,6 +9974,10 @@
     {
       "type": "SYMBOL",
       "name": "gobject_export_macro"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_gobject_ignore_macro"
     }
   ],
   "inline": [
