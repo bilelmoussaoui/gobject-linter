@@ -86,12 +86,11 @@ impl GObjectVirtualMethodsChainUp {
         for stmt in statements {
             let mut found = false;
             stmt.walk(&mut |s| {
-                // Check expressions for field access like parent_class->dispose
-                for expr in s.expressions() {
+                s.visit_expressions(&mut |expr| {
                     if self.check_expression_for_chainup(expr, method_type) {
                         found = true;
                     }
-                }
+                });
             });
             if found {
                 return true;

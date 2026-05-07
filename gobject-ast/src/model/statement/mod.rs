@@ -146,58 +146,61 @@ impl Statement {
         }
     }
 
-    /// Get all direct expressions contained in this statement (non-recursive).
-    /// Includes conditions, initialisers, and all other expressions that are
-    /// immediate children of this statement node.
-    pub fn expressions(&self) -> Vec<&Expression> {
+    /// Visit all direct expressions contained in this statement
+    /// (non-recursive). Includes conditions, initialisers, and all other
+    /// expressions that are immediate children of this statement node.
+    /// Zero-allocation alternative to collecting into a Vec.
+    pub fn visit_expressions<'s>(&'s self, f: &mut impl FnMut(&'s Expression)) {
         match self {
-            Self::Expression(expr_stmt) => vec![expr_stmt],
-            Self::Return(ret) => ret.value.as_ref().into_iter().collect(),
-            Self::Declaration(decl) => {
-                let mut exprs: Vec<&Expression> = decl.initializer.as_ref().into_iter().collect();
-                if let Some(size) = &decl.array_size {
-                    exprs.push(size);
+            Self::Expression(expr_stmt) => f(expr_stmt),
+            Self::Return(ret) => {
+                if let Some(v) = &ret.value {
+                    f(v);
                 }
-                exprs
             }
-            Self::If(if_stmt) => vec![&if_stmt.condition],
+            Self::Declaration(decl) => {
+                if let Some(init) = &decl.initializer {
+                    f(init);
+                }
+                if let Some(size) = &decl.array_size {
+                    f(size);
+                }
+            }
+            Self::If(if_stmt) => f(&if_stmt.condition),
             Self::Switch(switch) => {
-                let mut exprs = vec![&switch.condition];
+                f(&switch.condition);
                 for case in &switch.cases {
                     if let Some(label_expr) = &case.label.value {
-                        exprs.push(label_expr);
+                        f(label_expr);
                     }
                 }
-                exprs
             }
             Self::For(for_stmt) => {
-                let mut exprs = Vec::new();
                 match &for_stmt.initializer {
-                    Some(ForInit::Expr(init)) => exprs.push(&**init),
+                    Some(ForInit::Expr(init)) => f(init),
                     Some(ForInit::Decl(decl)) => {
                         if let Some(init) = &decl.initializer {
-                            exprs.push(init);
+                            f(init);
                         }
                     }
                     None => {}
                 }
                 if let Some(cond) = &for_stmt.condition {
-                    exprs.push(&**cond);
+                    f(cond);
                 }
                 if let Some(update) = &for_stmt.update {
-                    exprs.push(&**update);
+                    f(update);
                 }
-                exprs
             }
-            Self::While(while_stmt) => vec![&*while_stmt.condition],
-            Self::DoWhile(do_while) => vec![&*do_while.condition],
+            Self::While(while_stmt) => f(&while_stmt.condition),
+            Self::DoWhile(do_while) => f(&do_while.condition),
             Self::Goto(_)
             | Self::Labeled(_)
             | Self::Compound(_)
             | Self::Break(_)
             | Self::Continue(_)
             | Self::Preprocessor(_)
-            | Self::Comment(_) => vec![],
+            | Self::Comment(_) => {}
         }
     }
 
@@ -229,9 +232,7 @@ impl Statement {
         F: FnMut(&'s Expression),
     {
         self.walk(&mut |s| {
-            for expr in s.expressions() {
-                f(expr);
-            }
+            s.visit_expressions(f);
         });
     }
 

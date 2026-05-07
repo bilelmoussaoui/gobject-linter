@@ -401,11 +401,22 @@ impl FunctionDefItem {
     where
         F: Fn(&str) -> bool,
     {
-        self.body_statements
-            .iter()
-            .flat_map(Statement::iter_calls)
-            .filter(|call| call.function_name_str().is_some_and(&predicate))
-            .collect()
+        let mut exprs: Vec<&Expression> = Vec::new();
+        for stmt in &self.body_statements {
+            stmt.walk_expressions(&mut |expr| exprs.push(expr));
+        }
+
+        let mut results = Vec::new();
+        for expr in exprs {
+            expr.walk(&mut |e| {
+                if let Expression::Call(call) = e
+                    && call.function_name_str().is_some_and(&predicate)
+                {
+                    results.push(call);
+                }
+            });
+        }
+        results
     }
 
     /// Extract signal registrations from the function body.

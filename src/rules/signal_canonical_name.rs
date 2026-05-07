@@ -33,37 +33,33 @@ impl Rule for SignalCanonicalName {
         path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
-        for stmt in &func.body_statements {
-            for call in stmt.iter_calls() {
-                let func_name = call.function_name();
-                match func_name.as_str() {
-                    // Signal creation/lookup functions - signal name is first argument
-                    "g_signal_new"
-                    | "g_signal_newv"
-                    | "g_signal_new_valist"
-                    | "g_signal_new_class_handler"
-                    | "g_signal_lookup" => {
-                        if let Some(Argument::Expression(arg_expr)) = call.arguments.first() {
-                            self.check_signal_name_arg(arg_expr, path, violations);
-                        }
-                    }
-                    // Signal connection functions - signal name is second argument
-                    "g_signal_connect"
-                    | "g_signal_connect_after"
-                    | "g_signal_connect_swapped"
-                    | "g_signal_connect_data"
-                    | "g_signal_connect_object"
-                    | "g_signal_emit_by_name"
-                    | "g_signal_group_connect"
-                    | "g_signal_group_connect_after"
-                    | "g_signal_group_connect_swapped"
-                    | "g_signal_group_connect_object" => {
-                        if let Some(Argument::Expression(arg_expr)) = call.arguments.get(1) {
-                            self.check_signal_name_arg(arg_expr, path, violations);
-                        }
-                    }
-                    _ => {}
-                }
+        const NAME_ARG_FIRST: &[&str] = &[
+            "g_signal_new",
+            "g_signal_newv",
+            "g_signal_new_valist",
+            "g_signal_new_class_handler",
+            "g_signal_lookup",
+        ];
+        const NAME_ARG_SECOND: &[&str] = &[
+            "g_signal_connect",
+            "g_signal_connect_after",
+            "g_signal_connect_swapped",
+            "g_signal_connect_data",
+            "g_signal_connect_object",
+            "g_signal_emit_by_name",
+            "g_signal_group_connect",
+            "g_signal_group_connect_after",
+            "g_signal_group_connect_swapped",
+            "g_signal_group_connect_object",
+        ];
+
+        for call in func.find_calls_matching(|name| {
+            NAME_ARG_FIRST.contains(&name) || NAME_ARG_SECOND.contains(&name)
+        }) {
+            let name = call.function_name_str().unwrap();
+            let arg_index = if NAME_ARG_FIRST.contains(&name) { 0 } else { 1 };
+            if let Some(Argument::Expression(arg_expr)) = call.arguments.get(arg_index) {
+                self.check_signal_name_arg(arg_expr, path, violations);
             }
         }
     }

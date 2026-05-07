@@ -34,12 +34,10 @@ impl Rule for UseGStrHasPrefixSuffix {
         violations: &mut Vec<Violation>,
     ) {
         for stmt in &func.body_statements {
-            stmt.walk(&mut |s| {
-                for expr in s.expressions() {
-                    expr.walk(&mut |e| {
-                        self.check_expression(e, path, violations);
-                    });
-                }
+            stmt.walk_expressions(&mut |expr| {
+                expr.walk(&mut |e| {
+                    self.check_expression(e, path, violations);
+                });
             });
         }
     }

@@ -266,12 +266,12 @@ impl UseGSourceOnce {
         for stmt in statements {
             let mut found = false;
             stmt.walk(&mut |s| {
-                if !self.is_source_add_statement(s, callback_name)
-                    && s.expressions()
-                        .iter()
-                        .any(|e| e.contains_identifier(callback_name))
-                {
-                    found = true;
+                if !self.is_source_add_statement(s, callback_name) {
+                    s.visit_expressions(&mut |e| {
+                        if e.contains_identifier(callback_name) {
+                            found = true;
+                        }
+                    });
                 }
             });
             if found {
