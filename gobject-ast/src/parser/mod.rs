@@ -3,7 +3,10 @@ mod gobject;
 mod statement;
 mod top_level;
 
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{Context, Result};
 use ignore::WalkBuilder;
@@ -96,19 +99,21 @@ impl Parser {
                     .is_some_and(|ext| ext == "h" || ext == "c")
             })
         {
-            self.parse_single_file(entry.path(), &mut project)?;
+            let (file_path, model) = self.parse_file_to_model(entry.path())?;
+            project.files.insert(file_path, model);
         }
 
         Ok(project)
     }
 
     pub fn parse_file(&mut self, path: &Path) -> Result<Project> {
+        let (path, model) = self.parse_file_to_model(path)?;
         let mut project = Project::new();
-        self.parse_single_file(path, &mut project)?;
+        project.files.insert(path, model);
         Ok(project)
     }
 
-    fn parse_single_file(&mut self, path: &Path, project: &mut Project) -> Result<()> {
+    pub fn parse_file_to_model(&mut self, path: &Path) -> Result<(PathBuf, FileModel)> {
         let _file_span = tracing::warn_span!("file", path = %path.display()).entered();
         self.current_file = Some(path.to_path_buf());
         let source = fs::read(path)?;
@@ -119,16 +124,12 @@ impl Parser {
 
         let mut file_model = FileModel::new(path.to_path_buf());
 
-        // Extract all content from this file
         self.visit_node(tree.root_node(), &source, &mut file_model);
 
-        // Store the source for detailed pattern matching by rules
         file_model.source = source;
-
         file_model.resolve_gobject_types();
 
-        project.files.insert(path.to_path_buf(), file_model);
-        Ok(())
+        Ok((path.to_path_buf(), file_model))
     }
 
     fn find_export_macros_in_declaration<'a>(
