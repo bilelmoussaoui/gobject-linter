@@ -178,7 +178,7 @@ impl UseGObjectClassInstallProperties {
         let object_class_var = class_init
             .iter_local_declarations()
             .find(|decl| decl.type_info.base_type == "GObjectClass")
-            .map_or_else(|| "object_class".to_string(), |decl| decl.name.clone());
+            .map_or("object_class", |decl| decl.name.as_str());
 
         // Get indentation for the install_properties call
         let indentation = if let Some(first_call) = install_calls.first() {

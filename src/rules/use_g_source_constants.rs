@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use gobject_ast::{Expression, Statement};
 
 use crate::{
@@ -31,12 +33,10 @@ impl Rule for UseGSourceConstants {
         _config: &Config,
         violations: &mut Vec<Violation>,
     ) {
-        // Collect all callbacks passed to g_idle_add/g_timeout_add
-        let mut callbacks_to_check: Vec<String> = Vec::new();
+        let mut callbacks: HashSet<String> = HashSet::new();
 
         for (_path, file) in ast_context.iter_c_files() {
             for func in file.iter_function_definitions() {
-                // Find all source add calls (exclude _once variants as they return void)
                 for call in func.find_calls(&[
                     "g_idle_add",
                     "g_idle_add_full",
@@ -45,16 +45,23 @@ impl Rule for UseGSourceConstants {
                     "g_timeout_add_full",
                     "g_timeout_add_seconds_full",
                 ]) {
-                    if let Some(callback_name) = self.extract_callback_name(call, &file.source) {
-                        callbacks_to_check.push(callback_name);
+                    if let Some(name) = self.extract_callback_name(call, &file.source) {
+                        callbacks.insert(name);
                     }
                 }
             }
         }
 
-        // Check each callback function for TRUE/FALSE returns
-        for callback_name in callbacks_to_check {
-            self.check_callback_returns(ast_context, &callback_name, violations);
+        if callbacks.is_empty() {
+            return;
+        }
+
+        for (path, file) in ast_context.iter_c_files() {
+            for func in file.iter_function_definitions() {
+                if callbacks.contains(&func.name) {
+                    self.check_statements(path, &func.body_statements, &file.source, violations);
+                }
+            }
         }
     }
 }
@@ -85,22 +92,6 @@ impl UseGSourceConstants {
             Some(id.name.clone())
         } else {
             None
-        }
-    }
-
-    fn check_callback_returns(
-        &self,
-        ast_context: &AstContext,
-        callback_name: &str,
-        violations: &mut Vec<Violation>,
-    ) {
-        // Find the function definition
-        for (path, file) in ast_context.iter_all_files() {
-            for func in file.iter_function_definitions() {
-                if func.name == callback_name {
-                    self.check_statements(path, &func.body_statements, &file.source, violations);
-                }
-            }
         }
     }
 

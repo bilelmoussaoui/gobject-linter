@@ -95,10 +95,10 @@ fn filter_violations_in_place(
     Ok(())
 }
 
-pub struct RuleEntry {
+pub struct RuleEntry<'a> {
     pub rule: Box<dyn Rule>,
     pub level: RuleLevel,
-    pub rule_config: RuleConfig,
+    pub rule_config: &'a RuleConfig,
     pub min_glib_version: (u32, u32),
     pub requires_auto_cleanup: bool,
     /// Rule is disabled by default; user must explicitly enable it in config or
@@ -184,7 +184,7 @@ macro_rules! for_each_rule {
 macro_rules! impl_create_all_rules {
     ($(($config_field:ident, $rule_type:ident, $major:literal, $minor:literal, $requires_auto_cleanup:literal, $opt_in:literal)),* $(,)?) => {
         /// Create all rule instances in execution order
-        pub fn create_all_rules(config: &Config) -> Vec<RuleEntry> {
+        pub fn create_all_rules<'a>(config: &'a Config) -> Vec<RuleEntry<'a>> {
             vec![
                 $(
                     RuleEntry {
@@ -200,7 +200,7 @@ macro_rules! impl_create_all_rules {
                         } else {
                             RuleLevel::Ignore
                         },
-                        rule_config: config.rules.$config_field.clone(),
+                        rule_config: &config.rules.$config_field,
                         min_glib_version: ($major, $minor),
                         requires_auto_cleanup: $requires_auto_cleanup,
                         opt_in: $opt_in,
@@ -254,7 +254,7 @@ fn validate_inline_ignores(
         &Path,
         std::collections::HashMap<usize, Vec<String>>,
     >,
-    rules: &[RuleEntry],
+    rules: &[RuleEntry<'_>],
     project_root: &Path,
 ) -> Vec<String> {
     let mut warnings = Vec::new();
@@ -354,7 +354,7 @@ pub fn scan_with_ast(
                 0,
                 project_root,
                 config,
-                &entry.rule_config,
+                entry.rule_config,
             )?;
 
             Ok(rule_violations)

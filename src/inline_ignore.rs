@@ -78,15 +78,11 @@ pub fn should_ignore_violation(
 ) -> bool {
     if let Some(file_ignores) = ignore_map.get(file_path)
         && let Some(ignored_rules) = file_ignores.get(&line)
+        && ignored_rules
+            .iter()
+            .any(|r| r == rule || r == "all" || r == "*")
     {
-        // Check if this specific rule is ignored
-        if ignored_rules.contains(&rule.to_string()) {
-            return true;
-        }
-        // Check for wildcard ignore (goblint-ignore: all)
-        if ignored_rules.iter().any(|r| r == "all" || r == "*") {
-            return true;
-        }
+        return true;
     }
     false
 }

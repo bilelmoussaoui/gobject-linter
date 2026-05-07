@@ -81,9 +81,13 @@ impl TypeAliasMap {
         &self,
         struct_name: &str,
         field_name: &str,
-        qualified: &HashSet<(String, String)>,
+        qualified: &HashMap<String, HashSet<String>>,
     ) -> bool {
-        let has = |s: &str| qualified.contains(&(s.to_owned(), field_name.to_owned()));
+        let has = |s: &str| {
+            qualified
+                .get(s)
+                .is_some_and(|fields| fields.contains(field_name))
+        };
         has(struct_name)
             || self.typedef_to_tag.get(struct_name).is_some_and(|t| has(t))
             || self.tag_to_typedef.get(struct_name).is_some_and(|a| has(a))
@@ -95,14 +99,23 @@ impl TypeAliasMap {
         &self,
         type_name: &str,
         field_name: &str,
-        qualified: &mut HashSet<(String, String)>,
+        qualified: &mut HashMap<String, HashSet<String>>,
     ) {
-        qualified.insert((type_name.to_owned(), field_name.to_owned()));
+        qualified
+            .entry(type_name.to_owned())
+            .or_default()
+            .insert(field_name.to_owned());
         if let Some(alias) = self.tag_to_typedef.get(type_name) {
-            qualified.insert((alias.clone(), field_name.to_owned()));
+            qualified
+                .entry(alias.clone())
+                .or_default()
+                .insert(field_name.to_owned());
         }
         if let Some(tag) = self.typedef_to_tag.get(type_name) {
-            qualified.insert((tag.clone(), field_name.to_owned()));
+            qualified
+                .entry(tag.clone())
+                .or_default()
+                .insert(field_name.to_owned());
         }
     }
 }

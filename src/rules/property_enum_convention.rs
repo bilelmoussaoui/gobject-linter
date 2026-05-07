@@ -127,14 +127,14 @@ impl PropertyEnumConvention {
                 }
 
                 // Get the names we need to work with
-                let prop_0_name = enum_info.values.first().unwrap().name.clone();
-                let n_props_name = enum_info.values.last().unwrap().name.clone();
+                let prop_0_name = enum_info.values.first().unwrap().name.as_str();
+                let n_props_name = enum_info.values.last().unwrap().name.as_str();
 
                 // Skip if this is the interface override pattern:
                 // - N_PROPS in the middle
                 // - N_PROPS used in switch case expressions
                 if has_n_props_in_middle
-                    || (has_n_props && self.n_props_used_in_switch_cases(file, &n_props_name))
+                    || (has_n_props && self.n_props_used_in_switch_cases(file, n_props_name))
                 {
                     // Skip: interface override pattern detected
                     continue;
@@ -255,10 +255,10 @@ impl PropertyEnumConvention {
                 // Fix 4 & 5: Find GParamSpec arrays and fix both their declarations and
                 // install_properties calls
                 // Only fix if this N_PROPS name is unique in the file (avoid ambiguity)
-                if has_n_props && n_props_usage.get(&n_props_name).copied().unwrap_or(0) == 1 {
+                if has_n_props && n_props_usage.get(n_props_name).copied().unwrap_or(0) == 1 {
                     let array_names = self.find_and_fix_param_spec_arrays(
                         file,
-                        &n_props_name,
+                        n_props_name,
                         &last_real_prop_name,
                         &mut fixes,
                     );

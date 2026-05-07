@@ -57,35 +57,35 @@ impl Rule for DeadCode {
         }
 
         let (func_defs, func_decls) = collect_function_maps(ast_context);
-        let (func_refs, type_refs) = collect_references(ast_context);
-        let (field_refs_qualified, field_refs_unqualified) = collect_field_refs(ast_context);
+        let refs = collect_all_refs(ast_context);
 
-        let type_defs = collect_type_defs(ast_context);
-        let field_defs = collect_field_defs(ast_context);
-        let enum_value_defs = collect_enum_value_defs(ast_context);
+        let (type_defs, field_defs, enum_value_defs) = collect_private_defs(ast_context);
 
         self.report_function_violations(
             ast_context,
             &func_defs,
             &func_decls,
-            &func_refs,
+            &refs.func,
             violations,
         );
-        self.report_type_violations(ast_context, &type_defs, &type_refs, violations);
-        self.report_enum_value_violations(&enum_value_defs, &func_refs, violations);
+        self.report_type_violations(ast_context, &type_defs, &refs.types, violations);
+        self.report_enum_value_violations(&enum_value_defs, &refs.func, violations);
         self.report_field_violations(
             ast_context,
             &field_defs,
-            &field_refs_qualified,
-            &field_refs_unqualified,
+            &refs.field_qualified,
+            &refs.field_unqualified,
             violations,
         );
     }
 }
 
-fn collect_references(ast_context: &AstContext) -> (HashSet<String>, HashSet<String>) {
+fn collect_all_refs(ast_context: &AstContext) -> AllRefs {
     let mut func_refs: HashSet<String> = HashSet::new();
     let mut type_refs: HashSet<String> = HashSet::new();
+    let mut field_qualified: HashMap<String, HashSet<String>> = HashMap::new();
+    let mut field_unqualified: HashSet<String> = HashSet::new();
+    let empty_map: HashMap<String, String> = HashMap::new();
 
     for (_path, file) in ast_context.iter_all_files() {
         for func in file.iter_function_definitions() {
@@ -95,9 +95,32 @@ fn collect_references(ast_context: &AstContext) -> (HashSet<String>, HashSet<Str
                     collect_type_ref(type_info, &mut type_refs);
                 }
             }
+
+            let type_map: HashMap<String, String> = func
+                .local_var_types()
+                .into_iter()
+                .filter(|(_, ti)| !ti.base_type.is_empty())
+                .map(|(name, ti)| {
+                    (
+                        name,
+                        ast_context
+                            .type_aliases()
+                            .canonical(&ti.base_type)
+                            .to_owned(),
+                    )
+                })
+                .collect();
+
             for stmt in &func.body_statements {
                 collect_func_refs_from_stmt(stmt, &mut func_refs);
                 collect_type_refs_from_stmt(stmt, &mut type_refs);
+                collect_field_refs_from_stmt(
+                    ast_context,
+                    stmt,
+                    &type_map,
+                    &mut field_qualified,
+                    &mut field_unqualified,
+                );
             }
         }
 
@@ -113,6 +136,13 @@ fn collect_references(ast_context: &AstContext) -> (HashSet<String>, HashSet<Str
         for item in file.iter_all_items() {
             if let TopLevelItem::Declaration(decl) = item {
                 collect_func_refs_from_decl(decl, &mut func_refs);
+                collect_field_refs_from_decl(
+                    ast_context,
+                    decl,
+                    &empty_map,
+                    &mut field_qualified,
+                    &mut field_unqualified,
+                );
             }
             collect_type_refs_from_top_level_item(item, &mut type_refs);
             match item {
@@ -121,6 +151,7 @@ fn collect_references(ast_context: &AstContext) -> (HashSet<String>, HashSet<Str
                     ..
                 }) => {
                     extract_function_calls_from_text(value, &mut func_refs);
+                    extract_field_refs_from_text(value, &mut field_unqualified);
                 }
                 TopLevelItem::Preprocessor(
                     PreprocessorDirective::AutoptrCleanupFunc {
@@ -152,122 +183,102 @@ fn collect_references(ast_context: &AstContext) -> (HashSet<String>, HashSet<Str
         }
     }
 
-    (func_refs, type_refs)
-}
-
-fn collect_field_refs(ast_context: &AstContext) -> (HashSet<(String, String)>, HashSet<String>) {
-    let mut qualified: HashSet<(String, String)> = HashSet::new();
-    let mut unqualified: HashSet<String> = HashSet::new();
-    let empty_map: HashMap<String, String> = HashMap::new();
-
-    for (_path, file) in ast_context.iter_all_files() {
-        for func in file.iter_function_definitions() {
-            let type_map: HashMap<String, String> = func
-                .local_var_types()
-                .into_iter()
-                .filter(|(_, ti)| !ti.base_type.is_empty())
-                .map(|(name, ti)| {
-                    (
-                        name,
-                        ast_context
-                            .type_aliases()
-                            .canonical(&ti.base_type)
-                            .to_owned(),
-                    )
-                })
-                .collect();
-            for stmt in &func.body_statements {
-                collect_field_refs_from_stmt(
-                    ast_context,
-                    stmt,
-                    &type_map,
-                    &mut qualified,
-                    &mut unqualified,
-                );
-            }
-        }
-
-        for item in file.iter_all_items() {
-            match item {
-                TopLevelItem::Declaration(decl) => {
-                    collect_field_refs_from_decl(
-                        ast_context,
-                        decl,
-                        &empty_map,
-                        &mut qualified,
-                        &mut unqualified,
-                    );
-                }
-                TopLevelItem::Preprocessor(PreprocessorDirective::Define {
-                    value: Some(value),
-                    ..
-                }) => {
-                    extract_field_refs_from_text(value, &mut unqualified);
-                }
-                _ => {}
-            }
-        }
+    AllRefs {
+        func: func_refs,
+        types: type_refs,
+        field_qualified,
+        field_unqualified,
     }
-
-    (qualified, unqualified)
 }
 
-type FuncDefMap<'a> = HashMap<String, Vec<(&'a std::path::Path, bool, SourceLocation)>>;
-type FuncDeclMap<'a> = HashMap<String, Vec<(&'a std::path::Path, SourceLocation)>>;
+type FuncDefMap<'a> = HashMap<&'a str, Vec<(&'a std::path::Path, bool, SourceLocation)>>;
+type FuncDeclMap<'a> = HashMap<&'a str, Vec<(&'a std::path::Path, SourceLocation)>>;
 
 fn collect_function_maps<'a>(ast_context: &'a AstContext) -> (FuncDefMap<'a>, FuncDeclMap<'a>) {
     let mut defs: FuncDefMap = HashMap::new();
     let mut decls: FuncDeclMap = HashMap::new();
 
-    for (path, file) in ast_context.iter_c_files() {
-        for func in file.iter_function_definitions() {
-            defs.entry(func.name.clone())
-                .or_default()
-                .push((path, func.is_static, func.location));
+    for (path, file) in ast_context.iter_all_files() {
+        let ext = path.extension().and_then(|e| e.to_str());
+        if ext == Some("c") {
+            for func in file.iter_function_definitions() {
+                defs.entry(func.name.as_str()).or_default().push((
+                    path,
+                    func.is_static,
+                    func.location,
+                ));
+            }
         }
-    }
-
-    for (path, file) in ast_context.iter_header_files() {
-        for func in file.iter_function_declarations() {
-            decls
-                .entry(func.name.clone())
-                .or_default()
-                .push((path, func.location));
+        if ext == Some("h") {
+            for func in file.iter_function_declarations() {
+                decls
+                    .entry(func.name.as_str())
+                    .or_default()
+                    .push((path, func.location));
+            }
         }
     }
 
     (defs, decls)
 }
 
-type TypeDefMap<'a> = HashMap<String, Vec<(&'a std::path::Path, SourceLocation)>>;
+struct AllRefs {
+    func: HashSet<String>,
+    types: HashSet<String>,
+    field_qualified: HashMap<String, HashSet<String>>,
+    field_unqualified: HashSet<String>,
+}
 
-fn collect_type_defs<'a>(ast_context: &'a AstContext) -> TypeDefMap<'a> {
-    let mut defs: TypeDefMap = HashMap::new();
+type TypeDefMap<'a> = HashMap<&'a str, Vec<(&'a std::path::Path, SourceLocation)>>;
+
+type EnumValueDefMap<'a> = HashMap<&'a str, Vec<(&'a std::path::Path, SourceLocation)>>;
+
+type FieldDefMap<'a> = HashMap<&'a str, Vec<(&'a std::path::Path, SourceLocation, &'a str)>>;
+
+fn collect_private_defs<'a>(
+    ast_context: &'a AstContext,
+) -> (TypeDefMap<'a>, FieldDefMap<'a>, EnumValueDefMap<'a>) {
+    let mut type_defs: TypeDefMap = HashMap::new();
+    let mut field_defs: FieldDefMap = HashMap::new();
+    let mut enum_value_defs: EnumValueDefMap = HashMap::new();
+
     for (path, file) in ast_context.iter_private_files() {
         for item in file.iter_all_items() {
             match item {
                 TopLevelItem::TypeDefinition(TypeDefItem::Struct { name, location, .. }) => {
-                    defs.entry(name.clone())
+                    type_defs
+                        .entry(name.as_str())
                         .or_default()
                         .push((path, *location));
                 }
                 TopLevelItem::TypeDefinition(TypeDefItem::Typedef { name, location, .. }) => {
-                    defs.entry(name.clone())
+                    type_defs
+                        .entry(name.as_str())
                         .or_default()
                         .push((path, *location));
                 }
                 _ => {}
             }
+
+            match item {
+                TopLevelItem::TypeDefinition(td @ TypeDefItem::Struct { name, fields, .. })
+                    if !td.is_vtable_struct() =>
+                {
+                    collect_fields_into_defs(fields, name, path, &mut field_defs);
+                }
+                TopLevelItem::TypeDefinition(
+                    td @ TypeDefItem::Typedef {
+                        name,
+                        struct_fields,
+                        ..
+                    },
+                ) if !td.is_vtable_struct() => {
+                    collect_fields_into_defs(struct_fields, name, path, &mut field_defs);
+                }
+                _ => {}
+            }
         }
-    }
-    defs
-}
 
-type EnumValueDefMap<'a> = HashMap<String, Vec<(&'a std::path::Path, SourceLocation)>>;
-
-fn collect_enum_value_defs<'a>(ast_context: &'a AstContext) -> EnumValueDefMap<'a> {
-    let mut defs: EnumValueDefMap = HashMap::new();
-    for (path, file) in ast_context.iter_private_files() {
         for enum_info in file.iter_all_enums() {
             for value in &enum_info.values {
                 if value.is_prop_0()
@@ -277,46 +288,20 @@ fn collect_enum_value_defs<'a>(ast_context: &'a AstContext) -> EnumValueDefMap<'
                 {
                     continue;
                 }
-                defs.entry(value.name.clone())
+                enum_value_defs
+                    .entry(value.name.as_str())
                     .or_default()
                     .push((path, value.location));
             }
         }
     }
-    defs
-}
 
-type FieldDefMap<'a> = HashMap<String, Vec<(&'a std::path::Path, SourceLocation, String)>>;
-
-fn collect_field_defs<'a>(ast_context: &'a AstContext) -> FieldDefMap<'a> {
-    let mut defs: FieldDefMap = HashMap::new();
-    for (path, file) in ast_context.iter_private_files() {
-        for item in file.iter_all_items() {
-            match item {
-                TopLevelItem::TypeDefinition(td @ TypeDefItem::Struct { name, fields, .. })
-                    if !td.is_vtable_struct() =>
-                {
-                    collect_fields_into_defs(fields, name, path, &mut defs);
-                }
-                TopLevelItem::TypeDefinition(
-                    td @ TypeDefItem::Typedef {
-                        name,
-                        struct_fields,
-                        ..
-                    },
-                ) if !td.is_vtable_struct() => {
-                    collect_fields_into_defs(struct_fields, name, path, &mut defs);
-                }
-                _ => {}
-            }
-        }
-    }
-    defs
+    (type_defs, field_defs, enum_value_defs)
 }
 
 fn collect_fields_into_defs<'a>(
     fields: &'a [gobject_ast::model::top_level::StructField],
-    struct_name: &str,
+    struct_name: &'a str,
     path: &'a std::path::Path,
     defs: &mut FieldDefMap<'a>,
 ) {
@@ -336,11 +321,9 @@ fn collect_fields_into_defs<'a>(
         if field.is_reserved() && last_non_reserved.is_none_or(|last| idx > last) {
             continue;
         }
-        defs.entry(field_name.clone()).or_default().push((
-            path,
-            field.location,
-            struct_name.to_owned(),
-        ));
+        defs.entry(field_name.as_str())
+            .or_default()
+            .push((path, field.location, struct_name));
     }
 }
 
@@ -376,8 +359,8 @@ fn collect_gobject_implicit_refs(
 
         if gt.has_private {
             let priv_name = format!("{}Private", gt.type_name);
-            type_refs.insert(priv_name.clone());
             type_refs.insert(format!("_{priv_name}"));
+            type_refs.insert(priv_name);
         }
 
         let tn = &gt.type_name;
@@ -477,7 +460,7 @@ fn collect_field_refs_from_decl(
     ast_context: &AstContext,
     decl: &VariableDecl,
     type_map: &HashMap<String, String>,
-    qualified: &mut HashSet<(String, String)>,
+    qualified: &mut HashMap<String, HashSet<String>>,
     unqualified: &mut HashSet<String>,
 ) {
     if let Some(init) = &decl.initializer {
@@ -522,7 +505,7 @@ fn collect_field_refs_from_stmt(
     ast_context: &AstContext,
     stmt: &Statement,
     type_map: &HashMap<String, String>,
-    qualified: &mut HashSet<(String, String)>,
+    qualified: &mut HashMap<String, HashSet<String>>,
     unqualified: &mut HashSet<String>,
 ) {
     stmt.walk_expressions(&mut |expr| {
@@ -546,7 +529,7 @@ fn collect_field_reads_impl(
     expr: &Expression,
     is_write_lhs: bool,
     type_map: &HashMap<String, String>,
-    qualified: &mut HashSet<(String, String)>,
+    qualified: &mut HashMap<String, HashSet<String>>,
     unqualified: &mut HashSet<String>,
 ) {
     match expr {
@@ -769,7 +752,7 @@ impl DeadCode {
         func_refs: &HashSet<String>,
         violations: &mut Vec<Violation>,
     ) {
-        for (func_name, defs) in func_defs {
+        for (&func_name, defs) in func_defs {
             if func_refs.contains(func_name) {
                 continue;
             }
@@ -805,7 +788,7 @@ impl DeadCode {
             }
         }
 
-        for (func_name, decls) in func_decls {
+        for (&func_name, decls) in func_decls {
             if func_refs.contains(func_name) || func_defs.contains_key(func_name) {
                 continue;
             }
@@ -836,7 +819,7 @@ impl DeadCode {
         type_refs: &HashSet<String>,
         violations: &mut Vec<Violation>,
     ) {
-        for (type_name, defs) in type_defs {
+        for (&type_name, defs) in type_defs {
             if ast_context
                 .type_aliases()
                 .is_referenced(type_name, type_refs)
@@ -860,7 +843,7 @@ impl DeadCode {
         func_refs: &HashSet<String>,
         violations: &mut Vec<Violation>,
     ) {
-        for (value_name, defs) in enum_value_defs {
+        for (&value_name, defs) in enum_value_defs {
             if func_refs.contains(value_name) {
                 continue;
             }
@@ -879,11 +862,11 @@ impl DeadCode {
         &self,
         ast_context: &AstContext,
         field_defs: &FieldDefMap,
-        field_refs_qualified: &HashSet<(String, String)>,
+        field_refs_qualified: &HashMap<String, HashSet<String>>,
         field_refs_unqualified: &HashSet<String>,
         violations: &mut Vec<Violation>,
     ) {
-        for (field_name, defs) in field_defs {
+        for (&field_name, defs) in field_defs {
             if field_refs_unqualified.contains(field_name) {
                 continue;
             }

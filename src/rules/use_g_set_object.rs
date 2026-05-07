@@ -61,14 +61,14 @@ impl UseGSetObject {
             return false;
         };
 
-        // Check if variables match (accounting for * dereference)
-        let expected_assign = if needs_deref {
-            format!("*{}", var_name)
+        let matches = if needs_deref {
+            assign_var.len() == var_name.len() + 1
+                && assign_var.starts_with('*')
+                && assign_var[1..] == *var_name
         } else {
-            var_name.clone()
+            assign_var == var_name
         };
-
-        if assign_var != expected_assign {
+        if !matches {
             return false;
         }
 

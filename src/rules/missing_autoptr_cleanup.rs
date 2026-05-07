@@ -38,18 +38,18 @@ impl Rule for MissingAutoptrCleanup {
         _config: &Config,
         violations: &mut Vec<Violation>,
     ) {
-        // Step 1: Collect all types that need autoptr cleanup
         let mut types_needing_cleanup: Vec<(
             &std::path::Path,
             String,
             gobject_ast::SourceLocation,
             &'static str,
         )> = Vec::new();
+        let mut declared_types: HashSet<String> = HashSet::new();
+        let mut autoptr_cleanups: HashSet<String> = HashSet::new();
 
         for (path, file) in ast_context.iter_all_files() {
             for gobject_type in file.iter_all_gobject_types() {
                 match &gobject_type.kind {
-                    // Boxed and pointer types don't have automatic autoptr support
                     GObjectTypeKind::DefineBoxed { .. }
                     | GObjectTypeKind::Define(DefineKind::Pointer) => {
                         types_needing_cleanup.push((
@@ -59,7 +59,6 @@ impl Rule for MissingAutoptrCleanup {
                             "boxed",
                         ));
                     }
-                    // Old-style GObject types without G_DECLARE_* need explicit autoptr
                     GObjectTypeKind::Define(_) => {
                         types_needing_cleanup.push((
                             path,
@@ -68,31 +67,13 @@ impl Rule for MissingAutoptrCleanup {
                             "old-style",
                         ));
                     }
-                    // Modern G_DECLARE_* types have autoptr built-in
                     GObjectTypeKind::Declare { .. } => {
-                        // These have autoptr automatically, skip
+                        declared_types.insert(gobject_type.type_name.clone());
                     }
-                    // Quarks define a function, not a type
                     GObjectTypeKind::DefineQuark { .. } => {}
                 }
             }
-        }
 
-        // Step 2: Collect types that have G_DECLARE_* (which includes autoptr)
-        let mut declared_types: HashSet<String> = HashSet::new();
-
-        for (_path, file) in ast_context.iter_all_files() {
-            for gobject_type in file.iter_all_gobject_types() {
-                if gobject_type.kind.is_declare() {
-                    declared_types.insert(gobject_type.type_name.clone());
-                }
-            }
-        }
-
-        // Step 3: Collect types with explicit G_DEFINE_AUTOPTR_CLEANUP_FUNC
-        let mut autoptr_cleanups: HashSet<String> = HashSet::new();
-
-        for (_path, file) in ast_context.iter_all_files() {
             for item in file.iter_all_items() {
                 if let gobject_ast::model::top_level::TopLevelItem::Preprocessor(directive) = item
                     && let gobject_ast::model::top_level::PreprocessorDirective::AutoptrCleanupFunc {
@@ -105,14 +86,11 @@ impl Rule for MissingAutoptrCleanup {
             }
         }
 
-        // Step 4: Report violations
         for (path, type_name, location, kind) in types_needing_cleanup {
-            // Skip if has G_DECLARE_* (which includes autoptr)
             if declared_types.contains(&type_name) {
                 continue;
             }
 
-            // Skip if has explicit G_DEFINE_AUTOPTR_CLEANUP_FUNC
             if autoptr_cleanups.contains(&type_name) {
                 continue;
             }
