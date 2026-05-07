@@ -2,6 +2,7 @@ use tree_sitter::Node;
 
 use crate::{
     model::{
+        doc::DocComment,
         top_level::{ConditionalKind, StructField, *},
         *,
     },
@@ -345,6 +346,8 @@ impl Parser {
                                 .map(std::borrow::ToOwned::to_owned)
                                 .collect(),
                             location: self.node_location(node),
+                            doc: DocComment::from_node(node, source)
+                                .map(DocComment::into_function_doc),
                         }));
                     }
                 }
@@ -384,6 +387,7 @@ impl Parser {
                             fields,
                             vfuncs,
                             location: self.node_location(node),
+                            doc: DocComment::from_node(node, source).map(DocComment::into_type_doc),
                         }));
                     }
                 }
@@ -445,6 +449,7 @@ impl Parser {
                     body_statements,
                     location: self.node_location(node),
                     body_location,
+                    doc: DocComment::from_node(node, source).map(DocComment::into_function_doc),
                 }))
             }
             "expression_statement" => self
@@ -567,6 +572,8 @@ impl Parser {
                     fields,
                     vfuncs,
                     location: self.node_location(declaration_node),
+                    doc: DocComment::from_node(declaration_node, source)
+                        .map(DocComment::into_type_doc),
                 }));
             }
         }
@@ -765,6 +772,7 @@ impl Parser {
             target,
             struct_fields,
             location: self.node_location(node),
+            doc: DocComment::from_node(node, source).map(DocComment::into_type_doc),
         })
     }
 
@@ -793,7 +801,8 @@ impl Parser {
                 location: self.node_location(node),
                 values,
                 body_location: self.node_location(body),
-                attributes: Vec::new(), // No attributes in direct enum_specifier
+                attributes: Vec::new(),
+                doc: DocComment::from_node(node, source).map(DocComment::into_type_doc),
             });
         }
 
@@ -852,6 +861,7 @@ impl Parser {
                     values,
                     body_location: self.node_location(body),
                     attributes,
+                    doc: DocComment::from_node(node, source).map(DocComment::into_type_doc),
                 });
             }
             return None;
@@ -879,7 +889,8 @@ impl Parser {
                         location: self.node_location(child),
                         values,
                         body_location: self.node_location(body),
-                        attributes: Vec::new(), // No attributes in standalone enum
+                        attributes: Vec::new(),
+                        doc: DocComment::from_node(node, source).map(DocComment::into_type_doc),
                     });
                 }
             }
@@ -926,6 +937,7 @@ impl Parser {
                     location: self.node_location(child),
                     name_location: self.node_location(name_node),
                     value_location,
+                    doc: DocComment::from_node(child, source).map(DocComment::into_enum_value_doc),
                 });
             }
         }

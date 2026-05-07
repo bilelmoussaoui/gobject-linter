@@ -2,7 +2,10 @@ use serde::{Serialize, Serializer, ser::SerializeMap as _};
 
 use crate::{
     SourceLocation, Statement, TypeInfo,
-    model::types::{GType, Signal, function::Parameter},
+    model::{
+        doc::FunctionDoc,
+        types::{GType, Signal, function::Parameter},
+    },
     top_level::FunctionDefItem,
 };
 
@@ -107,6 +110,8 @@ pub struct VirtualFunction {
     pub return_type: TypeInfo,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub parameters: Vec<Parameter>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub doc: Option<FunctionDoc>,
 }
 
 /// Which G_DECLARE_* variant was used

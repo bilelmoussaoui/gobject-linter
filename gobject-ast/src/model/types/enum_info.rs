@@ -2,7 +2,11 @@ use serde::Serialize;
 
 use crate::{
     SourceLocation,
-    model::{Expression, operators::BinaryOp},
+    model::{
+        Expression,
+        doc::{EnumValueDoc, TypeDoc},
+        operators::BinaryOp,
+    },
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -18,6 +22,8 @@ pub struct EnumInfo {
     /// Attributes between closing brace and type name (e.g., G_GNUC_FLAG_ENUM)
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub attributes: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub doc: Option<TypeDoc>,
 }
 
 impl EnumInfo {
@@ -120,6 +126,8 @@ pub struct EnumValue {
     /// Location of the value (if present)
     #[serde(skip)]
     pub value_location: Option<SourceLocation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub doc: Option<EnumValueDoc>,
 }
 
 impl EnumValue {

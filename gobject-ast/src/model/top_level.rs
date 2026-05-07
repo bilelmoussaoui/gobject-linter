@@ -7,6 +7,7 @@ use crate::{
     EnumInfo, GObjectType, TypeInfo, VariableDecl, VirtualFunction,
     model::{
         SourceLocation, Statement,
+        doc::{FunctionDoc, TypeDoc},
         expression::{CallExpression, Expression},
         types::{ParamSpecAssignment, Parameter, Property},
     },
@@ -308,6 +309,8 @@ pub enum TypeDefItem {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         struct_fields: Vec<StructField>,
         location: SourceLocation,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        doc: Option<TypeDoc>,
     },
     Struct {
         name: String,
@@ -318,6 +321,8 @@ pub enum TypeDefItem {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         vfuncs: Vec<VirtualFunction>,
         location: SourceLocation,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        doc: Option<TypeDoc>,
     },
     Enum(Box<EnumInfo>),
 }
@@ -351,6 +356,8 @@ pub struct FunctionDeclItem {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub export_macros: Vec<String>,
     pub location: SourceLocation,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub doc: Option<FunctionDoc>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -368,6 +375,8 @@ pub struct FunctionDefItem {
     pub location: SourceLocation,
     #[serde(skip)]
     pub body_location: Option<SourceLocation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub doc: Option<FunctionDoc>,
 }
 
 impl FunctionDefItem {

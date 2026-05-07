@@ -1,4 +1,5 @@
 pub mod comment;
+pub mod doc;
 pub mod expression;
 pub mod operators;
 mod project;
