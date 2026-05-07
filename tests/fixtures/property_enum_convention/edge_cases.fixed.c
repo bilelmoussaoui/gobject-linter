@@ -1,5 +1,8 @@
 #include <glib-object.h>
 
+G_DEFINE_TYPE (BadSpacing, bad_spacing, G_TYPE_OBJECT)
+
+
 /* Case 1: First property already has = 0 with bad spacing */
 typedef enum {
   PROP_BOUNDING_BOX = 1,
@@ -18,6 +21,8 @@ bad_spacing_class_init (BadSpacingClass *klass)
 
   g_object_class_install_properties (object_class, G_N_ELEMENTS (bad_spacing_props), bad_spacing_props);
 }
+
+G_DEFINE_TYPE (Legacy, legacy, G_TYPE_OBJECT)
 
 /* Case 2: Very old code using NUM_PROPERTIES */
 typedef enum {

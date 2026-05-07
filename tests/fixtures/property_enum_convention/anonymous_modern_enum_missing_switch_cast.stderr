@@ -1,1 +1,1 @@
-anonymous_modern_enum_missing_switch_cast.c:4:1: property_enum_convention: Add typedef MyObjectProps and use cast in switch statements for type safety
+anonymous_modern_enum_missing_switch_cast.c:7:1: property_enum_convention: Add typedef MyObjectProps and use cast in switch statements for type safety

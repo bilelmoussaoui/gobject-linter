@@ -1,5 +1,8 @@
 #include <glib-object.h>
 
+G_DEFINE_TYPE (MetaScreenCastSession, meta_screen_cast_session, G_TYPE_OBJECT)
+
+
 typedef enum {
   PROP_0,
   PROP_REMOTE_DESKTOP_SESSION,

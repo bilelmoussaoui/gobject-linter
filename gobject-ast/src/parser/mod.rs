@@ -127,6 +127,8 @@ impl Parser {
         // Store the source for detailed pattern matching by rules
         file_model.source = source.clone();
 
+        file_model.resolve_gobject_types();
+
         project.files.insert(path.to_path_buf(), file_model);
         Ok(())
     }

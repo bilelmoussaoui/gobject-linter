@@ -297,27 +297,47 @@ pub trait Rule: Send + Sync {
         // Default: no-op
     }
 
+    /// Check a GObject type declaration/definition
+    /// Override this to check properties, signals, or other GObject-level
+    /// concerns
+    #[allow(unused_variables)]
+    fn check_gobject_type(
+        &self,
+        ast_context: &AstContext,
+        config: &Config,
+        gobject_type: &gobject_ast::GObjectType,
+        path: &std::path::Path,
+        violations: &mut Vec<Violation>,
+    ) {
+        // Default: no-op
+    }
+
     /// Check the AST and add violations to the provided vector
-    /// Default implementation calls check_func_impl for C files and
-    /// check_func_decl for headers Override this if you need custom
-    /// iteration logic beyond per-function checking
+    /// Default implementation calls check_func_impl for C files,
+    /// check_func_decl for headers, and check_gobject_type for all files.
+    /// Override this if you need custom iteration logic beyond per-item
+    /// checking
     fn check_all(
         &self,
         ast_context: &AstContext,
         config: &Config,
         violations: &mut Vec<Violation>,
     ) {
-        // Check function implementations in C files
         for (path, file) in ast_context.iter_c_files() {
             for func in file.iter_function_definitions() {
                 self.check_func_impl(ast_context, config, func, path, violations);
             }
         }
 
-        // Check function declarations in header files
         for (path, file) in ast_context.iter_header_files() {
             for func in file.iter_function_declarations() {
                 self.check_func_decl(ast_context, config, func, path, violations);
+            }
+        }
+
+        for (path, file) in ast_context.iter_all_files() {
+            for gt in file.iter_all_gobject_types() {
+                self.check_gobject_type(ast_context, config, gt, path, violations);
             }
         }
     }

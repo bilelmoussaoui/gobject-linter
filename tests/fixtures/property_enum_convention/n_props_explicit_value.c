@@ -1,5 +1,8 @@
 #include <glib-object.h>
 
+G_DEFINE_TYPE (Example, example, G_TYPE_OBJECT)
+
+
 /* Edge case: N_PROPS has an explicit value assignment (N_PROPS = PROP_ORIENTATION) */
 enum {
   PROP_0,

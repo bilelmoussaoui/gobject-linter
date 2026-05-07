@@ -1,5 +1,8 @@
 #include <glib-object.h>
 
+G_DEFINE_TYPE (MyObject, my_object, G_TYPE_OBJECT)
+
+
 /* Modern pattern where PROP_DESCRIPTION was added but array still uses PROP_TITLE + 1 */
 typedef enum {
   PROP_NAME = 1,

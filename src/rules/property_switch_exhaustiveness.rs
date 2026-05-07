@@ -72,12 +72,10 @@ impl Rule for PropertySwitchExhaustiveness {
 
         for (path, file) in ast_context.iter_all_files() {
             for enum_info in file.iter_property_enums() {
-                // Find the associated class_init function and property assignments
-                let (class_init, assignments) =
-                    match file.find_class_init_for_property_enum(enum_info) {
-                        Some(pair) => pair,
-                        None => continue,
-                    };
+                // Find the associated GObjectType
+                let Some(gobject_type) = file.find_gobject_type_for_property_enum(enum_info) else {
+                    continue;
+                };
 
                 // Get property names (excluding PROP_0 and N_PROPS)
                 let property_names: Vec<&str> = enum_info
@@ -93,15 +91,20 @@ impl Rule for PropertySwitchExhaustiveness {
 
                 // Build a map from property enum names to their access permissions
                 let property_access = self.build_property_access_map(
-                    &assignments,
+                    &gobject_type.properties,
                     &file.source,
                     &readable_flags,
                     &writable_flags,
                 );
 
                 // Find get_property and set_property function names from class_init
-                let get_property_func = self.find_assigned_function(class_init, "get_property");
-                let set_property_func = self.find_assigned_function(class_init, "set_property");
+                let class_init = file
+                    .iter_function_definitions()
+                    .find(|f| f.name == gobject_type.class_init_function_name());
+                let get_property_func =
+                    class_init.and_then(|ci| self.find_assigned_function(ci, "get_property"));
+                let set_property_func =
+                    class_init.and_then(|ci| self.find_assigned_function(ci, "set_property"));
 
                 // Check get_property function
                 if let Some(func_name) = get_property_func {

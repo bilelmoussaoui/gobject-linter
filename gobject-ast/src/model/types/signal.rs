@@ -24,6 +24,8 @@ use crate::model::{
 pub struct Signal {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub enum_value: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub itype: Option<String>, // G_TYPE_FROM_CLASS(klass), G_OBJECT_TYPE, etc.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub flags: Vec<SignalFlag>,
@@ -169,6 +171,7 @@ impl Signal {
 
         Some(Self {
             name,
+            enum_value: None,
             itype,
             flags,
             class_offset,

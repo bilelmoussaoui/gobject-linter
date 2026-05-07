@@ -4,7 +4,7 @@ use crate::{
     SourceLocation, Statement, TypeInfo,
     model::{
         doc::FunctionDoc,
-        types::{GType, Signal, function::Parameter},
+        types::{GType, Signal, function::Parameter, property::ParamSpecAssignment},
     },
     top_level::FunctionDefItem,
 };
@@ -30,6 +30,10 @@ pub struct GObjectType {
     pub code_block_statements: Vec<Statement>, // Statements from *_WITH_CODE macros
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub export_macros: Vec<String>, // e.g., ["CLUTTER_EXPORT"]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub properties: Vec<ParamSpecAssignment>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub signals: Vec<Signal>,
     pub location: SourceLocation,
 }
 

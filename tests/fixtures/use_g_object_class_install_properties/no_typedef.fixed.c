@@ -1,5 +1,8 @@
 #include <glib-object.h>
 
+G_DEFINE_TYPE (GdmDisplay, gdm_display, G_TYPE_OBJECT)
+
+
 enum {
         PROP_0,
         PROP_ID,

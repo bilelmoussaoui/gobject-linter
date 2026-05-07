@@ -150,7 +150,7 @@ impl PropertyEnumConvention {
 
                 // Build map of which properties are overrides from this class_init's
                 // assignments
-                let property_map = self.build_property_override_map(&assignments);
+                let property_map = self.build_property_override_map(assignments);
 
                 // Get the name of the last REAL property (the one before N_PROPS)
                 // If N_PROPS = PROP_X and PROP_X is an override, find the last non-override
@@ -360,7 +360,7 @@ impl PropertyEnumConvention {
                         None => continue,
                     };
 
-                let property_map = self.build_property_override_map(&assignments);
+                let property_map = self.build_property_override_map(assignments);
 
                 // Find the last real (non-override) property
                 let last_real_prop = enum_info
@@ -620,12 +620,17 @@ impl PropertyEnumConvention {
     /// Find which class owns this property enum by tracing N_PROPS through
     /// GParamSpec arrays or by finding install_property calls
     /// Returns the class type and associated get/set property function names
-    fn find_class_context_for_enum(
+    fn find_class_context_for_enum<'a>(
         &self,
-        file: &FileModel,
+        file: &'a FileModel,
         enum_info: &EnumInfo,
-    ) -> Option<(ClassContext, Vec<gobject_ast::ParamSpecAssignment>)> {
-        let (func, assignments) = file.find_class_init_for_property_enum(enum_info)?;
+    ) -> Option<(ClassContext, &'a [gobject_ast::ParamSpecAssignment])> {
+        let gobject_type = file.find_gobject_type_for_property_enum(enum_info)?;
+
+        let class_init_name = gobject_type.class_init_function_name();
+        let func = file
+            .iter_function_definitions()
+            .find(|f| f.name == class_init_name)?;
 
         // Extract class type from parameter
         let class_type_info = func.parameters.first().and_then(|p| {
@@ -662,7 +667,7 @@ impl PropertyEnumConvention {
                 get_property_func,
                 set_property_func,
             },
-            assignments,
+            &gobject_type.properties,
         ))
     }
 

@@ -1,5 +1,8 @@
 #include <glib-object.h>
 
+G_DEFINE_TYPE (Foo, foo, G_TYPE_OBJECT)
+
+
 /* Signals enum appears first - must not be confused with the property enum */
 enum {
   SYNC_MESSAGE,

@@ -1,5 +1,8 @@
 #include <glib-object.h>
 
+G_DEFINE_TYPE (Foo, foo, G_TYPE_OBJECT)
+
+
 typedef enum {
   PROP_0,
   PROP_NAME,

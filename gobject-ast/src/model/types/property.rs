@@ -631,7 +631,8 @@ fn extract_flags_arg(arg: &Argument) -> Vec<ParamFlag> {
 }
 
 /// Information about a param_spec assignment found in a class_init function
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ParamSpecAssignment {
     /// Array subscript pattern: props[PROP_X] = g_param_spec_*()
     ArraySubscript {

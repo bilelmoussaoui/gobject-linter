@@ -39,16 +39,15 @@ impl Rule for PropertyEnumCoverage {
                     continue;
                 }
 
-                // Find which class_init corresponds to this enum
-                let (class_init, assignments) =
-                    match file.find_class_init_for_property_enum(enum_info) {
-                        Some(pair) => pair,
-                        None => continue,
-                    };
+                // Find which GObjectType corresponds to this enum
+                let Some(gobject_type) = file.find_gobject_type_for_property_enum(enum_info) else {
+                    continue;
+                };
 
                 // Collect all installed property enum values
-                let installed_properties: Vec<_> = assignments
-                    .into_iter()
+                let installed_properties: Vec<_> = gobject_type
+                    .properties
+                    .iter()
                     .filter_map(|assignment| assignment.get_installed_enum_value(&file.source))
                     .collect();
 
@@ -63,7 +62,8 @@ impl Rule for PropertyEnumCoverage {
                             1,
                             format!(
                                 "Property enum value '{}' is declared but never installed in {}",
-                                prop_name, class_init.name
+                                prop_name,
+                                gobject_type.class_init_function_name()
                             ),
                         ));
                     }

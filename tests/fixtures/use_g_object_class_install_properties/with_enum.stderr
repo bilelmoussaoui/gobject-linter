@@ -1,1 +1,1 @@
-with_enum.c:14:3: use_g_object_class_install_properties: Use g_object_class_install_properties() instead of 2 g_object_class_install_property() calls
+with_enum.c:17:3: use_g_object_class_install_properties: Use g_object_class_install_properties() instead of 2 g_object_class_install_property() calls

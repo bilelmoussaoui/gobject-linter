@@ -1,5 +1,8 @@
 #include <glib-object.h>
 
+G_DEFINE_TYPE (Widget, widget, G_TYPE_OBJECT)
+
+
 /* First object: Modern pattern with correct array size */
 typedef enum {
   WIDGET_PROP_WIDTH = 1,
@@ -20,6 +23,8 @@ widget_class_init (WidgetClass *klass)
 
   g_object_class_install_properties (object_class, G_N_ELEMENTS (widget_props), widget_props);
 }
+
+G_DEFINE_TYPE (Document, document, G_TYPE_OBJECT)
 
 /* Second object: Outdated array size - PROP_DESCRIPTION was added but array still uses PROP_TITLE + 1 */
 typedef enum {

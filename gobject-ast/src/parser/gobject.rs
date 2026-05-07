@@ -107,6 +107,8 @@ impl Parser {
                 has_private: false,
                 code_block_statements: Vec::new(),
                 export_macros: Vec::new(),
+                properties: Vec::new(),
+                signals: Vec::new(),
                 location: self.node_location(parent),
             });
         }
@@ -142,6 +144,8 @@ impl Parser {
                 has_private,
                 code_block_statements,
                 export_macros: Vec::new(),
+                properties: Vec::new(),
+                signals: Vec::new(),
                 location: self.node_location(parent),
             });
         }
@@ -182,6 +186,8 @@ impl Parser {
                 has_private: false,
                 code_block_statements: Vec::new(),
                 export_macros: Vec::new(),
+                properties: Vec::new(),
+                signals: Vec::new(),
                 location: self.node_location(parent),
             });
         }
@@ -260,6 +266,8 @@ impl Parser {
                 has_private: has_private_from_macro || has_private_from_code,
                 code_block_statements,
                 export_macros: Vec::new(),
+                properties: Vec::new(),
+                signals: Vec::new(),
                 location: self.node_location(parent),
             });
         }

@@ -1,3 +1,6 @@
+
+G_DEFINE_TYPE (MyObject, my_object, G_TYPE_OBJECT)
+
 // Test case for blank line removal
 // Blank lines after PROP_0 and before N_PROPS should be removed
 typedef struct _MyObject MyObject;

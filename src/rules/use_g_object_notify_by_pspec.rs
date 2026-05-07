@@ -36,7 +36,7 @@ impl Rule for UseGObjectNotifyByPspec {
 
             // Build a map of property names to (enum_value, array_name, class_prefix) for
             // this file
-            let property_map = self.build_property_map(file, source);
+            let property_map = self.build_property_map(file);
 
             // Find all g_object_notify calls
             for func in file.iter_function_definitions() {
@@ -164,30 +164,12 @@ impl UseGObjectNotifyByPspec {
     fn build_property_map(
         &self,
         file: &gobject_ast::FileModel,
-        source: &[u8],
     ) -> std::collections::HashMap<String, Vec<(String, String, String)>> {
         let mut map: std::collections::HashMap<String, Vec<(String, String, String)>> =
             std::collections::HashMap::new();
 
-        // Find all class_init functions
-        for func in file.iter_class_init_functions() {
-            // Extract class prefix from function name (e.g., "foo_class_init" -> "foo")
-            let class_prefix = self.extract_class_prefix(&func.name);
-
-            // Look for g_object_class_install_properties calls to get the array name
-            let array_names: Vec<String> = func
-                .find_install_properties_calls()
-                .iter()
-                .filter_map(|call| call.get_arg(2).and_then(|arg| arg.to_source_string(source)))
-                .collect();
-
-            if array_names.is_empty() {
-                continue;
-            }
-
-            // Find all param_spec assignments in this function
-            for assignment in func.find_param_spec_assignments(source) {
-                // Only interested in array subscript pattern
+        for gt in file.iter_all_gobject_types() {
+            for assignment in &gt.properties {
                 if let gobject_ast::ParamSpecAssignment::ArraySubscript {
                     array_name,
                     enum_value,
@@ -195,14 +177,11 @@ impl UseGObjectNotifyByPspec {
                     ..
                 } = assignment
                 {
-                    // Check if this array is one we're tracking
-                    if array_names.contains(&array_name) {
-                        map.entry(property_name).or_default().push((
-                            enum_value,
-                            array_name,
-                            class_prefix.clone(),
-                        ));
-                    }
+                    map.entry(property_name.clone()).or_default().push((
+                        enum_value.clone(),
+                        array_name.clone(),
+                        gt.function_prefix.clone(),
+                    ));
                 }
             }
         }
@@ -241,18 +220,6 @@ impl UseGObjectNotifyByPspec {
         candidates
             .iter()
             .find(|(_, _, class_prefix)| *class_prefix == type_prefix)
-    }
-
-    /// Extract class prefix from function name
-    /// e.g., "foo_class_init" -> "foo", "bar_class_install_properties" -> "bar"
-    fn extract_class_prefix(&self, func_name: &str) -> String {
-        if let Some(pos) = func_name.find("_class_init") {
-            func_name[..pos].to_string()
-        } else if let Some(pos) = func_name.find("_class_install_properties") {
-            func_name[..pos].to_string()
-        } else {
-            func_name.to_string()
-        }
     }
 
     /// Extract identifier from expression like "G_OBJECT(self)" -> "self"

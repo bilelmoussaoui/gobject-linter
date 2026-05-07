@@ -1,5 +1,8 @@
 #include <glib-object.h>
 
+G_DEFINE_TYPE (MyObject, my_object, G_TYPE_OBJECT)
+
+
 /* Anonymous modern enum needs typedef + switch cast */
 typedef enum {
   PROP_NAME = 1,

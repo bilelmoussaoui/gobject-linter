@@ -1,5 +1,8 @@
 #include <glib-object.h>
 
+G_DEFINE_TYPE (ClutterActor, clutter_actor, G_TYPE_OBJECT)
+
+
 typedef enum
 {
   PROP_ACTOR = 1,

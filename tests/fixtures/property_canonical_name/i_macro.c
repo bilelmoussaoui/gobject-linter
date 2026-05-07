@@ -1,5 +1,7 @@
 #include <glib-object.h>
 
+G_DEFINE_TYPE (Foo, foo, G_TYPE_OBJECT)
+
 /* Property name via I_() with no underscores — should not be flagged. */
 static void
 foo_class_init (FooClass *klass)

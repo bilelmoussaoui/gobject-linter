@@ -28,21 +28,19 @@ impl Rule for PropertyCanonicalName {
         true
     }
 
-    fn check_all(
+    fn check_gobject_type(
         &self,
-        ast_context: &AstContext,
+        _ast_context: &AstContext,
         _config: &Config,
+        gobject_type: &gobject_ast::GObjectType,
+        path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
-        for (path, file) in ast_context.iter_c_files() {
-            for func in file.iter_function_definitions() {
-                for assignment in func.find_param_spec_assignments(&file.source) {
-                    let Some(call) = assignment.param_spec_call() else {
-                        continue;
-                    };
-                    self.check_call(path, call, assignment.property(), violations);
-                }
-            }
+        for assignment in &gobject_type.properties {
+            let Some(call) = assignment.param_spec_call() else {
+                continue;
+            };
+            self.check_call(path, call, assignment.property(), violations);
         }
     }
 }

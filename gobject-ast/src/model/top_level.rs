@@ -9,7 +9,7 @@ use crate::{
         SourceLocation, Statement,
         doc::{FunctionDoc, TypeDoc},
         expression::{CallExpression, Expression},
-        types::{ParamSpecAssignment, Parameter, Property},
+        types::{ParamSpecAssignment, Parameter, Property, Signal},
     },
 };
 
@@ -399,6 +399,52 @@ impl FunctionDefItem {
             .collect()
     }
 
+    /// Extract signal registrations from the function body.
+    /// Populates `enum_value` when the signal is assigned via
+    /// `signals[ENUM] = g_signal_new(...)`.
+    pub fn find_signal_registrations(&self, source: &[u8]) -> Vec<Signal> {
+        let mut signals = Vec::new();
+        let mut seen_names = std::collections::HashSet::new();
+
+        // First pass: assignments like `signals[ENUM] = g_signal_new(...)`
+        for assignment in self
+            .body_statements
+            .iter()
+            .flat_map(Statement::iter_assignments)
+        {
+            let Expression::Call(call) = &*assignment.rhs else {
+                continue;
+            };
+            if !call.function_contains("g_signal_new") {
+                continue;
+            }
+            let Some(mut signal) = Signal::from_g_signal_new_call(call, source) else {
+                continue;
+            };
+            if let Expression::Subscript(sub) = &*assignment.lhs
+                && let Expression::Identifier(id) = &*sub.index
+            {
+                signal.enum_value = Some(id.name.clone());
+            }
+            seen_names.insert(signal.name.clone());
+            signals.push(signal);
+        }
+
+        // Second pass: standalone g_signal_new calls not already captured
+        for call in self.find_calls_matching(|n| n.starts_with("g_signal_new")) {
+            if let Some(name) = call.extract_string_from_arg(0) {
+                if seen_names.contains(&name) {
+                    continue;
+                }
+                if let Some(signal) = Signal::from_g_signal_new_call(call, source) {
+                    signals.push(signal);
+                }
+            }
+        }
+
+        signals
+    }
+
     /// Iterate all local variable declarations in the function body recursively
     pub fn iter_local_declarations(&self) -> impl Iterator<Item = &VariableDecl> {
         self.body_statements
@@ -581,7 +627,7 @@ impl FunctionDefItem {
     /// Handles array pattern (props[PROP_X] = ...), variable pattern
     /// (param_spec = ...), and override pattern
     /// (g_object_class_override_property(...))
-    pub fn find_param_spec_assignments(&self, source: &[u8]) -> Vec<ParamSpecAssignment> {
+    pub(crate) fn find_param_spec_assignments(&self, source: &[u8]) -> Vec<ParamSpecAssignment> {
         let mut assignments = Vec::new();
         let mut array_assignments: HashMap<String, Vec<usize>> = HashMap::new();
         let mut variable_assignments: HashMap<String, Vec<usize>> = HashMap::new();

@@ -1,1 +1,1 @@
-n_props_explicit_value.c:4:1: property_enum_convention: Use modern property enum pattern (remove PROP_0, N_PROPS, start from = 1)
+n_props_explicit_value.c:7:1: property_enum_convention: Use modern property enum pattern (remove PROP_0, N_PROPS, start from = 1)

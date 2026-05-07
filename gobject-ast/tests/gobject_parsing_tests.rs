@@ -277,18 +277,12 @@ fn test_property_extraction() {
     assert_eq!(types.len(), 1);
     let gobject_type = &types[0];
 
-    // Get the class_init function name
-    let class_init_name = gobject_type.class_init_function_name();
-    assert_eq!(class_init_name, "my_object_class_init");
+    assert_eq!(
+        gobject_type.class_init_function_name(),
+        "my_object_class_init"
+    );
 
-    // Find the class_init function
-    let class_init = file
-        .iter_function_definitions()
-        .find(|f| f.name == class_init_name)
-        .expect("class_init function not found");
-
-    // Extract properties
-    let properties = class_init.find_param_spec_assignments(&file.source);
+    let properties = &gobject_type.properties;
 
     // Should have extracted 2 properties: name and value
     assert!(
@@ -599,13 +593,7 @@ fn test_custom_param_spec() {
     assert_eq!(types.len(), 1);
     let gobject_type = &types[0];
 
-    let class_init_name = gobject_type.class_init_function_name();
-    let class_init = file
-        .iter_function_definitions()
-        .find(|f| f.name == class_init_name)
-        .expect("class_init function not found");
-
-    let properties = class_init.find_param_spec_assignments(&file.source);
+    let properties = &gobject_type.properties;
 
     // Should have extracted the custom color property
     assert_eq!(properties.len(), 1, "Expected 1 property");

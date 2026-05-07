@@ -33,7 +33,14 @@ impl Rule for UseGObjectClassInstallProperties {
     ) {
         for (path, file) in ast_context.iter_all_files() {
             for enum_info in file.iter_property_enums() {
-                let Some((func, assignments)) = file.find_class_init_for_property_enum(enum_info)
+                let Some(gobject_type) = file.find_gobject_type_for_property_enum(enum_info) else {
+                    continue;
+                };
+
+                let class_init_name = gobject_type.class_init_function_name();
+                let Some(func) = file
+                    .iter_function_definitions()
+                    .find(|f| f.name == class_init_name)
                 else {
                     continue;
                 };
@@ -47,7 +54,7 @@ impl Rule for UseGObjectClassInstallProperties {
                     file,
                     func,
                     &install_property_calls,
-                    &assignments,
+                    &gobject_type.properties,
                     enum_info,
                     &file.source,
                 );

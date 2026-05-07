@@ -1,5 +1,8 @@
 #include <glib-object.h>
 
+G_DEFINE_TYPE (MyObject, my_object, G_TYPE_OBJECT)
+
+
 /* Case 1: Old pattern with PROP_0 and N_PROPS */
 typedef enum {
   PROP_0,
@@ -23,6 +26,8 @@ my_object_class_init (MyObjectClass *klass)
   g_object_class_install_properties (object_class, N_PROPS, my_props);
 }
 
+G_DEFINE_TYPE (Widget, widget, G_TYPE_OBJECT)
+
 /* Case 2: Old pattern with prefix */
 typedef enum {
   WIDGET_PROP_0,
@@ -43,6 +48,8 @@ widget_class_init (WidgetClass *klass)
 
   g_object_class_install_properties (object_class, WIDGET_N_PROPS, widget_props);
 }
+
+G_DEFINE_TYPE (Modern, modern, G_TYPE_OBJECT)
 
 /* Case 3: Already using modern pattern - should NOT be flagged */
 typedef enum {
@@ -67,6 +74,8 @@ modern_class_init (ModernClass *klass)
 
 /* Case 4: Non-GParamSpec array using N_PROPS - should NOT be touched */
 static int counts[N_PROPS];
+
+G_DEFINE_TYPE (Feature, feature, G_TYPE_OBJECT)
 
 /* Case 5: GParamSpec array in conditional block */
 #ifdef ENABLE_FEATURE

@@ -1,5 +1,8 @@
 #include <glib-object.h>
 
+G_DEFINE_TYPE (Override, override, G_TYPE_OBJECT)
+
+
 /* N_PROPS in middle (override properties) - should NOT be transformed */
 typedef enum {
   PROP_0,

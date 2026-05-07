@@ -1,5 +1,3 @@
-use gobject_ast::{Expression, Statement};
-
 use crate::{
     ast_context::AstContext,
     config::Config,
@@ -33,7 +31,6 @@ impl Rule for SignalEnumCoverage {
                     continue;
                 }
 
-                // Get all signal enum values (excluding N_SIGNALS/LAST_SIGNAL)
                 let signal_values: Vec<&str> = enum_info
                     .values
                     .iter()
@@ -45,131 +42,31 @@ impl Rule for SignalEnumCoverage {
                     continue;
                 }
 
-                // Find which class_init corresponds to this enum
-                let class_init_func = self.find_class_init_for_enum(file, enum_info);
-
-                if class_init_func.is_none() {
-                    // Can't verify coverage without finding class_init
+                let Some(gobject_type) = file.find_gobject_type_for_signal_enum(enum_info) else {
                     continue;
-                }
+                };
 
-                let class_init = class_init_func.unwrap();
+                let installed: std::collections::HashSet<&str> = gobject_type
+                    .signals
+                    .iter()
+                    .filter_map(|s| s.enum_value.as_deref())
+                    .collect();
 
-                // Collect all installed signal enum values
-                let installed_signals = self.collect_installed_signals(class_init);
-
-                // Check coverage
                 for signal_name in &signal_values {
-                    if !installed_signals.contains(*signal_name) {
+                    if !installed.contains(signal_name) {
                         violations.push(self.violation(
                             path,
                             enum_info.location.line,
                             1,
                             format!(
                                 "Signal enum value '{}' is declared but never installed in {}",
-                                signal_name, class_init.name
+                                signal_name,
+                                gobject_type.class_init_function_name()
                             ),
                         ));
                     }
                 }
             }
         }
-    }
-}
-
-impl SignalEnumCoverage {
-    /// Find class_init function that corresponds to this signal enum
-    fn find_class_init_for_enum<'a>(
-        &self,
-        file: &'a gobject_ast::FileModel,
-        enum_info: &gobject_ast::EnumInfo,
-    ) -> Option<&'a gobject_ast::top_level::FunctionDefItem> {
-        // Get N_SIGNALS name if present
-        let n_signals_name = enum_info
-            .values
-            .last()
-            .filter(|v| v.is_signal_last())
-            .map(|v| v.name.as_str());
-
-        // Get all signal enum value names (excluding sentinels)
-        let signal_names: Vec<&str> = enum_info
-            .values
-            .iter()
-            .filter(|v| !v.is_signal_last())
-            .map(|v| v.name.as_str())
-            .collect();
-
-        // Find guint signal arrays that use N_SIGNALS or signal names
-        let arrays = file.find_typed_arrays("guint", false, n_signals_name);
-        let array_names: Vec<&str> = arrays.iter().map(|d| d.name.as_str()).collect();
-
-        // Find class_init function that uses this array OR signal names
-        for func in file.iter_class_init_functions() {
-            let mut uses_signal_enum = false;
-
-            // Check if this class_init uses the array
-            if !array_names.is_empty() {
-                uses_signal_enum = func
-                    .body_statements
-                    .iter()
-                    .flat_map(Statement::iter_assignments)
-                    .any(|a| {
-                        matches!(&*a.lhs, Expression::Subscript(sub)
-                            if matches!(&*sub.array, Expression::Identifier(id)
-                                if array_names.contains(&id.name.as_str())))
-                    });
-            }
-
-            // If no array usage, check if signal names are used in assignments with
-            // g_signal_new
-            if !uses_signal_enum && !signal_names.is_empty() {
-                uses_signal_enum = func
-                    .body_statements
-                    .iter()
-                    .flat_map(Statement::iter_assignments)
-                    .any(|a| {
-                        if let Expression::Subscript(sub) = &*a.lhs
-                            && let Expression::Identifier(index_id) = &*sub.index
-                            && signal_names.contains(&index_id.name.as_str())
-                            && let Expression::Call(call) = &*a.rhs
-                            && call.function_contains("g_signal_new")
-                        {
-                            true
-                        } else {
-                            false
-                        }
-                    });
-            }
-
-            if uses_signal_enum {
-                return Some(func);
-            }
-        }
-
-        None
-    }
-
-    /// Collect all signal enum values that are installed in class_init
-    fn collect_installed_signals(
-        &self,
-        class_init: &gobject_ast::top_level::FunctionDefItem,
-    ) -> std::collections::HashSet<String> {
-        // Array assignment: signals[SIGNAL_NAME] = g_signal_new(...)
-        class_init
-            .body_statements
-            .iter()
-            .flat_map(Statement::iter_assignments)
-            .filter_map(|a| {
-                if let Expression::Subscript(sub) = &*a.lhs
-                    && let Expression::Identifier(enum_id) = &*sub.index
-                    && let Expression::Call(call) = &*a.rhs
-                    && call.function_contains("g_signal_new")
-                {
-                    Some(enum_id.name.clone())
-                } else {
-                    None
-                }
-            })
-            .collect()
     }
 }

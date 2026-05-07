@@ -1,5 +1,8 @@
 #include <glib-object.h>
 
+G_DEFINE_TYPE (MetaBackendNative, meta_backend_native, G_TYPE_OBJECT)
+
+
 enum
 {
   PROP_0,

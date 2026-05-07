@@ -1,3 +1,6 @@
+
+G_DEFINE_TYPE (MyObject, my_object, G_TYPE_OBJECT)
+
 // Test case where a property name contains the sentinel as a substring
 // e.g., PROP_LAST_CHILD contains PROP_LAST
 typedef struct _MyObject MyObject;
