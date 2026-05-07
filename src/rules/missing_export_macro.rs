@@ -33,66 +33,61 @@ impl Rule for MissingExportMacro {
         true
     }
 
-    fn check_all(
+    fn check_func_decl(
         &self,
         ast_context: &AstContext,
         _config: &Config,
+        func: &gobject_ast::top_level::FunctionDeclItem,
+        path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
-        // Only run if we have public header information from meson
-        if !ast_context.has_public_private_info() {
+        if !ast_context.is_public_header(path).unwrap_or(false) {
             return;
         }
 
-        // Check each file
-        for (path, file) in ast_context.iter_all_files() {
-            // Skip if not a public header
-            if !ast_context.is_public_header(path).unwrap_or(false) {
-                continue;
-            }
+        if func.is_static {
+            return;
+        }
 
-            // Check function declarations
-            for func_decl in file.iter_function_declarations() {
-                // Skip static functions (not part of public API)
-                if func_decl.is_static {
-                    continue;
-                }
+        if func.export_macros.is_empty() {
+            violations.push(self.violation(
+                path,
+                func.location.line,
+                func.location.column,
+                format!(
+                    "Public function '{}' in header is missing an export macro (e.g., G_MODULE_EXPORT, *_EXPORT)",
+                    func.name
+                ),
+            ));
+        }
+    }
 
-                // Check if function has an export macro
-                if func_decl.export_macros.is_empty() {
-                    let message = format!(
-                        "Public function '{}' in header is missing an export macro (e.g., G_MODULE_EXPORT, *_EXPORT)",
-                        func_decl.name
-                    );
-                    violations.push(self.violation(
-                        path,
-                        func_decl.location.line,
-                        func_decl.location.column,
-                        message,
-                    ));
-                }
-            }
+    fn check_gobject_type(
+        &self,
+        ast_context: &AstContext,
+        _config: &Config,
+        gobject_type: &gobject_ast::GObjectType,
+        path: &std::path::Path,
+        violations: &mut Vec<Violation>,
+    ) {
+        if !ast_context.is_public_header(path).unwrap_or(false) {
+            return;
+        }
 
-            // Check GObject type declarations (G_DECLARE_*)
-            for gobject_type in file.iter_all_gobject_types() {
-                // Only G_DECLARE_* types go in public headers
-                if !gobject_type.kind.is_declare() {
-                    continue;
-                }
+        if !gobject_type.kind.is_declare() {
+            return;
+        }
 
-                if gobject_type.export_macros.is_empty() {
-                    let message = format!(
-                        "'{}' is missing an export macro (e.g., G_MODULE_EXPORT, *_EXPORT)",
-                        gobject_type.type_name
-                    );
-                    violations.push(self.violation(
-                        path,
-                        gobject_type.location.line,
-                        gobject_type.location.column,
-                        message,
-                    ));
-                }
-            }
+        if gobject_type.export_macros.is_empty() {
+            violations.push(self.violation(
+                path,
+                gobject_type.location.line,
+                gobject_type.location.column,
+                format!(
+                    "'{}' is missing an export macro (e.g., G_MODULE_EXPORT, *_EXPORT)",
+                    gobject_type.type_name
+                ),
+            ));
         }
     }
 }

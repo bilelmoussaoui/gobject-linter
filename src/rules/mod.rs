@@ -302,6 +302,20 @@ pub trait Rule: Send + Sync {
         // Default: no-op
     }
 
+    /// Check an enum definition
+    #[allow(unused_variables)]
+    fn check_enum(
+        &self,
+        ast_context: &AstContext,
+        config: &Config,
+        enum_info: &gobject_ast::EnumInfo,
+        file: &gobject_ast::FileModel,
+        path: &std::path::Path,
+        violations: &mut Vec<Violation>,
+    ) {
+        // Default: no-op
+    }
+
     /// Check a GObject type declaration/definition
     /// Override this to check properties, signals, or other GObject-level
     /// concerns
@@ -343,6 +357,9 @@ pub trait Rule: Send + Sync {
         for (path, file) in ast_context.iter_all_files() {
             for gt in file.iter_all_gobject_types() {
                 self.check_gobject_type(ast_context, config, gt, path, violations);
+            }
+            for enum_info in file.iter_all_enums() {
+                self.check_enum(ast_context, config, enum_info, file, path, violations);
             }
         }
     }

@@ -19,55 +19,52 @@ impl Rule for PropertyEnumCoverage {
         crate::rules::Category::Correctness
     }
 
-    fn check_all(
+    fn check_enum(
         &self,
-        ast_context: &AstContext,
+        _ast_context: &AstContext,
         _config: &Config,
+        enum_info: &gobject_ast::EnumInfo,
+        file: &gobject_ast::FileModel,
+        path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
-        for (path, file) in ast_context.iter_all_files() {
-            for enum_info in file.iter_property_enums() {
-                // Get all property enum values (excluding PROP_0 and N_PROPS)
-                let property_values: Vec<&str> = enum_info
-                    .values
-                    .iter()
-                    .filter(|v| !v.is_prop_0() && !v.is_prop_last())
-                    .map(|v| v.name.as_str())
-                    .collect();
+        if !enum_info.is_property_enum() {
+            return;
+        }
 
-                if property_values.is_empty() {
-                    continue;
-                }
+        let property_values: Vec<&str> = enum_info
+            .values
+            .iter()
+            .filter(|v| !v.is_prop_0() && !v.is_prop_last())
+            .map(|v| v.name.as_str())
+            .collect();
 
-                // Find which GObjectType corresponds to this enum
-                let Some(gobject_type) = file.find_gobject_type_for_property_enum(enum_info) else {
-                    continue;
-                };
+        if property_values.is_empty() {
+            return;
+        }
 
-                // Collect all installed property enum values
-                let installed_properties: Vec<_> = gobject_type
-                    .properties
-                    .iter()
-                    .filter_map(|assignment| assignment.get_installed_enum_value(&file.source))
-                    .collect();
+        let Some(gobject_type) = file.find_gobject_type_for_property_enum(enum_info) else {
+            return;
+        };
 
-                // Check coverage
-                for prop_name in property_values {
-                    if !installed_properties.iter().any(|p| p == prop_name) {
-                        // Find the enum value location for better error reporting
-                        // We'll use the enum's location since we don't have per-value line/column
-                        violations.push(self.violation(
-                            path,
-                            enum_info.location.line,
-                            1,
-                            format!(
-                                "Property enum value '{}' is declared but never installed in {}",
-                                prop_name,
-                                gobject_type.class_init_function_name()
-                            ),
-                        ));
-                    }
-                }
+        let installed_properties: Vec<_> = gobject_type
+            .properties
+            .iter()
+            .filter_map(|assignment| assignment.get_installed_enum_value(&file.source))
+            .collect();
+
+        for prop_name in property_values {
+            if !installed_properties.iter().any(|p| p == prop_name) {
+                violations.push(self.violation(
+                    path,
+                    enum_info.location.line,
+                    1,
+                    format!(
+                        "Property enum value '{}' is declared but never installed in {}",
+                        prop_name,
+                        gobject_type.class_init_function_name()
+                    ),
+                ));
             }
         }
     }

@@ -25,62 +25,65 @@ impl Rule for UseGObjectClassInstallProperties {
         true
     }
 
-    fn check_all(
+    fn check_enum(
         &self,
-        ast_context: &AstContext,
+        _ast_context: &AstContext,
         _config: &Config,
+        enum_info: &gobject_ast::EnumInfo,
+        file: &gobject_ast::FileModel,
+        path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
-        for (path, file) in ast_context.iter_all_files() {
-            for enum_info in file.iter_property_enums() {
-                let Some(gobject_type) = file.find_gobject_type_for_property_enum(enum_info) else {
-                    continue;
-                };
-
-                let class_init_name = gobject_type.class_init_function_name();
-                let Some(func) = file
-                    .iter_function_definitions()
-                    .find(|f| f.name == class_init_name)
-                else {
-                    continue;
-                };
-
-                let install_property_calls = func.find_calls(&["g_object_class_install_property"]);
-                if install_property_calls.is_empty() {
-                    continue;
-                }
-
-                let fixes = self.generate_fixes(
-                    file,
-                    func,
-                    &install_property_calls,
-                    &gobject_type.properties,
-                    enum_info,
-                    &file.source,
-                );
-
-                let first_call = install_property_calls[0];
-                let message = if fixes.is_empty() {
-                    format!(
-                        "Consider using g_object_class_install_properties() instead of {} g_object_class_install_property() calls",
-                        install_property_calls.len()
-                    )
-                } else {
-                    format!(
-                        "Use g_object_class_install_properties() instead of {} g_object_class_install_property() calls",
-                        install_property_calls.len()
-                    )
-                };
-
-                violations.push(self.violation_with_fixes(
-                    path,
-                    first_call.location.line,
-                    first_call.location.column,
-                    message,
-                    fixes,
-                ));
-            }
+        if !enum_info.is_property_enum() {
+            return;
         }
+
+        let Some(gobject_type) = file.find_gobject_type_for_property_enum(enum_info) else {
+            return;
+        };
+
+        let class_init_name = gobject_type.class_init_function_name();
+        let Some(func) = file
+            .iter_function_definitions()
+            .find(|f| f.name == class_init_name)
+        else {
+            return;
+        };
+
+        let install_property_calls = func.find_calls(&["g_object_class_install_property"]);
+        if install_property_calls.is_empty() {
+            return;
+        }
+
+        let fixes = self.generate_fixes(
+            file,
+            func,
+            &install_property_calls,
+            &gobject_type.properties,
+            enum_info,
+            &file.source,
+        );
+
+        let first_call = install_property_calls[0];
+        let message = if fixes.is_empty() {
+            format!(
+                "Consider using g_object_class_install_properties() instead of {} g_object_class_install_property() calls",
+                install_property_calls.len()
+            )
+        } else {
+            format!(
+                "Use g_object_class_install_properties() instead of {} g_object_class_install_property() calls",
+                install_property_calls.len()
+            )
+        };
+
+        violations.push(self.violation_with_fixes(
+            path,
+            first_call.location.line,
+            first_call.location.column,
+            message,
+            fixes,
+        ));
     }
 }
 

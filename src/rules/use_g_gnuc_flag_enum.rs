@@ -23,72 +23,56 @@ impl Rule for UseGGnucFlagEnum {
         true
     }
 
-    fn check_all(
+    fn check_enum(
         &self,
-        ast_context: &AstContext,
+        _ast_context: &AstContext,
         _config: &Config,
+        enum_info: &gobject_ast::EnumInfo,
+        file: &gobject_ast::FileModel,
+        path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
-        for (path, file) in ast_context.iter_all_files() {
-            let source = &ast_context.project.files.get(path).unwrap().source;
+        let Some(ref enum_name) = enum_info.name else {
+            return;
+        };
 
-            for enum_info in file.iter_all_enums() {
-                // Skip anonymous enums (no name)
-                let Some(ref enum_name) = enum_info.name else {
-                    continue;
-                };
-
-                // Check if this enum looks like a flags enum
-                if !enum_info.is_flags_enum() {
-                    continue;
-                }
-
-                // Check if G_GNUC_FLAG_ENUM is already present
-                if enum_info.has_attribute("G_GNUC_FLAG_ENUM") {
-                    continue;
-                }
-
-                // Generate fix: insert G_GNUC_FLAG_ENUM before the type name
-                let fix = self.generate_fix(enum_info, source, enum_name);
-
-                violations.push(self.violation_with_fix(
-                    path,
-                    enum_info.location.line,
-                    enum_info.location.column,
-                    format!(
-                        "Enum '{}' appears to be a flags enum but is missing G_GNUC_FLAG_ENUM attribute",
-                        enum_name
-                    ),
-                    fix,
-                ));
-            }
+        if !enum_info.is_flags_enum() {
+            return;
         }
+
+        if enum_info.has_attribute("G_GNUC_FLAG_ENUM") {
+            return;
+        }
+
+        let source = &file.source;
+        let fix = self.generate_fix(enum_info, source, enum_name);
+
+        violations.push(self.violation_with_fix(
+            path,
+            enum_info.location.line,
+            enum_info.location.column,
+            format!(
+                "Enum '{}' appears to be a flags enum but is missing G_GNUC_FLAG_ENUM attribute",
+                enum_name
+            ),
+            fix,
+        ));
     }
 }
 
 impl UseGGnucFlagEnum {
-    /// Generate a fix to insert G_GNUC_FLAG_ENUM
     fn generate_fix(
         &self,
         enum_info: &gobject_ast::types::EnumInfo,
         source: &[u8],
         enum_name: &str,
     ) -> Fix {
-        // We need to find where the type name appears after the closing brace
-        // For `typedef enum { ... } Name;` we want to insert before Name
-        // For `typedef enum { ... } G_GNUC_FLAG_ENUM Name;` (if already present, but we
-        // shouldn't get here)
-
         let typedef_text = enum_info.location.as_str(source).unwrap_or("");
 
-        // Find the enum name at the end (after the closing brace)
-        // Look for `} <possible_spaces> Name;`
         if let Some(closing_brace_pos) = typedef_text.rfind('}') {
             let after_brace = &typedef_text[closing_brace_pos + 1..];
 
-            // Find the position of the enum name
             if let Some(name_offset) = after_brace.find(enum_name) {
-                // Calculate absolute position in source
                 let insert_pos =
                     enum_info.location.start_byte + closing_brace_pos + 1 + name_offset;
 
@@ -96,8 +80,6 @@ impl UseGGnucFlagEnum {
             }
         }
 
-        // Fallback: insert at the end of the enum body, before the semicolon
-        // This shouldn't normally happen, but just in case
         Fix::new(
             enum_info.location.end_byte - 1,
             enum_info.location.end_byte - 1,
