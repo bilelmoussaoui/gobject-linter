@@ -1,4 +1,8 @@
-use gobject_ast::model::doc::{FunctionAnnotation, PropertyAnnotation};
+use gobject_ast::model::{
+    doc::{FunctionAnnotation, PropertyAnnotation},
+    top_level::FunctionDeclItem,
+    types::GObjectType,
+};
 
 use crate::{
     ast_context::AstContext,
@@ -79,9 +83,91 @@ fn extract_deprecated_version(deprecated: &str) -> Option<&str> {
     }
 }
 
+fn find_type_since(ast_context: &AstContext, gt: &GObjectType) -> Option<String> {
+    gt.doc.as_ref().and_then(|d| d.since.clone()).or_else(|| {
+        let type_name = &gt.type_name;
+        ast_context.iter_c_files().find_map(|(_, f)| {
+            if let Some(v) = f.iter_comments().find_map(|c| {
+                let td = gobject_ast::model::doc::TypeDoc::from_comment(c)?;
+                if td.symbol.as_deref() == Some(type_name.as_str()) {
+                    return td.since;
+                }
+                None
+            }) {
+                return Some(v);
+            }
+
+            f.iter_all_gobject_types()
+                .find(|cgt| cgt.type_name == *type_name)
+                .and_then(|cgt| cgt.doc.as_ref()?.since.clone())
+        })
+    })
+}
+
+fn find_type_deprecated(ast_context: &AstContext, gt: &GObjectType) -> Option<String> {
+    gt.doc
+        .as_ref()
+        .and_then(|d| d.deprecated.as_deref())
+        .and_then(extract_deprecated_version)
+        .map(str::to_owned)
+        .or_else(|| {
+            let type_name = &gt.type_name;
+            ast_context.iter_c_files().find_map(|(_, f)| {
+                if let Some(v) = f.iter_comments().find_map(|c| {
+                    let td = gobject_ast::model::doc::TypeDoc::from_comment(c)?;
+                    if td.symbol.as_deref() == Some(type_name.as_str()) {
+                        return extract_deprecated_version(td.deprecated.as_deref()?)
+                            .map(str::to_owned);
+                    }
+                    None
+                }) {
+                    return Some(v);
+                }
+
+                f.iter_all_gobject_types()
+                    .find(|cgt| cgt.type_name == *type_name)
+                    .and_then(|cgt| {
+                        extract_deprecated_version(cgt.doc.as_ref()?.deprecated.as_deref()?)
+                            .map(str::to_owned)
+                    })
+            })
+        })
+}
+
+fn find_func_since(ast_context: &AstContext, func_decl: &FunctionDeclItem) -> Option<String> {
+    func_decl
+        .doc
+        .as_ref()
+        .and_then(|d| d.since.clone())
+        .or_else(|| {
+            ast_context
+                .iter_c_files()
+                .flat_map(|(_, f)| f.iter_function_definitions())
+                .find(|func_def| func_def.name == func_decl.name)
+                .and_then(|func_def| func_def.doc.as_ref()?.since.clone())
+        })
+}
+
+fn find_func_deprecated(ast_context: &AstContext, func_decl: &FunctionDeclItem) -> Option<String> {
+    func_decl
+        .doc
+        .as_ref()
+        .and_then(|d| d.deprecated.as_deref())
+        .and_then(extract_deprecated_version)
+        .map(str::to_owned)
+        .or_else(|| {
+            ast_context
+                .iter_c_files()
+                .flat_map(|(_, f)| f.iter_function_definitions())
+                .find(|func_def| func_def.name == func_decl.name)
+                .and_then(|func_def| {
+                    extract_deprecated_version(func_def.doc.as_ref()?.deprecated.as_deref()?)
+                        .map(str::to_owned)
+                })
+        })
+}
+
 impl GiMissingSince {
-    /// Check that GObjectType declarations with AVAILABLE_IN have a matching
-    /// Since: in their type doc.
     fn check_type_since(&self, ast_context: &AstContext, violations: &mut Vec<Violation>) {
         for (path, file) in ast_context.iter_header_files() {
             if !ast_context.is_public_header(path).unwrap_or(false) {
@@ -90,39 +176,10 @@ impl GiMissingSince {
 
             for gt in file.iter_all_gobject_types() {
                 let macro_ver = extract_version_from_macros(&gt.export_macros);
-                let type_name = &gt.type_name;
-
-                let find_type_doc = |extract: fn(
-                    &gobject_ast::model::doc::TypeDoc,
-                ) -> Option<&str>|
-                 -> Option<String> {
-                    gt.doc
-                        .as_ref()
-                        .and_then(|d| extract(d).map(str::to_owned))
-                        .or_else(|| {
-                            ast_context.iter_c_files().find_map(|(_, f)| {
-                                if let Some(v) = f.iter_comments().find_map(|c| {
-                                    let td = gobject_ast::model::doc::TypeDoc::from_comment(c)?;
-                                    if td.symbol.as_deref() == Some(type_name.as_str()) {
-                                        return extract(&td).map(str::to_owned);
-                                    }
-                                    None
-                                }) {
-                                    return Some(v);
-                                }
-
-                                f.iter_all_gobject_types()
-                                    .find(|cgt| cgt.type_name == *type_name)
-                                    .and_then(|cgt| extract(cgt.doc.as_ref()?).map(str::to_owned))
-                            })
-                        })
-                };
 
                 match &macro_ver {
                     Some(mv) if mv.keyword == "DEPRECATED_IN" => {
-                        let deprecated_ver = find_type_doc(|d| {
-                            d.deprecated.as_deref().and_then(extract_deprecated_version)
-                        });
+                        let deprecated_ver = find_type_deprecated(ast_context, gt);
                         match deprecated_ver.as_deref() {
                             None => {
                                 violations.push(self.violation(
@@ -153,7 +210,7 @@ impl GiMissingSince {
                         }
                     }
                     Some(mv) => {
-                        let type_since = find_type_doc(|d| d.since.as_deref());
+                        let type_since = find_type_since(ast_context, gt);
                         match type_since.as_deref() {
                             None => {
                                 violations.push(self.violation(
@@ -184,7 +241,7 @@ impl GiMissingSince {
                         }
                     }
                     None if !gt.export_macros.is_empty() => {
-                        let type_since = find_type_doc(|d| d.since.as_deref());
+                        let type_since = find_type_since(ast_context, gt);
                         if let Some(since_ver) = type_since {
                             violations.push(self.violation(
                                 path,
@@ -218,30 +275,9 @@ impl GiMissingSince {
 
                 let macro_ver = extract_version_from_macros(&func_decl.export_macros);
 
-                let find_doc = |get_since: fn(
-                    &gobject_ast::model::doc::FunctionDoc,
-                ) -> Option<&str>|
-                 -> Option<String> {
-                    func_decl
-                        .doc
-                        .as_ref()
-                        .and_then(|d| get_since(d).map(str::to_owned))
-                        .or_else(|| {
-                            ast_context
-                                .iter_c_files()
-                                .flat_map(|(_, f)| f.iter_function_definitions())
-                                .find(|func_def| func_def.name == func_decl.name)
-                                .and_then(|func_def| {
-                                    get_since(func_def.doc.as_ref()?).map(str::to_owned)
-                                })
-                        })
-                };
-
                 match &macro_ver {
                     Some(mv) if mv.keyword == "DEPRECATED_IN" => {
-                        let deprecated_ver = find_doc(|d| {
-                            d.deprecated.as_deref().and_then(extract_deprecated_version)
-                        });
+                        let deprecated_ver = find_func_deprecated(ast_context, func_decl);
                         match deprecated_ver.as_deref() {
                             None => {
                                 violations.push(self.violation(
@@ -272,7 +308,7 @@ impl GiMissingSince {
                         }
                     }
                     Some(mv) => {
-                        let since = find_doc(|d| d.since.as_deref());
+                        let since = find_func_since(ast_context, func_decl);
 
                         let parent_type_ver = file
                             .iter_all_gobject_types()
@@ -325,7 +361,7 @@ impl GiMissingSince {
                         }
                     }
                     None if !func_decl.export_macros.is_empty() => {
-                        let since = find_doc(|d| d.since.as_deref());
+                        let since = find_func_since(ast_context, func_decl);
                         if let Some(since_ver) = since {
                             violations.push(self.violation(
                                 path,
