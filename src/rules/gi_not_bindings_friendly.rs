@@ -129,7 +129,8 @@ impl GiNotBindingsFriendly {
             {
                 continue;
             }
-            if type_info.pointer_depth >= 2 {
+            let min_depth = if type_info.is_basic() { 1 } else { 2 };
+            if type_info.pointer_depth >= min_depth {
                 out_count += 1;
             }
         }
