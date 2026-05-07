@@ -46,7 +46,7 @@ fn build_context_for_file(
             .map(|name| temp_dir.path().join(name))
             .collect::<HashSet<_>>();
         MesonHeaders {
-            gir: HashSet::new(),
+            gir: installed.clone(),
             installed,
         }
     });
@@ -472,3 +472,7 @@ rule_test!(
 );
 rule_test!(type_style, gobject_linter::rules::TypeStyle);
 rule_test!(gi_missing_since, gobject_linter::rules::GiMissingSince);
+rule_test!(
+    gi_not_bindings_friendly,
+    gobject_linter::rules::GiNotBindingsFriendly
+);

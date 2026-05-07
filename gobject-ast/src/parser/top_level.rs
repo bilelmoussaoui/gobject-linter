@@ -15,6 +15,7 @@ impl Parser {
         let mut cursor = node.walk();
         let mut type_node = None;
         let mut qualifiers: Vec<&str> = Vec::new();
+        let mut declarator_node = None;
 
         // Find the type node by walking children
         // Now that grammar is fixed, macro_modifier will be a separate node we can skip
@@ -35,10 +36,17 @@ impl Parser {
                     }
                 }
                 "macro_modifier" => {}
-                "pointer_declarator" | "function_declarator" => break,
+                "pointer_declarator" | "function_declarator" => {
+                    declarator_node = Some(child);
+                    break;
+                }
                 _ => {}
             }
         }
+
+        // Count pointer indirections: GList *foo() parses as
+        // type_identifier("GList") > pointer_declarator(*) > function_declarator
+        let pointer_depth = Self::count_declarator_pointers(declarator_node);
 
         // Extract type text
         let (full_type_text, start_byte, end_byte) = if let Some(type_n) = type_node {
@@ -61,7 +69,31 @@ impl Parser {
             end_byte,
         );
 
-        TypeInfo::new(&full_text, location)
+        let mut type_info = TypeInfo::new(&full_text, location);
+        type_info.pointer_depth += pointer_depth;
+        type_info
+    }
+
+    /// Count pointer_declarator nesting depth before a function_declarator.
+    fn count_declarator_pointers(node: Option<Node>) -> usize {
+        let Some(n) = node else { return 0 };
+        if n.kind() != "pointer_declarator" {
+            return 0;
+        }
+        let mut depth = 0;
+        let mut current = n;
+        while current.kind() == "pointer_declarator" {
+            depth += 1;
+            let mut cursor = current.walk();
+            let next = current
+                .children(&mut cursor)
+                .find(|c| c.kind() == "pointer_declarator" || c.kind() == "function_declarator");
+            match next {
+                Some(child) => current = child,
+                None => break,
+            }
+        }
+        depth
     }
 
     /// Parse a number literal string, handling both decimal and hexadecimal
@@ -725,28 +757,7 @@ impl Parser {
         // Detect function-pointer typedefs: `typedef RetType (*Name)(params)`.
         // The declarator will contain a function_declarator node.
         let target = if let Some(func_decl) = self.find_function_declarator(declarator_node) {
-            // Count pointer_declarator nodes between declarator_node and func_decl —
-            // each one adds one level of indirection to the return type.
-            // e.g. `typedef const gchar *(*Func)(...)` has one pointer_declarator
-            // wrapping the function_declarator, so the return type is `const gchar *`.
-            let mut return_ptr_depth = 0usize;
-            let mut ptr = declarator_node;
-            loop {
-                if ptr.start_byte() == func_decl.start_byte() {
-                    break;
-                }
-                if ptr.kind() == "pointer_declarator" {
-                    return_ptr_depth += 1;
-                }
-                if let Some(inner) = ptr.child_by_field_name("declarator") {
-                    ptr = inner;
-                } else {
-                    break;
-                }
-            }
-
-            let mut return_type = self.extract_return_type(node, source);
-            return_type.pointer_depth += return_ptr_depth;
+            let return_type = self.extract_return_type(node, source);
 
             let mut parameters = func_decl
                 .children_by_field_name("parameters", &mut func_decl.walk())

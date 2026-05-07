@@ -167,6 +167,12 @@ impl AstContext {
         Some(h.gir.contains(path) || h.installed.contains(path))
     }
 
+    /// Check if a file path is a header passed to g-ir-scanner.
+    pub fn is_gir_header(&self, path: &Path) -> Option<bool> {
+        let h = self.meson_headers.as_ref()?;
+        Some(h.gir.contains(path))
+    }
+
     /// Check if public/private distinction is available
     pub fn has_public_private_info(&self) -> bool {
         self.meson_headers.is_some()
