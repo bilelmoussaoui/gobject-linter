@@ -212,6 +212,8 @@ fn main() -> Result<()> {
         }
     }
 
+    let analysis_start = std::time::Instant::now();
+
     // Build AST-based context
     if let Some(ref sp) = spinner {
         sp.set_message("Parsing files...");
@@ -222,10 +224,14 @@ fn main() -> Result<()> {
         spinner.as_ref(),
         meson_headers,
     )?;
+    let parse_duration = analysis_start.elapsed();
 
     // Run AST-based rules
-    let mut violations =
+    let scan_start = std::time::Instant::now();
+    let (mut violations, rule_timings) =
         scanner::scan_with_ast(&ast_context, &config, &project_root, spinner.as_ref())?;
+    let scan_duration = scan_start.elapsed();
+    let analysis_duration = parse_duration + scan_duration;
 
     if let Some(sp) = spinner {
         sp.finish_and_clear();
@@ -294,10 +300,11 @@ fn main() -> Result<()> {
             .map(|f| f.iter_all_gobject_types().count())
             .sum();
         println!(
-            "Parsed {} files, {} functions, {} GObject types",
+            "Parsed {} files, {} functions, {} GObject types in {}",
             ast_context.project.files.len(),
             total_functions,
-            total_gobject_types
+            total_gobject_types,
+            reporter::format_duration(parse_duration),
         );
     }
 
@@ -330,7 +337,7 @@ fn main() -> Result<()> {
             .iter()
             .map(|e| (e.rule.name(), e.rule.fixable()))
             .collect();
-        reporter::report_summary(&violations, &fixable);
+        reporter::report_summary(&violations, &fixable, &rule_timings, analysis_duration);
         let has_errors = violations.iter().any(|v| v.level.is_error());
         if has_errors {
             std::process::exit(1);
@@ -341,7 +348,7 @@ fn main() -> Result<()> {
     // Output violations in the requested format
     match format {
         OutputFormat::Text => {
-            reporter::report_violations(&violations, args.verbose, &config);
+            reporter::report_violations(&violations, args.verbose, &config, analysis_duration);
         }
         OutputFormat::Json => {
             let json_output = serde_json::to_string_pretty(&violations)

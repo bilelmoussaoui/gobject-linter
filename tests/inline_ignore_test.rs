@@ -25,7 +25,7 @@ fn test_inline_ignore() {
         .enable_only_rules(&["use_g_strlcpy".to_string()])
         .unwrap();
 
-    let violations =
+    let (violations, _) =
         scanner::scan_with_ast(&ctx, &config, temp_dir.path(), None).expect("failed to scan");
 
     // Note: This test will also print a warning to stderr about "some_other_rule"
@@ -110,7 +110,7 @@ fn test_inline_ignore_wildcards() {
         .enable_only_rules(&["use_g_strlcpy".to_string()])
         .unwrap();
 
-    let violations =
+    let (violations, _) =
         scanner::scan_with_ast(&ctx, &config, temp_dir.path(), None).expect("failed to scan");
 
     // Both strcpy calls should be ignored by wildcards (all and *)
@@ -153,7 +153,7 @@ void test(void) {
 
     // Note: This will print a warning to stderr about "invalid_rule_name"
     // We can't easily capture stderr in tests, but the warning is printed
-    let violations =
+    let (violations, _) =
         scanner::scan_with_ast(&ctx, &config, temp_dir.path(), None).expect("failed to scan");
 
     // The violation should NOT be suppressed because the rule name doesn't match

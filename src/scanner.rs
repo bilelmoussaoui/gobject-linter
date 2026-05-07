@@ -299,7 +299,7 @@ pub fn scan_with_ast(
     config: &Config,
     project_root: &Path,
     spinner: Option<&ProgressBar>,
-) -> Result<Vec<Violation>> {
+) -> Result<(Vec<Violation>, Vec<(&'static str, std::time::Duration)>)> {
     let mut violations = Vec::new();
 
     // Parse inline ignore directives from all files
@@ -330,14 +330,15 @@ pub fn scan_with_ast(
     }
 
     // Run all rules in parallel — each gets its own violations vec
-    let per_rule: Vec<Result<Vec<Violation>>> = rules
+    let per_rule: Vec<(Result<Vec<Violation>>, &str, std::time::Duration)> = rules
         .par_iter()
         .enumerate()
         .map(|(rule_index, entry)| {
             if !entry.level.is_enabled() {
-                return Ok(Vec::new());
+                return (Ok(Vec::new()), entry.rule.name(), std::time::Duration::ZERO);
             }
 
+            let rule_start = std::time::Instant::now();
             let mut rule_violations = Vec::new();
             entry
                 .rule
@@ -349,19 +350,27 @@ pub fn scan_with_ast(
             }
 
             populate_snippets(&mut rule_violations, 0);
-            filter_violations_in_place(
+            let filter_result = filter_violations_in_place(
                 &mut rule_violations,
                 0,
                 project_root,
                 config,
                 entry.rule_config,
-            )?;
+            );
+            let elapsed = rule_start.elapsed();
 
-            Ok(rule_violations)
+            match filter_result {
+                Ok(()) => (Ok(rule_violations), entry.rule.name(), elapsed),
+                Err(e) => (Err(e), entry.rule.name(), elapsed),
+            }
         })
         .collect();
 
-    for rule_violations in per_rule {
+    let mut rule_timings: Vec<(&str, std::time::Duration)> = Vec::new();
+    for (rule_violations, name, elapsed) in per_rule {
+        if !elapsed.is_zero() {
+            rule_timings.push((name, elapsed));
+        }
         violations.extend(rule_violations?);
     }
 
@@ -382,7 +391,7 @@ pub fn scan_with_ast(
             .then(a.rule.cmp(b.rule))
     });
 
-    Ok(violations)
+    Ok((violations, rule_timings))
 }
 
 /// List all available rules with their descriptions (text format)

@@ -43,17 +43,18 @@ impl Rule for UseGAutoptrInlineCleanup {
         &OPTIONS
     }
 
-    fn check_func_impl(
+    fn check_all(
         &self,
-        _ast_context: &AstContext,
+        ast_context: &AstContext,
         config: &Config,
-        func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
-        // Build ignore matcher from config
         let ignore_types = self.build_ignore_types_matcher(config);
-        self.check_function(func, path, violations, &ignore_types);
+        for (path, file) in ast_context.iter_c_files() {
+            for func in file.iter_function_definitions() {
+                self.check_function(func, path, violations, &ignore_types);
+            }
+        }
     }
 }
 

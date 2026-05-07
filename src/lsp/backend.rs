@@ -172,7 +172,7 @@ impl GObjectBackend {
         let ast_context_guard = self.ast_context.lock().await;
         let violations = match ast_context_guard.as_ref() {
             Some(ctx) => match scanner::scan_with_ast(ctx, &config, &workspace_root, None) {
-                Ok(v) => v,
+                Ok((v, _)) => v,
                 Err(e) => {
                     self.client
                         .log_message(MessageType::ERROR, format!("Failed to scan: {}", e))

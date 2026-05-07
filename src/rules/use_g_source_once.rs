@@ -148,64 +148,50 @@ impl UseGSourceOnce {
         callback_name: &str,
         target_file: &std::path::Path,
     ) -> Option<Vec<Fix>> {
+        let file = ast_context.project.files.get(target_file)?;
         let mut fixes = Vec::new();
         let mut found_definition = false;
 
-        // Find the function definition and all declarations in the same file
-        for (path, file) in ast_context.iter_all_files() {
-            // Only process callbacks in the same file
-            if path != target_file {
+        for func in file.iter_function_definitions() {
+            if func.name != callback_name {
                 continue;
             }
 
-            // Check function definitions
-            for func in file.iter_function_definitions() {
-                if func.name != callback_name {
-                    continue;
-                }
-
-                // Check if all returns are FALSE/G_SOURCE_REMOVE/0
-                let return_exprs = func.collect_return_values();
-
-                // Must have at least one return statement
-                if return_exprs.is_empty() {
-                    return None;
-                }
-
-                // All returns must be FALSE or G_SOURCE_REMOVE or 0
-                if !return_exprs.iter().all(|expr| {
-                    expr.to_simple_string().is_some_and(|s| {
-                        s == "FALSE" || s == "G_SOURCE_REMOVE" || s == "0" || s == "false"
-                    })
-                }) {
-                    return None;
-                }
-
-                // Fix: Change return type from gboolean to void in definition
-                // We need to find "gboolean" in the function and replace it
-                if let Some(fix) = self.fix_definition_return_type(path, func, ast_context) {
-                    fixes.push(fix);
-                }
-
-                // Fix: Remove all return statements (entire lines)
-                for ret_expr in return_exprs {
-                    let (line_start, line_end) = ret_expr.location().find_line_bounds(&file.source);
-                    fixes.push(Fix::new(line_start, line_end, String::new()));
-                }
-
-                found_definition = true;
+            let return_exprs = func.collect_return_values();
+            if return_exprs.is_empty() {
+                return None;
             }
 
-            // Check function declarations
-            for func in file.iter_function_declarations() {
-                if func.name != callback_name {
-                    continue;
-                }
+            if !return_exprs.iter().all(|expr| {
+                expr.to_simple_string().is_some_and(|s| {
+                    s == "FALSE" || s == "G_SOURCE_REMOVE" || s == "0" || s == "false"
+                })
+            }) {
+                return None;
+            }
 
-                // This is a declaration - fix by searching the line in the file
-                if let Some(fix) = self.fix_declaration_return_type(path, func, ast_context) {
-                    fixes.push(fix);
-                }
+            if let Some(fix) =
+                self.fix_definition_return_type(target_file, func, ast_context)
+            {
+                fixes.push(fix);
+            }
+
+            for ret_expr in return_exprs {
+                let (line_start, line_end) = ret_expr.location().find_line_bounds(&file.source);
+                fixes.push(Fix::new(line_start, line_end, String::new()));
+            }
+
+            found_definition = true;
+        }
+
+        for func in file.iter_function_declarations() {
+            if func.name != callback_name {
+                continue;
+            }
+            if let Some(fix) =
+                self.fix_declaration_return_type(target_file, func, ast_context)
+            {
+                fixes.push(fix);
             }
         }
 
@@ -267,17 +253,13 @@ impl UseGSourceOnce {
         callback_name: &str,
         file_path: &std::path::Path,
     ) -> bool {
-        // Search the file for all uses of this callback name
-        for (path, file) in ast_context.iter_c_files() {
-            if path != file_path {
-                continue;
-            }
+        let Some(file) = ast_context.project.files.get(file_path) else {
+            return false;
+        };
 
-            for func in file.iter_function_definitions() {
-                // Walk through all statements looking for uses of the callback name
-                if self.has_non_source_add_usage(&func.body_statements, callback_name) {
-                    return true;
-                }
+        for func in file.iter_function_definitions() {
+            if self.has_non_source_add_usage(&func.body_statements, callback_name) {
+                return true;
             }
         }
 

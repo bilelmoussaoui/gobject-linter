@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env, io::IsTerminal};
+use std::{collections::HashMap, env, io::IsTerminal, time::Duration};
 
 use colored::*;
 
@@ -7,7 +7,7 @@ use crate::{
     rules::Violation,
 };
 
-pub fn report_violations(violations: &[Violation], verbose: bool, config: &Config) {
+pub fn report_violations(violations: &[Violation], verbose: bool, config: &Config, duration: Duration) {
     // Check if we're outputting to a terminal
     let use_hyperlinks = std::io::stdout().is_terminal();
 
@@ -57,11 +57,22 @@ pub fn report_violations(violations: &[Violation], verbose: bool, config: &Confi
         println!("  {} {}", "rule:".blue(), violation.rule);
         println!();
     }
+
+    println!(
+        "{} violation(s) in {}",
+        violations.len().to_string().yellow().bold(),
+        format_duration(duration).dimmed(),
+    );
 }
 
 /// Print a summary table of violation counts grouped by rule, sorted by count
 /// descending. `fixable` maps rule name → whether the rule supports auto-fix.
-pub fn report_summary(violations: &[Violation], fixable: &HashMap<&str, bool>) {
+pub fn report_summary(
+    violations: &[Violation],
+    fixable: &HashMap<&str, bool>,
+    rule_timings: &[(&str, Duration)],
+    duration: Duration,
+) {
     if violations.is_empty() {
         println!("{}", "No violations found!".green().bold());
         return;
@@ -76,15 +87,23 @@ pub fn report_summary(violations: &[Violation], fixable: &HashMap<&str, bool>) {
         levels.entry(v.rule).or_insert(v.level);
     }
 
-    // Build sorted rows: (rule, count, level, fixable), descending by count.
-    let mut rows: Vec<(&str, usize, RuleLevel, bool)> = counts
+    // Build timing lookup
+    let timings: HashMap<&str, Duration> = rule_timings.iter().copied().collect();
+
+    // Build sorted rows: (rule, count, level, fixable, time), descending by count.
+    let mut rows: Vec<(&str, usize, RuleLevel, bool, String)> = counts
         .iter()
         .map(|(&rule, &count)| {
+            let time_str = timings
+                .get(rule)
+                .map(|d| format_duration(*d))
+                .unwrap_or_default();
             (
                 rule,
                 count,
                 *levels.get(rule).unwrap(),
                 *fixable.get(rule).unwrap_or(&false),
+                time_str,
             )
         })
         .collect();
@@ -97,65 +116,50 @@ pub fn report_summary(violations: &[Violation], fixable: &HashMap<&str, bool>) {
         .max()
         .unwrap_or(0)
         .max("Count".len());
-    let level_w = "Level".len(); // "warn " / "error" all fit within this
+    let level_w = "Level".len();
     let rule_w = rows
         .iter()
         .map(|(r, ..)| r.len())
         .max()
         .unwrap_or(0)
         .max("Rule".len());
-    let fix_w = "Autofix".len(); // "Yes" / "No " padded to this width
+    let fix_w = "Autofix".len();
+    let time_w = rows
+        .iter()
+        .map(|(.., t)| t.len())
+        .max()
+        .unwrap_or(0)
+        .max("Time".len());
 
-    // Helper closures for border rows.
     let top = format!(
-        "┌{:─<cw$}┬{:─<rw$}┬{:─<lw$}┬{:─<fw$}┐",
-        "",
-        "",
-        "",
-        "",
-        cw = count_w + 2,
-        rw = rule_w + 2,
-        lw = level_w + 2,
-        fw = fix_w + 2,
+        "┌{:─<cw$}┬{:─<rw$}┬{:─<lw$}┬{:─<fw$}┬{:─<tw$}┐",
+        "", "", "", "", "",
+        cw = count_w + 2, rw = rule_w + 2, lw = level_w + 2, fw = fix_w + 2, tw = time_w + 2,
     );
     let sep = format!(
-        "├{:─<cw$}┼{:─<rw$}┼{:─<lw$}┼{:─<fw$}┤",
-        "",
-        "",
-        "",
-        "",
-        cw = count_w + 2,
-        rw = rule_w + 2,
-        lw = level_w + 2,
-        fw = fix_w + 2,
+        "├{:─<cw$}┼{:─<rw$}┼{:─<lw$}┼{:─<fw$}┼{:─<tw$}┤",
+        "", "", "", "", "",
+        cw = count_w + 2, rw = rule_w + 2, lw = level_w + 2, fw = fix_w + 2, tw = time_w + 2,
     );
     let bot = format!(
-        "└{:─<cw$}┴{:─<rw$}┴{:─<lw$}┴{:─<fw$}┘",
-        "",
-        "",
-        "",
-        "",
-        cw = count_w + 2,
-        rw = rule_w + 2,
-        lw = level_w + 2,
-        fw = fix_w + 2,
+        "└{:─<cw$}┴{:─<rw$}┴{:─<lw$}┴{:─<fw$}┴{:─<tw$}┘",
+        "", "", "", "", "",
+        cw = count_w + 2, rw = rule_w + 2, lw = level_w + 2, fw = fix_w + 2, tw = time_w + 2,
     );
 
     println!("{}", top);
     println!(
-        "│ {:<cw$} │ {:<rw$} │ {:<lw$} │ {:<fw$} │",
+        "│ {:<cw$} │ {:<rw$} │ {:<lw$} │ {:<fw$} │ {:<tw$} │",
         "Count".bold(),
         "Rule".bold(),
         "Level".bold(),
         "Autofix".bold(),
-        cw = count_w,
-        rw = rule_w,
-        lw = level_w,
-        fw = fix_w,
+        "Time".bold(),
+        cw = count_w, rw = rule_w, lw = level_w, fw = fix_w, tw = time_w,
     );
     println!("{}", sep);
 
-    for (rule, count, level, is_fixable) in &rows {
+    for (rule, count, level, is_fixable, time_str) in &rows {
         let count_str = count.to_string().yellow().to_string();
         let (level_str, level_len) = match level {
             RuleLevel::Error => ("error".red().to_string(), 5),
@@ -170,24 +174,21 @@ pub fn report_summary(violations: &[Violation], fixable: &HashMap<&str, bool>) {
         } else {
             "No".dimmed().to_string()
         };
+        let time_colored = time_str.dimmed().to_string();
 
-        // ANSI escape codes inflate the byte length of colored strings, so we
-        // pad the *visible* widths by computing the difference and adding it.
         let count_pad = count_w - count.to_string().len();
         let level_pad = level_w - level_len;
         let rule_pad = rule_w - rule.len();
         let fix_pad = fix_w - if *is_fixable { 3 } else { 2 };
+        let time_pad = time_w - time_str.len();
 
         println!(
-            "│ {}{} │ {}{} │ {}{} │ {}{} │",
-            count_str,
-            " ".repeat(count_pad),
-            rule_str,
-            " ".repeat(rule_pad),
-            level_str,
-            " ".repeat(level_pad),
-            fix_str,
-            " ".repeat(fix_pad),
+            "│ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │",
+            count_str, " ".repeat(count_pad),
+            rule_str, " ".repeat(rule_pad),
+            level_str, " ".repeat(level_pad),
+            fix_str, " ".repeat(fix_pad),
+            time_colored, " ".repeat(time_pad),
         );
     }
 
@@ -197,11 +198,21 @@ pub fn report_summary(violations: &[Violation], fixable: &HashMap<&str, bool>) {
     let total_count: usize = counts.values().sum();
 
     println!(
-        "  {} violation(s) across {} rule(s)",
+        "  {} violation(s) across {} rule(s) in {}",
         total_count.to_string().yellow().bold(),
         rows.len().to_string().yellow().bold(),
+        format_duration(duration).dimmed(),
     );
 }
+pub fn format_duration(d: Duration) -> String {
+    let secs = d.as_secs_f64();
+    if secs < 1.0 {
+        format!("{:.0}ms", secs * 1000.0)
+    } else {
+        format!("{:.2}s", secs)
+    }
+}
+
 fn create_clickable_link(
     file_path: &std::path::Path,
     line: usize,
