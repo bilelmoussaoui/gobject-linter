@@ -56,22 +56,31 @@ impl AstContext {
         let total_files = files.len();
         let counter = AtomicUsize::new(0);
 
-        // Parse files in parallel — each rayon thread gets its own Parser
-        let parsed: Vec<_> = files
+        // Parse files in parallel
+        let chunks: Vec<Vec<_>> = files
             .par_iter()
-            .filter_map(|entry| {
-                let i = counter.fetch_add(1, Ordering::Relaxed);
-                if let Some(sp) = spinner {
-                    sp.set_message(format!("Parsing files... {}/{}", i + 1, total_files));
-                }
-                let mut parser = Parser::new().ok()?;
-                parser.parse_file(entry.path()).ok()
-            })
+            .fold(
+                || (Parser::new().unwrap(), Vec::new()),
+                |(mut parser, mut results), entry| {
+                    let i = counter.fetch_add(1, Ordering::Relaxed);
+                    if let Some(sp) = spinner {
+                        sp.set_message(format!("Parsing files... {}/{}", i + 1, total_files));
+                    }
+                    if let Ok(item) = parser.parse_file_to_model(entry.path()) {
+                        results.push(item);
+                    }
+                    (parser, results)
+                },
+            )
+            .map(|(_, results)| results)
             .collect();
 
         let mut project = Project::new();
-        for file_project in parsed {
-            project.files.extend(file_project.files);
+        project.files.reserve(total_files);
+        for chunk in chunks {
+            for (path, model) in chunk {
+                project.files.insert(path, model);
+            }
         }
 
         let type_aliases = TypeAliasMap::build(&project);
