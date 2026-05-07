@@ -24,7 +24,8 @@ pub use variable_decl::VariableDecl;
 pub use while_stmt::{DoWhileStatement, WhileStatement};
 
 use crate::model::{
-    Assignment, CallExpression, Expression, SourceLocation, top_level::PreprocessorDirective,
+    Assignment, CallExpression, Comment, Expression, SourceLocation,
+    top_level::PreprocessorDirective,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -44,6 +45,7 @@ pub enum Statement {
     Break(BreakStatement),
     Continue(ContinueStatement),
     Preprocessor(PreprocessorDirective),
+    Comment(Comment),
 }
 
 impl Statement {
@@ -102,7 +104,8 @@ impl Statement {
             | Self::Goto(_)
             | Self::Break(_)
             | Self::Continue(_)
-            | Self::Preprocessor(_) => {}
+            | Self::Preprocessor(_)
+            | Self::Comment(_) => {}
         }
     }
 
@@ -138,7 +141,8 @@ impl Statement {
             | Self::Goto(_)
             | Self::Break(_)
             | Self::Continue(_)
-            | Self::Preprocessor(_) => {}
+            | Self::Preprocessor(_)
+            | Self::Comment(_) => {}
         }
     }
 
@@ -192,7 +196,8 @@ impl Statement {
             | Self::Compound(_)
             | Self::Break(_)
             | Self::Continue(_)
-            | Self::Preprocessor(_) => vec![],
+            | Self::Preprocessor(_)
+            | Self::Comment(_) => vec![],
         }
     }
 
@@ -212,6 +217,7 @@ impl Statement {
             Self::Break(b) => &b.location,
             Self::Continue(c) => &c.location,
             Self::Preprocessor(p) => p.location(),
+            Self::Comment(c) => &c.location,
         }
     }
 
@@ -361,36 +367,45 @@ impl Statement {
         self.is_assignment_to(var_name, Expression::is_null)
     }
 
-    /// Iterate over consecutive pairs of statements
+    fn non_comments(stmts: &[Self]) -> Vec<&Self> {
+        stmts
+            .iter()
+            .filter(|s| !matches!(s, Self::Comment(_)))
+            .collect()
+    }
+
+    /// Iterate over consecutive pairs of statements (skipping comments)
     pub fn for_each_pair<F>(statements: &[Self], mut f: F)
     where
         F: FnMut(&Self, &Self),
     {
-        for i in 0..statements.len().saturating_sub(1) {
-            f(&statements[i], &statements[i + 1]);
+        let nc = Self::non_comments(statements);
+        for w in nc.windows(2) {
+            f(w[0], w[1]);
         }
     }
 
-    /// Iterate over consecutive triples of statements
+    /// Iterate over consecutive triples of statements (skipping comments)
     pub fn for_each_triple<F>(statements: &[Self], mut f: F)
     where
         F: FnMut(&Self, &Self, &Self),
     {
-        for i in 0..statements.len().saturating_sub(2) {
-            f(&statements[i], &statements[i + 1], &statements[i + 2]);
+        let nc = Self::non_comments(statements);
+        for w in nc.windows(3) {
+            f(w[0], w[1], w[2]);
         }
     }
 
     /// Recursively visit consecutive pairs of statements at every nesting level
     /// (if bodies, else bodies, compound blocks, loops, switch cases, labeled
-    /// statements). Eliminates the manual recursion that rules otherwise need
-    /// alongside `for_each_pair`.
+    /// statements). Comments are skipped so they don't break pair detection.
     pub fn walk_pairs<F>(stmts: &[Self], f: &mut F)
     where
         F: FnMut(&Self, &Self),
     {
-        for i in 0..stmts.len().saturating_sub(1) {
-            f(&stmts[i], &stmts[i + 1]);
+        let nc = Self::non_comments(stmts);
+        for w in nc.windows(2) {
+            f(w[0], w[1]);
         }
         for stmt in stmts {
             match stmt {
@@ -416,19 +431,21 @@ impl Statement {
                 | Self::Goto(_)
                 | Self::Break(_)
                 | Self::Continue(_)
-                | Self::Preprocessor(_) => {}
+                | Self::Preprocessor(_)
+                | Self::Comment(_) => {}
             }
         }
     }
 
     /// Recursively visit consecutive triples of statements at every nesting
-    /// level. Mirrors `walk_pairs` for triple-statement patterns.
+    /// level. Comments are skipped so they don't break triple detection.
     pub fn walk_triples<F>(stmts: &[Self], f: &mut F)
     where
         F: FnMut(&Self, &Self, &Self),
     {
-        for i in 0..stmts.len().saturating_sub(2) {
-            f(&stmts[i], &stmts[i + 1], &stmts[i + 2]);
+        let nc = Self::non_comments(stmts);
+        for w in nc.windows(3) {
+            f(w[0], w[1], w[2]);
         }
         for stmt in stmts {
             match stmt {
@@ -454,7 +471,8 @@ impl Statement {
                 | Self::Goto(_)
                 | Self::Break(_)
                 | Self::Continue(_)
-                | Self::Preprocessor(_) => {}
+                | Self::Preprocessor(_)
+                | Self::Comment(_) => {}
             }
         }
     }

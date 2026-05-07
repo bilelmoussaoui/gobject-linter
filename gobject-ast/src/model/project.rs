@@ -5,7 +5,6 @@ use serde::Serialize;
 use crate::{
     GObjectType, SourceLocation, Statement, TypeInfo, VariableDecl,
     model::{
-        Comment,
         expression::Expression,
         top_level::{FunctionDefItem, TopLevelItem},
         types::EnumInfo,
@@ -67,9 +66,6 @@ pub struct FileModel {
     /// Top-level items in source order (preserves structure like #ifdef blocks)
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub top_level_items: Vec<TopLevelItem>,
-    /// All comments in the file, in source order
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub comments: Vec<Comment>,
     /// The raw source code of this file - available for detailed pattern
     /// matching
     #[serde(skip)]
@@ -81,7 +77,6 @@ impl FileModel {
         Self {
             path,
             top_level_items: Vec::new(),
-            comments: Vec::new(),
             source: Vec::new(),
         }
     }
@@ -394,6 +389,7 @@ impl FileModel {
                             TopLevelItem::FunctionDefinition(f) => f,
                             _ => unreachable!(),
                         };
+
                         let properties = func.find_param_spec_assignments(source);
                         let signals = func.find_signal_registrations(source);
                         if let TopLevelItem::Preprocessor(PreprocessorDirective::GObjectType(gt)) =

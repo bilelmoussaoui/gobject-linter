@@ -1,6 +1,7 @@
 use serde::Serialize;
 
 use crate::model::{
+    doc::SignalDoc,
     expression::{CallExpression, Expression, StructField},
     types::GType,
 };
@@ -20,11 +21,13 @@ use crate::model::{
 ///               guint n_params,
 ///               ...);
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Signal {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enum_value: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub doc: Option<SignalDoc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub itype: Option<String>, // G_TYPE_FROM_CLASS(klass), G_OBJECT_TYPE, etc.
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -172,6 +175,7 @@ impl Signal {
         Some(Self {
             name,
             enum_value: None,
+            doc: None,
             itype,
             flags,
             class_offset,

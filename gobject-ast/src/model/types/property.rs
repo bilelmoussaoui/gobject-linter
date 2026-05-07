@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use crate::model::{
     SourceLocation,
+    doc::PropertyDoc,
     expression::{Argument, CallExpression, Expression},
     operators::UnaryOp,
     types::GType,
@@ -92,6 +93,8 @@ pub struct Property {
     pub blurb: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub flags: Vec<ParamFlag>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub doc: Option<PropertyDoc>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -502,6 +505,7 @@ impl Property {
             nick,
             blurb,
             flags,
+            doc: None,
         })
     }
 
@@ -528,6 +532,7 @@ impl Property {
             nick: None,
             blurb: None,
             flags: Vec::new(),
+            doc: None,
         })
     }
 }

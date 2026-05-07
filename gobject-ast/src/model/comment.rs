@@ -51,16 +51,27 @@ impl Comment {
 
     /// Check if comment contains a specific annotation (case-insensitive)
     pub fn contains(&self, pattern: &str) -> bool {
-        self.text.to_lowercase().contains(&pattern.to_lowercase())
+        self.body().to_lowercase().contains(&pattern.to_lowercase())
+    }
+
+    /// The comment body without delimiters (`//`, `/* */`).
+    pub fn body(&self) -> &str {
+        let t = self.text.trim();
+        match self.kind {
+            CommentKind::Line => t.strip_prefix("//").unwrap_or(t).trim_start(),
+            CommentKind::Block => t
+                .strip_prefix("/*")
+                .and_then(|s| s.strip_suffix("*/"))
+                .unwrap_or(t)
+                .trim(),
+        }
     }
 
     /// Extract gobject-linter-ignore rule names from comment
     /// Returns Some(vec![rule_names]) if this is an ignore directive
     pub fn extract_ignore_rules(&self) -> Option<Vec<String>> {
-        let text = self.text.trim();
+        let text = self.body();
 
-        // Match: gobject-linter-ignore: rule1, rule2
-        // Or: gobject-linter-ignore-next-line: rule1
         if let Some(after_prefix) = text
             .strip_prefix("gobject-linter-ignore:")
             .or_else(|| text.strip_prefix("gobject-linter-ignore-next-line:"))
@@ -80,12 +91,14 @@ impl Comment {
 
     /// Check if this is a GTK-Doc style documentation comment
     pub fn is_gtk_doc(&self) -> bool {
-        matches!(self.kind, CommentKind::Block) && self.text.trim_start().starts_with('*')
+        matches!(self.kind, CommentKind::Block)
+            && matches!(self.position, CommentPosition::Leading)
+            && self.text.starts_with("/**")
     }
 
     /// Check if this is a TODO/FIXME/HACK/XXX comment
     pub fn is_marker(&self) -> bool {
-        let upper = self.text.to_uppercase();
+        let upper = self.body().to_uppercase();
         upper.contains("TODO")
             || upper.contains("FIXME")
             || upper.contains("HACK")

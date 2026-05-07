@@ -4,7 +4,7 @@ use crate::{
     Statement,
     model::{
         Expression,
-        doc::DocComment,
+        doc::FunctionDoc,
         types::{
             DeclareKind, DefineKind, GObjectType, GObjectTypeKind, GType, InterfaceImplementation,
             VirtualFunction,
@@ -329,8 +329,7 @@ impl Parser {
             name: name.to_owned(),
             return_type,
             parameters,
-            doc: DocComment::from_node(field_node, source)
-                .map(super::super::model::doc::DocComment::into_function_doc),
+            doc: FunctionDoc::from_node(field_node, source),
         })
     }
 

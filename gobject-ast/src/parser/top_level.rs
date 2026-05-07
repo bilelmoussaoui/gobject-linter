@@ -2,7 +2,7 @@ use tree_sitter::Node;
 
 use crate::{
     model::{
-        doc::DocComment,
+        doc::{EnumValueDoc, FunctionDoc, TypeDoc},
         top_level::{ConditionalKind, StructField, *},
         *,
     },
@@ -346,8 +346,7 @@ impl Parser {
                                 .map(std::borrow::ToOwned::to_owned)
                                 .collect(),
                             location: self.node_location(node),
-                            doc: DocComment::from_node(node, source)
-                                .map(DocComment::into_function_doc),
+                            doc: FunctionDoc::from_node(node, source),
                         }));
                     }
                 }
@@ -387,7 +386,7 @@ impl Parser {
                             fields,
                             vfuncs,
                             location: self.node_location(node),
-                            doc: DocComment::from_node(node, source).map(DocComment::into_type_doc),
+                            doc: TypeDoc::from_node(node, source),
                         }));
                     }
                 }
@@ -449,7 +448,7 @@ impl Parser {
                     body_statements,
                     location: self.node_location(node),
                     body_location,
-                    doc: DocComment::from_node(node, source).map(DocComment::into_function_doc),
+                    doc: FunctionDoc::from_node(node, source),
                 }))
             }
             "expression_statement" => self
@@ -503,14 +502,8 @@ impl Parser {
                     .chars()
                     .take(80)
                     .collect::<String>();
-                let file = self
-                    .current_file
-                    .as_deref()
-                    .and_then(|p| p.to_str())
-                    .unwrap_or("<unknown>");
                 tracing::warn!(
-                    "Unhandled ERROR node in {} at {}:{} — fix the grammar. Content: {:?}",
-                    file,
+                    "Unhandled ERROR node at {}:{} — fix the grammar. Content: {:?}",
                     node.start_position().row + 1,
                     node.start_position().column + 1,
                     snippet,
@@ -572,8 +565,7 @@ impl Parser {
                     fields,
                     vfuncs,
                     location: self.node_location(declaration_node),
-                    doc: DocComment::from_node(declaration_node, source)
-                        .map(DocComment::into_type_doc),
+                    doc: TypeDoc::from_node(declaration_node, source),
                 }));
             }
         }
@@ -772,7 +764,7 @@ impl Parser {
             target,
             struct_fields,
             location: self.node_location(node),
-            doc: DocComment::from_node(node, source).map(DocComment::into_type_doc),
+            doc: TypeDoc::from_node(node, source),
         })
     }
 
@@ -802,7 +794,7 @@ impl Parser {
                 values,
                 body_location: self.node_location(body),
                 attributes: Vec::new(),
-                doc: DocComment::from_node(node, source).map(DocComment::into_type_doc),
+                doc: TypeDoc::from_node(node, source),
             });
         }
 
@@ -861,7 +853,7 @@ impl Parser {
                     values,
                     body_location: self.node_location(body),
                     attributes,
-                    doc: DocComment::from_node(node, source).map(DocComment::into_type_doc),
+                    doc: TypeDoc::from_node(node, source),
                 });
             }
             return None;
@@ -890,7 +882,7 @@ impl Parser {
                         values,
                         body_location: self.node_location(body),
                         attributes: Vec::new(),
-                        doc: DocComment::from_node(node, source).map(DocComment::into_type_doc),
+                        doc: TypeDoc::from_node(node, source),
                     });
                 }
             }
@@ -937,7 +929,7 @@ impl Parser {
                     location: self.node_location(child),
                     name_location: self.node_location(name_node),
                     value_location,
-                    doc: DocComment::from_node(child, source).map(DocComment::into_enum_value_doc),
+                    doc: EnumValueDoc::from_node(child, source),
                 });
             }
         }

@@ -1,6 +1,8 @@
 use serde::Serialize;
 use tree_sitter::Node;
 
+use super::Comment;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum TransferKind {
@@ -54,6 +56,7 @@ pub enum ParamAnnotation {
     Type(String),
     Skip,
     Default(String),
+    Attributes(Vec<(String, String)>),
     Unknown(String),
 }
 
@@ -72,6 +75,8 @@ impl ParamAnnotation {
             "optional" => Self::Optional,
             "allow-none" => Self::AllowNone,
             "not optional" => Self::NotOptional,
+            "caller-allocates" => Self::OutCallerAllocates,
+            "callee-allocates" => Self::OutCalleeAllocates,
             "in" => Self::In,
             "out" => match value {
                 None => Self::Out,
@@ -120,6 +125,7 @@ impl ParamAnnotation {
                 }
             },
             "skip" => Self::Skip,
+            "attributes" => Self::Attributes(parse_attributes(value)),
             "default" => match value {
                 Some(v) => Self::Default(v.to_owned()),
                 None => {
@@ -151,6 +157,7 @@ pub enum ReturnAnnotation {
     ArrayDetailed(ArrayAnnotation),
     ElementType(Vec<String>),
     Type(String),
+    Attributes(Vec<(String, String)>),
     Unknown(String),
 }
 
@@ -186,6 +193,7 @@ impl ReturnAnnotation {
                     Self::Unknown(format_annotation(name, value))
                 }
             },
+            "attributes" => Self::Attributes(parse_attributes(value)),
             _ => {
                 tracing::warn!(
                     "doc: unknown return annotation: ({})",
@@ -259,19 +267,6 @@ pub enum EnumValueAnnotation {
     Value(String),
 }
 
-/// An identifier-level annotation parsed from the symbol line.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum IdentifierAnnotation {
-    Function(FunctionAnnotation),
-    Type(TypeAnnotation),
-    Property(PropertyAnnotation),
-    Signal(SignalAnnotation),
-    EnumValue(EnumValueAnnotation),
-    Attributes(Vec<(String, String)>),
-    Unknown(String),
-}
-
 fn parse_transfer(value: Option<&str>) -> Result<TransferKind, String> {
     match value {
         Some("none") => Ok(TransferKind::None),
@@ -318,6 +313,17 @@ fn parse_array(value: &str) -> ArrayAnnotation {
     }
 }
 
+fn parse_attributes(value: Option<&str>) -> Vec<(String, String)> {
+    value
+        .unwrap_or("")
+        .split_whitespace()
+        .filter_map(|kv| {
+            let (k, v) = kv.split_once('=')?;
+            Some((k.to_owned(), v.to_owned()))
+        })
+        .collect()
+}
+
 fn format_annotation(name: &str, value: Option<&str>) -> String {
     match value {
         Some(v) => format!("{name} {v}"),
@@ -325,170 +331,120 @@ fn format_annotation(name: &str, value: Option<&str>) -> String {
     }
 }
 
-fn parse_identifier_annotation(name: &str, value: Option<&str>) -> IdentifierAnnotation {
+fn parse_value_annotation<A>(
+    name: &str,
+    value: Option<&str>,
+    label: &str,
+    f: fn(String) -> A,
+) -> Option<A> {
+    match value {
+        Some(v) => Some(f(v.to_owned())),
+        None => {
+            tracing::warn!("doc: ({name}) requires {label}");
+            None
+        }
+    }
+}
+
+fn parse_function_annotation(name: &str, value: Option<&str>) -> Option<FunctionAnnotation> {
     match name {
-        // Function
-        "skip" => IdentifierAnnotation::Function(FunctionAnnotation::Skip),
-        "constructor" => IdentifierAnnotation::Function(FunctionAnnotation::Constructor),
-        "method" => IdentifierAnnotation::Function(FunctionAnnotation::Method),
-        "virtual" => match value {
-            Some(v) => IdentifierAnnotation::Function(FunctionAnnotation::Virtual(v.to_owned())),
-            None => {
-                tracing::warn!("doc: (virtual) requires a slot name");
-                IdentifierAnnotation::Unknown(format_annotation(name, value))
-            }
-        },
-        "set-property" => match value {
-            Some(v) => {
-                IdentifierAnnotation::Function(FunctionAnnotation::SetProperty(v.to_owned()))
-            }
-            None => {
-                tracing::warn!("doc: (set-property) requires a property name");
-                IdentifierAnnotation::Unknown(format_annotation(name, value))
-            }
-        },
-        "get-property" => match value {
-            Some(v) => {
-                IdentifierAnnotation::Function(FunctionAnnotation::GetProperty(v.to_owned()))
-            }
-            None => {
-                tracing::warn!("doc: (get-property) requires a property name");
-                IdentifierAnnotation::Unknown(format_annotation(name, value))
-            }
-        },
-        "rename-to" => match value {
-            Some(v) => IdentifierAnnotation::Function(FunctionAnnotation::RenameTo(v.to_owned())),
-            None => {
-                tracing::warn!("doc: (rename-to) requires a symbol name");
-                IdentifierAnnotation::Unknown(format_annotation(name, value))
-            }
-        },
-        "sync-func" => match value {
-            Some(v) => IdentifierAnnotation::Function(FunctionAnnotation::SyncFunc(v.to_owned())),
-            None => {
-                tracing::warn!("doc: (sync-func) requires a function name");
-                IdentifierAnnotation::Unknown(format_annotation(name, value))
-            }
-        },
-        "async-func" => match value {
-            Some(v) => IdentifierAnnotation::Function(FunctionAnnotation::AsyncFunc(v.to_owned())),
-            None => {
-                tracing::warn!("doc: (async-func) requires a function name");
-                IdentifierAnnotation::Unknown(format_annotation(name, value))
-            }
-        },
-        "finish-func" => match value {
-            Some(v) => IdentifierAnnotation::Function(FunctionAnnotation::FinishFunc(v.to_owned())),
-            None => {
-                tracing::warn!("doc: (finish-func) requires a function name");
-                IdentifierAnnotation::Unknown(format_annotation(name, value))
-            }
-        },
-        // Type
-        "foreign" => IdentifierAnnotation::Type(TypeAnnotation::Foreign),
-        "ref-func" => match value {
-            Some(v) => IdentifierAnnotation::Type(TypeAnnotation::RefFunc(v.to_owned())),
-            None => {
-                tracing::warn!("doc: (ref-func) requires a function name");
-                IdentifierAnnotation::Unknown(format_annotation(name, value))
-            }
-        },
-        "unref-func" => match value {
-            Some(v) => IdentifierAnnotation::Type(TypeAnnotation::UnrefFunc(v.to_owned())),
-            None => {
-                tracing::warn!("doc: (unref-func) requires a function name");
-                IdentifierAnnotation::Unknown(format_annotation(name, value))
-            }
-        },
-        "copy-func" => match value {
-            Some(v) => IdentifierAnnotation::Type(TypeAnnotation::CopyFunc(v.to_owned())),
-            None => {
-                tracing::warn!("doc: (copy-func) requires a function name");
-                IdentifierAnnotation::Unknown(format_annotation(name, value))
-            }
-        },
-        "free-func" => match value {
-            Some(v) => IdentifierAnnotation::Type(TypeAnnotation::FreeFunc(v.to_owned())),
-            None => {
-                tracing::warn!("doc: (free-func) requires a function name");
-                IdentifierAnnotation::Unknown(format_annotation(name, value))
-            }
-        },
-        "get-value-func" => match value {
-            Some(v) => IdentifierAnnotation::Type(TypeAnnotation::GetValueFunc(v.to_owned())),
-            None => {
-                tracing::warn!("doc: (get-value-func) requires a function name");
-                IdentifierAnnotation::Unknown(format_annotation(name, value))
-            }
-        },
-        "set-value-func" => match value {
-            Some(v) => IdentifierAnnotation::Type(TypeAnnotation::SetValueFunc(v.to_owned())),
-            None => {
-                tracing::warn!("doc: (set-value-func) requires a function name");
-                IdentifierAnnotation::Unknown(format_annotation(name, value))
-            }
-        },
-        // Property
-        "getter" => match value {
-            Some(v) => IdentifierAnnotation::Property(PropertyAnnotation::Getter(v.to_owned())),
-            None => {
-                tracing::warn!("doc: (getter) requires a symbol name");
-                IdentifierAnnotation::Unknown(format_annotation(name, value))
-            }
-        },
-        "setter" => match value {
-            Some(v) => IdentifierAnnotation::Property(PropertyAnnotation::Setter(v.to_owned())),
-            None => {
-                tracing::warn!("doc: (setter) requires a symbol name");
-                IdentifierAnnotation::Unknown(format_annotation(name, value))
-            }
-        },
-        "default-value" => match value {
-            Some(v) => {
-                IdentifierAnnotation::Property(PropertyAnnotation::DefaultValue(v.to_owned()))
-            }
-            None => {
-                tracing::warn!("doc: (default-value) requires a value");
-                IdentifierAnnotation::Unknown(format_annotation(name, value))
-            }
-        },
-        // Signal
-        "emitter" => match value {
-            Some(v) => IdentifierAnnotation::Signal(SignalAnnotation::Emitter(v.to_owned())),
-            None => {
-                tracing::warn!("doc: (emitter) requires a method name");
-                IdentifierAnnotation::Unknown(format_annotation(name, value))
-            }
-        },
-        // Enum value
-        "value" => match value {
-            Some(v) => IdentifierAnnotation::EnumValue(EnumValueAnnotation::Value(v.to_owned())),
-            None => {
-                tracing::warn!("doc: (value) requires a value");
-                IdentifierAnnotation::Unknown(format_annotation(name, value))
-            }
-        },
-        // Attributes (any context)
-        "attributes" => {
-            let pairs = value
-                .map(|v| {
-                    v.split_whitespace()
-                        .filter_map(|pair| {
-                            let (k, val) = pair.split_once('=')?;
-                            Some((k.to_owned(), val.to_owned()))
-                        })
-                        .collect()
-                })
-                .unwrap_or_default();
-            IdentifierAnnotation::Attributes(pairs)
+        "skip" => Some(FunctionAnnotation::Skip),
+        "constructor" => Some(FunctionAnnotation::Constructor),
+        "method" => Some(FunctionAnnotation::Method),
+        "virtual" => {
+            parse_value_annotation(name, value, "a slot name", FunctionAnnotation::Virtual)
         }
-        _ => {
-            tracing::warn!(
-                "doc: unknown identifier annotation: ({})",
-                format_annotation(name, value)
-            );
-            IdentifierAnnotation::Unknown(format_annotation(name, value))
+        "set-property" => parse_value_annotation(
+            name,
+            value,
+            "a property name",
+            FunctionAnnotation::SetProperty,
+        ),
+        "get-property" => parse_value_annotation(
+            name,
+            value,
+            "a property name",
+            FunctionAnnotation::GetProperty,
+        ),
+        "rename-to" => {
+            parse_value_annotation(name, value, "a symbol name", FunctionAnnotation::RenameTo)
         }
+        "sync-func" => {
+            parse_value_annotation(name, value, "a function name", FunctionAnnotation::SyncFunc)
+        }
+        "async-func" => parse_value_annotation(
+            name,
+            value,
+            "a function name",
+            FunctionAnnotation::AsyncFunc,
+        ),
+        "finish-func" => parse_value_annotation(
+            name,
+            value,
+            "a function name",
+            FunctionAnnotation::FinishFunc,
+        ),
+        _ => None,
+    }
+}
+
+fn parse_type_annotation(name: &str, value: Option<&str>) -> Option<TypeAnnotation> {
+    match name {
+        "skip" => Some(TypeAnnotation::Skip),
+        "foreign" => Some(TypeAnnotation::Foreign),
+        "rename-to" => {
+            parse_value_annotation(name, value, "a symbol name", TypeAnnotation::RenameTo)
+        }
+        "ref-func" => {
+            parse_value_annotation(name, value, "a function name", TypeAnnotation::RefFunc)
+        }
+        "unref-func" => {
+            parse_value_annotation(name, value, "a function name", TypeAnnotation::UnrefFunc)
+        }
+        "copy-func" => {
+            parse_value_annotation(name, value, "a function name", TypeAnnotation::CopyFunc)
+        }
+        "free-func" => {
+            parse_value_annotation(name, value, "a function name", TypeAnnotation::FreeFunc)
+        }
+        "get-value-func" => {
+            parse_value_annotation(name, value, "a function name", TypeAnnotation::GetValueFunc)
+        }
+        "set-value-func" => {
+            parse_value_annotation(name, value, "a function name", TypeAnnotation::SetValueFunc)
+        }
+        _ => None,
+    }
+}
+
+fn parse_property_annotation(name: &str, value: Option<&str>) -> Option<PropertyAnnotation> {
+    match name {
+        "getter" => {
+            parse_value_annotation(name, value, "a symbol name", PropertyAnnotation::Getter)
+        }
+        "setter" => {
+            parse_value_annotation(name, value, "a symbol name", PropertyAnnotation::Setter)
+        }
+        "default-value" => {
+            parse_value_annotation(name, value, "a value", PropertyAnnotation::DefaultValue)
+        }
+        _ => None,
+    }
+}
+
+fn parse_signal_annotation(name: &str, value: Option<&str>) -> Option<SignalAnnotation> {
+    match name {
+        "emitter" => {
+            parse_value_annotation(name, value, "a method name", SignalAnnotation::Emitter)
+        }
+        _ => None,
+    }
+}
+
+fn parse_enum_value_annotation(name: &str, value: Option<&str>) -> Option<EnumValueAnnotation> {
+    match name {
+        "value" => parse_value_annotation(name, value, "a value", EnumValueAnnotation::Value),
+        _ => None,
     }
 }
 
@@ -509,20 +465,22 @@ pub struct DocReturns {
     pub description: String,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct DocComment {
-    pub symbol: Option<String>,
-    pub annotations: Vec<IdentifierAnnotation>,
-    pub params: Vec<DocParam>,
-    pub returns: Option<DocReturns>,
-    pub description: Vec<String>,
-    pub since: Option<String>,
-    pub deprecated: Option<String>,
+struct RawDoc<A> {
+    symbol: Option<String>,
+    annotations: Vec<A>,
+    params: Vec<DocParam>,
+    returns: Option<DocReturns>,
+    description: Vec<String>,
+    since: Option<String>,
+    deprecated: Option<String>,
 }
 
-impl DocComment {
-    /// Parse the doc comment preceding `node` in the C tree-sitter AST.
-    pub fn from_node(node: Node<'_>, source: &[u8]) -> Option<Self> {
+impl<A> RawDoc<A> {
+    fn from_node(
+        node: Node<'_>,
+        source: &[u8],
+        parse_annotation: fn(&str, Option<&str>) -> Option<A>,
+    ) -> Option<Self> {
         let prev = node.prev_named_sibling()?;
         if prev.kind() != "comment" {
             return None;
@@ -531,14 +489,33 @@ impl DocComment {
         if !text.starts_with("/**") {
             return None;
         }
-        Self::from_comment_text(text)
+        Self::from_text(text, parse_annotation)
     }
 
-    /// Parse a raw `/** ... */` comment string.
-    pub fn from_comment_text(text: &str) -> Option<Self> {
+    fn from_comment(
+        comment: &Comment,
+        parse_annotation: fn(&str, Option<&str>) -> Option<A>,
+    ) -> Option<Self> {
+        if !comment.is_gtk_doc() {
+            return None;
+        }
+        Self::from_text(&comment.text, parse_annotation)
+    }
+
+    fn from_text(
+        text: &str,
+        parse_annotation: fn(&str, Option<&str>) -> Option<A>,
+    ) -> Option<Self> {
         let text = text.strip_prefix("/**")?.strip_suffix("*/")?.trim();
 
-        let mut doc = Self::default();
+        let mut symbol = None;
+        let mut annotations = Vec::new();
+        let mut params = Vec::new();
+        let mut returns = None;
+        let mut description = Vec::new();
+        let mut since = None;
+        let mut deprecated = None;
+        let mut in_description = false;
 
         for raw_line in text.lines() {
             let line = raw_line.trim().strip_prefix('*').unwrap_or(raw_line.trim());
@@ -548,182 +525,64 @@ impl DocComment {
                 continue;
             }
 
-            if let Some(rest) = line.strip_prefix('@') {
-                if let Some((name, after_colon)) = rest.split_once(':') {
-                    let (annotations, desc) =
-                        parse_annotations_and_desc(after_colon.trim(), ParamAnnotation::parse);
-                    doc.params.push(DocParam {
-                        name: name.trim().to_owned(),
-                        annotations,
-                        description: desc,
-                    });
-                }
+            if !in_description
+                && let Some(rest) = line.strip_prefix('@')
+                && let Some((name, after_colon)) = rest.split_once(':')
+            {
+                let (anns, desc) =
+                    parse_annotations_and_desc(after_colon.trim(), ParamAnnotation::parse);
+                params.push(DocParam {
+                    name: name.trim().to_owned(),
+                    annotations: anns,
+                    description: desc,
+                });
             } else if let Some(after) = line.strip_prefix("Returns:") {
-                let (annotations, desc) =
+                let (anns, desc) =
                     parse_annotations_and_desc(after.trim(), ReturnAnnotation::parse);
-                doc.returns = Some(DocReturns {
-                    annotations,
+                returns = Some(DocReturns {
+                    annotations: anns,
                     description: desc,
                 });
             } else if let Some(v) = line.strip_prefix("Since:") {
-                doc.since = Some(v.trim().to_owned());
+                since = Some(v.trim().to_owned());
             } else if let Some(v) = line.strip_prefix("Deprecated:") {
-                doc.deprecated = Some(v.trim().to_owned());
-            } else if doc.symbol.is_none() && doc.params.is_empty() && doc.description.is_empty() {
-                let (before_colon, after_colon) = match line.split_once(':') {
-                    Some((b, a)) => (b, Some(a)),
-                    None => (line, None),
-                };
-                if before_colon
-                    .chars()
-                    .all(|c| c.is_alphanumeric() || c == '_' || c == ':' || c == '-')
+                deprecated = Some(v.trim().to_owned());
+            } else if symbol.is_none() && params.is_empty() && description.is_empty() {
+                let symbol_end = line
+                    .find(|c: char| !(c.is_alphanumeric() || c == '_' || c == ':' || c == '-'))
+                    .unwrap_or(line.len());
+                let candidate = &line[..symbol_end];
+                let rest = line[symbol_end..].trim();
+
+                let sym = candidate.trim_end_matches(':');
+                if !sym.is_empty()
+                    && sym
+                        .chars()
+                        .all(|c| c.is_alphanumeric() || c == '_' || c == ':' || c == '-')
                 {
-                    doc.symbol = Some(before_colon.to_owned());
-                    if let Some(rest) = after_colon {
-                        let (annotations, _) =
-                            parse_annotations_and_desc(rest.trim(), parse_identifier_annotation);
-                        doc.annotations = annotations;
+                    symbol = Some(sym.to_owned());
+                    if !rest.is_empty() {
+                        annotations = parse_symbol_annotations(rest, parse_annotation);
                     }
                 } else {
-                    doc.description.push(line.to_owned());
+                    in_description = true;
+                    description.push(line.to_owned());
                 }
             } else {
-                doc.description.push(line.to_owned());
+                in_description = true;
+                description.push(line.to_owned());
             }
         }
 
-        Some(doc)
-    }
-
-    /// Convert to a function doc, warning about misplaced annotations.
-    pub fn into_function_doc(self) -> FunctionDoc {
-        let mut annotations = Vec::new();
-        for a in self.annotations {
-            match a {
-                IdentifierAnnotation::Function(f) => annotations.push(f),
-                IdentifierAnnotation::Attributes(_) | IdentifierAnnotation::Unknown(_) => {}
-                other => {
-                    tracing::warn!("doc: annotation {other:?} is not valid on a function");
-                }
-            }
-        }
-        FunctionDoc {
-            symbol: self.symbol,
+        Some(Self {
+            symbol,
             annotations,
-            params: self.params,
-            returns: self.returns,
-            description: self.description,
-            since: self.since,
-            deprecated: self.deprecated,
-        }
-    }
-
-    /// Convert to a type doc, warning about misplaced annotations.
-    pub fn into_type_doc(self) -> TypeDoc {
-        let mut annotations = Vec::new();
-        for a in self.annotations {
-            match a {
-                IdentifierAnnotation::Type(t) => annotations.push(t),
-                IdentifierAnnotation::Attributes(_) | IdentifierAnnotation::Unknown(_) => {}
-                other => {
-                    tracing::warn!("doc: annotation {other:?} is not valid on a type");
-                }
-            }
-        }
-        if !self.params.is_empty() {
-            tracing::warn!("doc: @param annotations are not valid on a type");
-        }
-        if self.returns.is_some() {
-            tracing::warn!("doc: Returns: is not valid on a type");
-        }
-        TypeDoc {
-            symbol: self.symbol,
-            annotations,
-            description: self.description,
-            since: self.since,
-            deprecated: self.deprecated,
-        }
-    }
-
-    /// Convert to a property doc, warning about misplaced annotations.
-    pub fn into_property_doc(self) -> PropertyDoc {
-        let mut annotations = Vec::new();
-        for a in self.annotations {
-            match a {
-                IdentifierAnnotation::Property(p) => annotations.push(p),
-                IdentifierAnnotation::Attributes(_) | IdentifierAnnotation::Unknown(_) => {}
-                other => {
-                    tracing::warn!("doc: annotation {other:?} is not valid on a property");
-                }
-            }
-        }
-        if !self.params.is_empty() {
-            tracing::warn!("doc: @param annotations are not valid on a property");
-        }
-        if self.returns.is_some() {
-            tracing::warn!("doc: Returns: is not valid on a property");
-        }
-        PropertyDoc {
-            symbol: self.symbol,
-            annotations,
-            description: self.description,
-            since: self.since,
-            deprecated: self.deprecated,
-        }
-    }
-
-    /// Convert to a signal doc, warning about misplaced annotations.
-    pub fn into_signal_doc(self) -> SignalDoc {
-        let mut annotations = Vec::new();
-        for a in self.annotations {
-            match a {
-                IdentifierAnnotation::Signal(s) => annotations.push(s),
-                IdentifierAnnotation::Attributes(_) | IdentifierAnnotation::Unknown(_) => {}
-                other => {
-                    tracing::warn!("doc: annotation {other:?} is not valid on a signal");
-                }
-            }
-        }
-        if !self.params.is_empty() {
-            tracing::warn!("doc: @param annotations are not valid on a signal");
-        }
-        if self.returns.is_some() {
-            tracing::warn!("doc: Returns: is not valid on a signal");
-        }
-        SignalDoc {
-            symbol: self.symbol,
-            annotations,
-            description: self.description,
-            since: self.since,
-            deprecated: self.deprecated,
-        }
-    }
-
-    /// Convert to an enum value doc, warning about misplaced annotations.
-    pub fn into_enum_value_doc(self) -> EnumValueDoc {
-        let mut annotations = Vec::new();
-        for a in self.annotations {
-            match a {
-                IdentifierAnnotation::EnumValue(e) => annotations.push(e),
-                IdentifierAnnotation::Attributes(_) | IdentifierAnnotation::Unknown(_) => {}
-                other => {
-                    tracing::warn!("doc: annotation {other:?} is not valid on an enum value");
-                }
-            }
-        }
-        if !self.params.is_empty() {
-            tracing::warn!("doc: @param annotations are not valid on an enum value");
-        }
-        if self.returns.is_some() {
-            tracing::warn!("doc: Returns: is not valid on an enum value");
-        }
-        EnumValueDoc {
-            symbol: self.symbol,
-            annotations,
-            description: self.description,
-            since: self.since,
-            deprecated: self.deprecated,
-        }
+            params,
+            returns,
+            description,
+            since,
+            deprecated,
+        })
     }
 }
 
@@ -746,6 +605,22 @@ pub struct FunctionDoc {
 }
 
 impl FunctionDoc {
+    pub fn from_node(node: Node<'_>, source: &[u8]) -> Option<Self> {
+        RawDoc::from_node(node, source, parse_function_annotation).map(Self::from_raw)
+    }
+
+    fn from_raw(raw: RawDoc<FunctionAnnotation>) -> Self {
+        Self {
+            symbol: raw.symbol,
+            annotations: raw.annotations,
+            params: raw.params,
+            returns: raw.returns,
+            description: raw.description,
+            since: raw.since,
+            deprecated: raw.deprecated,
+        }
+    }
+
     pub fn param(&self, name: &str) -> Option<&DocParam> {
         self.params.iter().find(|p| p.name == name)
     }
@@ -778,6 +653,22 @@ pub struct TypeDoc {
     pub deprecated: Option<String>,
 }
 
+impl TypeDoc {
+    pub fn from_node(node: Node<'_>, source: &[u8]) -> Option<Self> {
+        RawDoc::from_node(node, source, parse_type_annotation).map(Self::from_raw)
+    }
+
+    fn from_raw(raw: RawDoc<TypeAnnotation>) -> Self {
+        Self {
+            symbol: raw.symbol,
+            annotations: raw.annotations,
+            description: raw.description,
+            since: raw.since,
+            deprecated: raw.deprecated,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct PropertyDoc {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -792,6 +683,22 @@ pub struct PropertyDoc {
     pub deprecated: Option<String>,
 }
 
+impl PropertyDoc {
+    pub fn from_comment(comment: &Comment) -> Option<Self> {
+        RawDoc::from_comment(comment, parse_property_annotation).map(Self::from_raw)
+    }
+
+    fn from_raw(raw: RawDoc<PropertyAnnotation>) -> Self {
+        Self {
+            symbol: raw.symbol,
+            annotations: raw.annotations,
+            description: raw.description,
+            since: raw.since,
+            deprecated: raw.deprecated,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct SignalDoc {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -799,11 +706,33 @@ pub struct SignalDoc {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub annotations: Vec<SignalAnnotation>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub params: Vec<DocParam>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub returns: Option<DocReturns>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub description: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub since: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deprecated: Option<String>,
+}
+
+impl SignalDoc {
+    pub fn from_comment(comment: &Comment) -> Option<Self> {
+        RawDoc::from_comment(comment, parse_signal_annotation).map(Self::from_raw)
+    }
+
+    fn from_raw(raw: RawDoc<SignalAnnotation>) -> Self {
+        Self {
+            symbol: raw.symbol,
+            annotations: raw.annotations,
+            params: raw.params,
+            returns: raw.returns,
+            description: raw.description,
+            since: raw.since,
+            deprecated: raw.deprecated,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -820,8 +749,31 @@ pub struct EnumValueDoc {
     pub deprecated: Option<String>,
 }
 
+impl EnumValueDoc {
+    pub fn from_node(node: Node<'_>, source: &[u8]) -> Option<Self> {
+        RawDoc::from_node(node, source, parse_enum_value_annotation).map(Self::from_raw)
+    }
+
+    fn from_raw(raw: RawDoc<EnumValueAnnotation>) -> Self {
+        Self {
+            symbol: raw.symbol,
+            annotations: raw.annotations,
+            description: raw.description,
+            since: raw.since,
+            deprecated: raw.deprecated,
+        }
+    }
+}
+
 /// Parse `(annotation1) (annotation2): description text` using the
 /// provided parse function for the annotation type.
+fn is_annotation_name(name: &str) -> bool {
+    !name.is_empty()
+        && name
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c == '-' || c == ' ')
+}
+
 fn parse_annotations_and_desc<T>(
     text: &str,
     parse_fn: fn(&str, Option<&str>) -> T,
@@ -829,17 +781,29 @@ fn parse_annotations_and_desc<T>(
     let mut annotations = Vec::new();
     let mut rest = text;
 
-    while let Some(start) = rest.find('(') {
-        let Some(end) = rest[start..].find(')') else {
+    // Annotations must appear consecutively at the start: (nullable)(transfer full)
+    while rest.starts_with('(') {
+        let Some(end) = rest.find(')') else {
             break;
         };
-        let end = start + end;
-        let inner = &rest[start + 1..end];
+        let inner = &rest[1..end];
 
-        let (name, value) = match inner.split_once(' ') {
-            Some((n, v)) => (n, Some(v)),
-            None => (inner, None),
+        let (name, value) = if let Some(rest_after) = inner.strip_prefix("not ") {
+            if let Some((_, v)) = rest_after.split_once(' ') {
+                (&inner[..inner.len() - v.len() - 1], Some(v))
+            } else {
+                (inner, None)
+            }
+        } else {
+            match inner.split_once(' ') {
+                Some((n, v)) => (n, Some(v)),
+                None => (inner, None),
+            }
         };
+
+        if !is_annotation_name(name) {
+            break;
+        }
 
         annotations.push(parse_fn(name, value));
 
@@ -848,4 +812,44 @@ fn parse_annotations_and_desc<T>(
 
     let desc = rest.strip_prefix(':').unwrap_or(rest).trim();
     (annotations, desc.to_owned())
+}
+
+fn parse_symbol_annotations<A>(
+    text: &str,
+    parse_fn: fn(&str, Option<&str>) -> Option<A>,
+) -> Vec<A> {
+    let mut annotations = Vec::new();
+    let mut rest = text;
+
+    while rest.starts_with('(') {
+        let Some(end) = rest.find(')') else {
+            break;
+        };
+        let inner = &rest[1..end];
+
+        let (name, value) = if let Some(rest_after) = inner.strip_prefix("not ") {
+            if let Some((_, v)) = rest_after.split_once(' ') {
+                (&inner[..inner.len() - v.len() - 1], Some(v))
+            } else {
+                (inner, None)
+            }
+        } else {
+            match inner.split_once(' ') {
+                Some((n, v)) => (n, Some(v)),
+                None => (inner, None),
+            }
+        };
+
+        if !is_annotation_name(name) {
+            break;
+        }
+
+        if let Some(a) = parse_fn(name, value) {
+            annotations.push(a);
+        }
+
+        rest = rest[end + 1..].trim_start();
+    }
+
+    annotations
 }

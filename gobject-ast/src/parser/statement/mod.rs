@@ -13,7 +13,7 @@ use tree_sitter::Node;
 
 use crate::{
     model::{
-        CompoundStatement, Statement,
+        Comment, CommentPosition, CompoundStatement, Statement,
         statement::{DoWhileStatement, ForInit, ForStatement, WhileStatement},
     },
     parser::Parser,
@@ -236,12 +236,21 @@ impl Parser {
                 self.parse_preproc_conditional(node, source)
                     .map(Statement::Compound)
             }
+            "comment" => {
+                let (kind, content) = self.extract_comment_text(node, source)?;
+                let location = self.node_location(node);
+                Some(Statement::Comment(Comment::new(
+                    content,
+                    location,
+                    kind,
+                    CommentPosition::Leading,
+                )))
+            }
             "{"
             | "}"
             | ";"
             | "("
             | ")"
-            | "comment"
             | "identifier"
             | "number_literal"
             | "string_literal"

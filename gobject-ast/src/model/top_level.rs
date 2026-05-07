@@ -7,7 +7,7 @@ use crate::{
     EnumInfo, GObjectType, TypeInfo, VariableDecl, VirtualFunction,
     model::{
         SourceLocation, Statement,
-        doc::{FunctionDoc, TypeDoc},
+        doc::{FunctionDoc, PropertyDoc, SignalDoc, TypeDoc},
         expression::{CallExpression, Expression},
         types::{ParamSpecAssignment, Parameter, Property, Signal},
     },
@@ -407,36 +407,50 @@ impl FunctionDefItem {
         let mut seen_names = std::collections::HashSet::new();
 
         // First pass: assignments like `signals[ENUM] = g_signal_new(...)`
-        for assignment in self
-            .body_statements
-            .iter()
-            .flat_map(Statement::iter_assignments)
-        {
-            let Expression::Call(call) = &*assignment.rhs else {
-                continue;
-            };
-            if !call.function_contains("g_signal_new") {
-                continue;
+        for (i, stmt) in self.body_statements.iter().enumerate() {
+            for assignment in stmt.iter_assignments() {
+                let Expression::Call(call) = &*assignment.rhs else {
+                    continue;
+                };
+                if !call.function_contains("g_signal_new") {
+                    continue;
+                }
+                let Some(mut signal) = Signal::from_g_signal_new_call(call, source) else {
+                    continue;
+                };
+                if let Expression::Subscript(sub) = &*assignment.lhs
+                    && let Expression::Identifier(id) = &*sub.index
+                {
+                    signal.enum_value = Some(id.name.clone());
+                }
+                if i > 0
+                    && let Statement::Comment(c) = &self.body_statements[i - 1]
+                {
+                    signal.doc = SignalDoc::from_comment(c);
+                }
+                seen_names.insert(signal.name.clone());
+                signals.push(signal);
             }
-            let Some(mut signal) = Signal::from_g_signal_new_call(call, source) else {
-                continue;
-            };
-            if let Expression::Subscript(sub) = &*assignment.lhs
-                && let Expression::Identifier(id) = &*sub.index
-            {
-                signal.enum_value = Some(id.name.clone());
-            }
-            seen_names.insert(signal.name.clone());
-            signals.push(signal);
         }
 
         // Second pass: standalone g_signal_new calls not already captured
-        for call in self.find_calls_matching(|n| n.starts_with("g_signal_new")) {
-            if let Some(name) = call.extract_string_from_arg(0) {
+        for (i, stmt) in self.body_statements.iter().enumerate() {
+            for call in stmt.iter_calls() {
+                if !call.function_name().starts_with("g_signal_new") {
+                    continue;
+                }
+                let Some(name) = call.extract_string_from_arg(0) else {
+                    continue;
+                };
                 if seen_names.contains(&name) {
                     continue;
                 }
-                if let Some(signal) = Signal::from_g_signal_new_call(call, source) {
+                if let Some(mut signal) = Signal::from_g_signal_new_call(call, source) {
+                    if i > 0
+                        && let Statement::Comment(c) = &self.body_statements[i - 1]
+                    {
+                        signal.doc = SignalDoc::from_comment(c);
+                    }
                     signals.push(signal);
                 }
             }
@@ -633,7 +647,7 @@ impl FunctionDefItem {
         let mut variable_assignments: HashMap<String, Vec<usize>> = HashMap::new();
 
         // First pass: collect all assignments
-        for stmt in &self.body_statements {
+        for (i, stmt) in self.body_statements.iter().enumerate() {
             stmt.walk(&mut |s| {
                 if let Statement::Expression(expr_stmt) = s {
                     match expr_stmt.as_ref() {
@@ -646,10 +660,15 @@ impl FunctionDefItem {
                                 }
 
                                 // Parse property from call
-                                let Some(property) = Property::from_param_spec_call(param_call)
+                                let Some(mut property) = Property::from_param_spec_call(param_call)
                                 else {
                                     return;
                                 };
+                                if i > 0
+                                    && let Statement::Comment(c) = &self.body_statements[i - 1]
+                                {
+                                    property.doc = PropertyDoc::from_comment(c);
+                                }
 
                                 // Check LHS: array subscript or variable?
                                 if let Expression::Subscript(subscript) = &*assignment.lhs {
@@ -697,10 +716,16 @@ impl FunctionDefItem {
                         // Direct call: g_object_class_override_property(class, PROP_X, "name")
                         Expression::Call(call) => {
                             if call.function_contains("override_property")
-                                && let Some(property) = Property::from_override_property_call(call)
+                                && let Some(mut property) =
+                                    Property::from_override_property_call(call)
                                 && let Some(enum_arg) = call.get_arg(1)
                                 && let Some(enum_value) = enum_arg.to_source_string(source)
                             {
+                                if i > 0
+                                    && let Statement::Comment(c) = &self.body_statements[i - 1]
+                                {
+                                    property.doc = PropertyDoc::from_comment(c);
+                                }
                                 assignments.push(ParamSpecAssignment::OverrideProperty {
                                     enum_value,
                                     property_name: property.name.clone(),
@@ -717,7 +742,7 @@ impl FunctionDefItem {
         }
 
         // Second pass: find install calls and link them to assignments
-        for stmt in &self.body_statements {
+        for (i, stmt) in self.body_statements.iter().enumerate() {
             stmt.walk(&mut |s| {
                 if let Statement::Expression(expr_stmt) = s
                     && let Expression::Call(call) = expr_stmt.as_ref()
@@ -746,10 +771,13 @@ impl FunctionDefItem {
                             && spec_call.function_name().contains("_param_spec_")
                             && let Some(enum_arg) = call.get_arg(1)
                             && let Some(enum_value) = enum_arg.to_source_string(source)
-                            && let Some(property) = Property::from_param_spec_call(spec_call)
+                            && let Some(mut property) = Property::from_param_spec_call(spec_call)
                         {
-                            // Inline param_spec: g_object_class_install_property(class, PROP_X,
-                            // g_param_spec_*(...))
+                            if i > 0
+                                && let Statement::Comment(c) = &self.body_statements[i - 1]
+                            {
+                                property.doc = PropertyDoc::from_comment(c);
+                            }
                             assignments.push(ParamSpecAssignment::DirectInstall {
                                 enum_value,
                                 property_name: property.name.clone(),

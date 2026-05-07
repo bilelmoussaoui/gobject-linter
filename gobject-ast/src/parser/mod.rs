@@ -109,6 +109,7 @@ impl Parser {
     }
 
     fn parse_single_file(&mut self, path: &Path, project: &mut Project) -> Result<()> {
+        let _file_span = tracing::warn_span!("file", path = %path.display()).entered();
         self.current_file = Some(path.to_path_buf());
         let source = fs::read(path)?;
         let tree = self
@@ -121,11 +122,8 @@ impl Parser {
         // Extract all content from this file
         self.visit_node(tree.root_node(), &source, &mut file_model);
 
-        // Extract all comments
-        file_model.comments = self.extract_comments(tree.root_node(), &source);
-
         // Store the source for detailed pattern matching by rules
-        file_model.source = source.clone();
+        file_model.source = source;
 
         file_model.resolve_gobject_types();
 
@@ -239,124 +237,19 @@ impl Parser {
         None
     }
 
-    /// Extract all comments from the tree-sitter tree with proper position
-    /// detection
-    fn extract_comments(&self, root: Node, source: &[u8]) -> Vec<Comment> {
-        let mut raw_comments = Vec::new();
-        self.collect_comments_recursive(root, source, &mut raw_comments);
-
-        // Determine positions by analyzing context
-        self.determine_comment_positions(raw_comments, root, source)
-    }
-
-    fn collect_comments_recursive<'a>(
+    pub(super) fn extract_comment_text(
         &self,
-        node: Node<'a>,
+        node: Node,
         source: &[u8],
-        comments: &mut Vec<(Node<'a>, CommentKind, String)>,
-    ) {
-        // If this node is a comment, extract it
-        if node.kind() == "comment"
-            && let Some((kind, content)) = self.extract_comment_text(node, source)
-        {
-            comments.push((node, kind, content));
-        }
-
-        // Recurse into children
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            self.collect_comments_recursive(child, source, comments);
-        }
-    }
-
-    fn extract_comment_text(&self, node: Node, source: &[u8]) -> Option<(CommentKind, String)> {
+    ) -> Option<(CommentKind, String)> {
         let text = std::str::from_utf8(&source[node.byte_range()]).ok()?;
 
-        // Determine comment kind and extract text without delimiters
-        if let Some(rest) = text.strip_prefix("//") {
-            Some((CommentKind::Line, rest.trim_start().to_string()))
+        if text.starts_with("//") {
+            Some((CommentKind::Line, text.to_string()))
         } else if text.starts_with("/*") && text.ends_with("*/") {
-            let inner = &text[2..text.len() - 2];
-            Some((CommentKind::Block, inner.trim().to_string()))
+            Some((CommentKind::Block, text.to_string()))
         } else {
             None
-        }
-    }
-
-    fn determine_comment_positions(
-        &self,
-        raw_comments: Vec<(Node, CommentKind, String)>,
-        root: Node,
-        source: &[u8],
-    ) -> Vec<Comment> {
-        raw_comments
-            .into_iter()
-            .map(|(node, kind, content)| {
-                let location = self.node_location(node);
-                let position = self.detect_comment_position(node, root, source);
-                Comment::new(content, location, kind, position)
-            })
-            .collect()
-    }
-
-    fn detect_comment_position(
-        &self,
-        comment_node: Node,
-        root: Node,
-        _source: &[u8],
-    ) -> CommentPosition {
-        let comment_line = comment_node.start_position().row;
-        let comment_end_line = comment_node.end_position().row;
-
-        // Find the next non-comment node after this comment
-        if let Some(next_node) = self.find_next_sibling_or_statement(comment_node, root) {
-            let next_line = next_node.start_position().row;
-
-            // If comment is on the same line as the next node, it's trailing
-            if comment_line == next_line || comment_end_line == next_line {
-                return CommentPosition::Trailing;
-            }
-        }
-
-        // Find the previous non-comment node before this comment
-        if let Some(prev_node) = self.find_prev_sibling_or_statement(comment_node, root) {
-            let prev_end_line = prev_node.end_position().row;
-
-            // If comment is on the same line as previous node's end, it's trailing
-            if comment_line == prev_end_line {
-                return CommentPosition::Trailing;
-            }
-        }
-
-        // Default to Leading for comments before statements
-        CommentPosition::Leading
-    }
-
-    fn find_next_sibling_or_statement<'a>(&self, node: Node<'a>, _root: Node) -> Option<Node<'a>> {
-        let mut current = node;
-        loop {
-            if let Some(sibling) = current.next_sibling() {
-                if sibling.kind() != "comment" {
-                    return Some(sibling);
-                }
-                current = sibling;
-            } else {
-                return None;
-            }
-        }
-    }
-
-    fn find_prev_sibling_or_statement<'a>(&self, node: Node<'a>, _root: Node) -> Option<Node<'a>> {
-        let mut current = node;
-        loop {
-            if let Some(sibling) = current.prev_sibling() {
-                if sibling.kind() != "comment" {
-                    return Some(sibling);
-                }
-                current = sibling;
-            } else {
-                return None;
-            }
         }
     }
 }
