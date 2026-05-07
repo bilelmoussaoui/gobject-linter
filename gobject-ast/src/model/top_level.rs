@@ -4,7 +4,7 @@ use clap::ValueEnum;
 use serde::{Serialize, Serializer, ser::SerializeMap};
 
 use crate::{
-    EnumInfo, GObjectType, TypeInfo, VariableDecl, VirtualFunction,
+    Comment, EnumInfo, GObjectType, TypeInfo, VariableDecl, VirtualFunction,
     model::{
         SourceLocation, Statement,
         doc::{FunctionDoc, PropertyDoc, SignalDoc, TypeDoc},
@@ -48,6 +48,8 @@ pub enum TopLevelItem {
     Declaration(Box<VariableDecl>),
     /// Standalone expression statement
     Expression(Box<Expression>),
+    /// Standalone GTK-Doc comment not attached to any declaration
+    Comment(Comment),
 }
 
 impl TopLevelItem {
@@ -66,6 +68,7 @@ impl TopLevelItem {
                 Some(&gobject_type.type_name)
             }
             Self::Declaration(decl) => Some(&decl.name),
+            Self::Comment(_) => None,
             _ => None,
         }
     }
@@ -91,6 +94,7 @@ impl TopLevelItem {
             }
             Self::Declaration(_) => TopLevelItemKind::Declaration,
             Self::Expression(_) => TopLevelItemKind::Expression,
+            Self::Comment(_) => TopLevelItemKind::Other,
             Self::Preprocessor(_) => TopLevelItemKind::Other,
         }
     }
@@ -123,6 +127,11 @@ impl Serialize for TopLevelItem {
             Self::Expression(v) => {
                 let mut m = s.serialize_map(Some(1))?;
                 m.serialize_entry("expression", v)?;
+                m.end()
+            }
+            Self::Comment(v) => {
+                let mut m = s.serialize_map(Some(1))?;
+                m.serialize_entry("comment", v)?;
                 m.end()
             }
         }

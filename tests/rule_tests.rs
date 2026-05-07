@@ -471,3 +471,4 @@ rule_test!(
     gobject_linter::rules::MissingExportMacro
 );
 rule_test!(type_style, gobject_linter::rules::TypeStyle);
+rule_test!(gi_missing_since, gobject_linter::rules::GiMissingSince);

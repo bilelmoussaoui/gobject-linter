@@ -97,38 +97,41 @@ impl UsePragmaOnce {
         &self,
         items: &[gobject_ast::top_level::TopLevelItem],
     ) -> Option<(SourceLocation, SourceLocation, SourceLocation, String)> {
-        // The first item should be #ifndef (traditional include guard)
-        items.first().and_then(|item| match item {
-            TopLevelItem::Preprocessor(PreprocessorDirective::Conditional {
-                kind: ConditionalKind::Ifndef,
-                condition: Some(name),
-                body,
-                location,
-            }) => {
-                // Found #ifndef - check it contains matching #define as first item
-                let define_loc = self.find_matching_define(body, name)?;
+        // The first non-comment item should be #ifndef (traditional include guard)
+        items
+            .iter()
+            .find(|item| !matches!(item, TopLevelItem::Comment(_)))
+            .and_then(|item| match item {
+                TopLevelItem::Preprocessor(PreprocessorDirective::Conditional {
+                    kind: ConditionalKind::Ifndef,
+                    condition: Some(name),
+                    body,
+                    location,
+                }) => {
+                    // Found #ifndef - check it contains matching #define as first item
+                    let define_loc = self.find_matching_define(body, name)?;
 
-                // Create location for #endif - it's at the end of the conditional
-                // The location.end_byte points to after the #endif directive
-                let endif_loc = SourceLocation::new(
-                    0, // Line/column don't matter for our use case
-                    0,
-                    location.end_byte,
-                    location.end_byte,
-                );
+                    // Create location for #endif - it's at the end of the conditional
+                    // The location.end_byte points to after the #endif directive
+                    let endif_loc = SourceLocation::new(
+                        0, // Line/column don't matter for our use case
+                        0,
+                        location.end_byte,
+                        location.end_byte,
+                    );
 
-                // Create location for #ifndef - it's at the start
-                let ifndef_loc = SourceLocation::new(
-                    location.line,
-                    location.column,
-                    location.start_byte,
-                    location.start_byte,
-                );
+                    // Create location for #ifndef - it's at the start
+                    let ifndef_loc = SourceLocation::new(
+                        location.line,
+                        location.column,
+                        location.start_byte,
+                        location.start_byte,
+                    );
 
-                Some((ifndef_loc, define_loc, endif_loc, name.clone()))
-            }
-            _ => None, // First item is not #ifndef
-        })
+                    Some((ifndef_loc, define_loc, endif_loc, name.clone()))
+                }
+                _ => None, // First item is not #ifndef
+            })
     }
 
     /// Find matching #define inside the #ifndef body
@@ -139,14 +142,16 @@ impl UsePragmaOnce {
         body: &[gobject_ast::top_level::TopLevelItem],
         guard_name: &str,
     ) -> Option<SourceLocation> {
-        // Need at least 2 items: the #define and some actual content
-        if body.len() < 2 {
+        let non_comment_items: Vec<_> = body
+            .iter()
+            .filter(|item| !matches!(item, TopLevelItem::Comment(_)))
+            .collect();
+
+        if non_comment_items.len() < 2 {
             return None;
         }
 
-        // First item in body should be #define with matching name and NO value
-        // (include guards are #define GUARD_NAME with no value)
-        body.first().and_then(|item| match item {
+        non_comment_items.first().and_then(|item| match item {
             TopLevelItem::Preprocessor(PreprocessorDirective::Define {
                 name,
                 value,

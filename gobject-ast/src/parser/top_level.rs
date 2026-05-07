@@ -496,6 +496,16 @@ impl Parser {
                 }
                 None
             }
+            "comment" => {
+                let text = std::str::from_utf8(&source[node.byte_range()]).ok()?;
+                let (kind, _) = self.extract_comment_text(node, source)?;
+                Some(TopLevelItem::Comment(Comment::new(
+                    text.to_string(),
+                    self.node_location(node),
+                    kind,
+                    CommentPosition::Leading,
+                )))
+            }
             "ERROR" => {
                 let snippet = std::str::from_utf8(&source[node.byte_range()])
                     .unwrap_or("<invalid utf8>")

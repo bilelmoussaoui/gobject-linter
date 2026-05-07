@@ -658,6 +658,10 @@ impl TypeDoc {
         RawDoc::from_node(node, source, parse_type_annotation).map(Self::from_raw)
     }
 
+    pub fn from_comment(comment: &Comment) -> Option<Self> {
+        RawDoc::from_comment(comment, parse_type_annotation).map(Self::from_raw)
+    }
+
     fn from_raw(raw: RawDoc<TypeAnnotation>) -> Self {
         Self {
             symbol: raw.symbol,

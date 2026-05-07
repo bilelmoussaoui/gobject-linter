@@ -3,8 +3,9 @@ use std::{collections::HashMap, path::PathBuf};
 use serde::Serialize;
 
 use crate::{
-    GObjectType, SourceLocation, Statement, TypeInfo, VariableDecl,
+    Comment, GObjectType, SourceLocation, Statement, TypeInfo, VariableDecl,
     model::{
+        doc::TypeDoc,
         expression::Expression,
         top_level::{FunctionDefItem, TopLevelItem},
         types::EnumInfo,
@@ -168,6 +169,16 @@ impl FileModel {
                 {
                     Some(td)
                 }
+                _ => None,
+            })
+    }
+
+    /// Iterate through all standalone comments (including those in #ifdef
+    /// blocks)
+    pub fn iter_comments(&self) -> impl Iterator<Item = &Comment> + '_ {
+        self.iter_items_recursive(&self.top_level_items)
+            .filter_map(|item| match item {
+                TopLevelItem::Comment(c) => Some(c),
                 _ => None,
             })
     }
@@ -381,6 +392,7 @@ impl FileModel {
             match &items[i] {
                 TopLevelItem::Preprocessor(PreprocessorDirective::GObjectType(gt)) => {
                     let class_init_name = gt.class_init_function_name();
+                    let type_name = gt.type_name.clone();
                     let func_idx = items.iter().position(|item| {
                         matches!(item, TopLevelItem::FunctionDefinition(f) if f.name == class_init_name)
                     });
@@ -398,6 +410,22 @@ impl FileModel {
                             gt.properties = properties;
                             gt.signals = signals;
                         }
+                    }
+
+                    let doc = items.iter().find_map(|item| {
+                        if let TopLevelItem::Comment(c) = item {
+                            let td = TypeDoc::from_comment(c)?;
+                            if td.symbol.as_deref() == Some(type_name.as_str()) {
+                                return Some(td);
+                            }
+                        }
+                        None
+                    });
+                    if let Some(doc) = doc
+                        && let TopLevelItem::Preprocessor(PreprocessorDirective::GObjectType(gt)) =
+                            &mut items[i]
+                    {
+                        gt.doc = Some(doc);
                     }
                 }
                 TopLevelItem::Preprocessor(PreprocessorDirective::Conditional { .. })

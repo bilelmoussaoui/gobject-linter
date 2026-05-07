@@ -176,6 +176,7 @@ macro_rules! for_each_rule {
             (use_g_ascii_functions, UseGAsciiFunctions, 2, 0, false, false),
             (use_g_strlcpy, UseGStrlcpy, 2, 0, false, false),
             (untranslated_string, UntranslatedString, 2, 0, false, false),
+            (gi_missing_since, GiMissingSince, 2, 0, false, true),
         }
     };
 }

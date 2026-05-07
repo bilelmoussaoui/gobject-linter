@@ -1,0 +1,2 @@
+functions.h:19:1: gi_missing_since: Function 'my_widget_get_baseline' has AVAILABLE_IN_4_12 but is missing a Since: annotation
+functions.h:23:1: gi_missing_since: Function 'my_widget_get_color' has AVAILABLE_IN_4_10 but Since: says 4.6

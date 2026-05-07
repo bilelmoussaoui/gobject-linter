@@ -3,7 +3,7 @@ use serde::{Serialize, Serializer, ser::SerializeMap as _};
 use crate::{
     SourceLocation, Statement, TypeInfo,
     model::{
-        doc::FunctionDoc,
+        doc::{FunctionDoc, TypeDoc},
         types::{GType, Signal, function::Parameter, property::ParamSpecAssignment},
     },
     top_level::FunctionDefItem,
@@ -30,6 +30,8 @@ pub struct GObjectType {
     pub code_block_statements: Vec<Statement>, // Statements from *_WITH_CODE macros
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub export_macros: Vec<String>, // e.g., ["CLUTTER_EXPORT"]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub doc: Option<TypeDoc>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub properties: Vec<ParamSpecAssignment>,
     #[serde(skip_serializing_if = "Vec::is_empty")]

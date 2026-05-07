@@ -26,6 +26,8 @@ pub enum Category {
     Restriction,
     /// Code that may cause portability issues across platforms/compilers
     Portability,
+    /// GObject Introspection annotation issues
+    Introspection,
 }
 
 impl Category {
@@ -39,6 +41,7 @@ impl Category {
             Self::Pedantic => "pedantic",
             Self::Restriction => "restriction",
             Self::Portability => "portability",
+            Self::Introspection => "introspection",
         }
     }
 }
@@ -111,6 +114,7 @@ pub mod g_param_spec_null_nick_blurb;
 pub mod g_param_spec_static_strings;
 pub mod g_source_id_not_stored;
 pub mod g_task_source_tag;
+pub mod gi_missing_since;
 pub mod include_order;
 pub mod inconsistent_function_signature;
 pub mod matching_declare_define;
@@ -170,6 +174,7 @@ pub use g_param_spec_null_nick_blurb::GParamSpecNullNickBlurb;
 pub use g_param_spec_static_strings::GParamSpecStaticStrings;
 pub use g_source_id_not_stored::GSourceIdNotStored;
 pub use g_task_source_tag::GTaskSourceTag;
+pub use gi_missing_since::GiMissingSince;
 pub use include_order::IncludeOrder;
 pub use inconsistent_function_signature::InconsistentFunctionSignature;
 pub use matching_declare_define::MatchingDeclareDefine;
