@@ -28,15 +28,12 @@ impl Rule for GParamSpecNullNickBlurb {
         true
     }
 
-    fn check_func_impl(
+    fn check_all(
         &self,
-        _ast_context: &AstContext,
+        ast_context: &AstContext,
         config: &Config,
-        func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
-        // Get custom flags that already include static strings
         let static_flags = config
             .get_rule_config(self.name())
             .and_then(|rc| rc.options.get("static_flags"))
@@ -48,13 +45,15 @@ impl Rule for GParamSpecNullNickBlurb {
             })
             .unwrap_or_default();
 
-        // Find all g_param_spec_* calls (but skip g_param_spec_internal)
-        for call in func.find_calls_matching(|name| {
-            name.contains("_param_spec_")
-                && !name.ends_with("_param_spec_override")
-                && !name.ends_with("_param_spec_internal")
-        }) {
-            self.check_call(path, call, &static_flags, violations);
+        for (path, file) in ast_context.iter_c_files() {
+            for func in file.iter_function_definitions() {
+                for assignment in func.find_param_spec_assignments(&file.source) {
+                    let Some(call) = assignment.param_spec_call() else {
+                        continue;
+                    };
+                    self.check_call(path, call, assignment.property(), &static_flags, violations);
+                }
+            }
         }
     }
 }
@@ -64,21 +63,14 @@ impl GParamSpecNullNickBlurb {
         &self,
         file_path: &std::path::Path,
         call: &CallExpression,
+        property: &Property,
         custom_static_flags: &[String],
         violations: &mut Vec<Violation>,
     ) {
-        // g_param_spec_*(name, nick, blurb, ...) — need at least 3 args
         if call.arguments.len() < 3 {
             return;
         }
 
-        // Parse the property using the AST helpers
-        let Some(property) = Property::from_param_spec_call(call) else {
-            return;
-        };
-
-        // Check if any custom flags that include static strings are present
-        // If so, skip this rule as the project intentionally uses non-NULL nick/blurb
         let has_custom_static_flag = property.flags.iter().any(|flag| {
             if let ParamFlag::Unknown(name) = flag {
                 custom_static_flags.contains(name)
@@ -88,12 +80,9 @@ impl GParamSpecNullNickBlurb {
         });
 
         if has_custom_static_flag {
-            return; // Project uses custom flags that include static strings
+            return;
         }
 
-        // Check if nick/blurb are NULL by examining the actual expressions
-        // The parsed Property only recognizes string literals, so it treats macro calls
-        // like _("...") as None. We need to check the raw expressions instead.
         let Some(nick_expr) = call.get_arg(1) else {
             return;
         };
@@ -104,7 +93,6 @@ impl GParamSpecNullNickBlurb {
         let nick_is_null = nick_expr.is_null();
         let blurb_is_null = blurb_expr.is_null();
 
-        // Collect which parameters need fixing
         let mut issues = Vec::new();
         if !nick_is_null {
             issues.push("nick (parameter 2)");
@@ -114,26 +102,22 @@ impl GParamSpecNullNickBlurb {
         }
 
         if issues.is_empty() {
-            return; // Already correct
+            return;
         }
 
-        // Create fix to replace non-NULL arguments with NULL
         let string_fix = if !nick_is_null && !blurb_is_null {
-            // Replace both nick and blurb with NULL
             Fix::new(
                 nick_expr.location().start_byte,
                 blurb_expr.location().end_byte,
                 "NULL, NULL",
             )
         } else if !nick_is_null {
-            // Replace only nick with NULL
             Fix::new(
                 nick_expr.location().start_byte,
                 nick_expr.location().end_byte,
                 "NULL",
             )
         } else {
-            // Replace only blurb with NULL
             Fix::new(
                 blurb_expr.location().start_byte,
                 blurb_expr.location().end_byte,
@@ -141,9 +125,6 @@ impl GParamSpecNullNickBlurb {
             )
         };
 
-        // Also fix the flags: after this rule runs, both nick and blurb will be NULL,
-        // so remove STATIC_NICK, STATIC_BLURB, and STATIC_STRINGS, and ensure
-        // STATIC_NAME is present (name is always a literal).
         let mut fixes = vec![string_fix];
 
         if let Some(new_flags) = self.compute_new_flags(&property.flags) {
@@ -168,10 +149,7 @@ impl GParamSpecNullNickBlurb {
         ));
     }
 
-    /// After nick and blurb are set to NULL, compute the correct replacement
-    /// flags string. Returns `None` if the flags are already correct.
     fn compute_new_flags(&self, current_flags: &[gobject_ast::types::ParamFlag]) -> Option<String> {
-        // Check if we need to remove any flags
         let needs_removal = current_flags.iter().any(|f| {
             matches!(
                 f,
@@ -183,10 +161,9 @@ impl GParamSpecNullNickBlurb {
             .any(|f| matches!(f, ParamFlag::StaticName));
 
         if !needs_removal && has_name {
-            return None; // Already correct
+            return None;
         }
 
-        // Filter out STATIC_NICK, STATIC_BLURB, and STATIC_STRINGS
         let mut new_flags: Vec<ParamFlag> = current_flags
             .iter()
             .filter(|f| {
@@ -198,7 +175,6 @@ impl GParamSpecNullNickBlurb {
             .cloned()
             .collect();
 
-        // Ensure STATIC_NAME is present
         if !new_flags.iter().any(|f| matches!(f, ParamFlag::StaticName)) {
             new_flags.push(ParamFlag::StaticName);
         }

@@ -28,19 +28,21 @@ impl Rule for PropertyCanonicalName {
         true
     }
 
-    fn check_func_impl(
+    fn check_all(
         &self,
-        _ast_context: &AstContext,
+        ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
-        // Find all g_param_spec_* calls (but skip g_param_spec_internal)
-        for call in func.find_calls_matching(|name| {
-            name.starts_with("g_param_spec_") && name != "g_param_spec_internal"
-        }) {
-            self.check_call(path, call, violations);
+        for (path, file) in ast_context.iter_c_files() {
+            for func in file.iter_function_definitions() {
+                for assignment in func.find_param_spec_assignments(&file.source) {
+                    let Some(call) = assignment.param_spec_call() else {
+                        continue;
+                    };
+                    self.check_call(path, call, assignment.property(), violations);
+                }
+            }
         }
     }
 }
@@ -50,43 +52,31 @@ impl PropertyCanonicalName {
         &self,
         file_path: &std::path::Path,
         call: &CallExpression,
+        property: &Property,
         violations: &mut Vec<Violation>,
     ) {
-        // g_param_spec_* functions have different signatures, but all have:
-        // - First argument: name (string)
-        // - Last argument: flags (GParamFlags)
         if call.arguments.len() < 2 {
             return;
         }
 
-        // Parse the property using the AST helpers
-        let Some(property) = Property::from_param_spec_call(call) else {
-            return;
-        };
-
-        // Check if the property name contains underscores
         if !property.name.contains('_') {
-            return; // Name is already canonical
+            return;
         }
 
-        // Check if flags contain G_PARAM_STATIC_NAME or G_PARAM_STATIC_STRINGS
         let has_static_name = property.flags.contains(&ParamFlag::StaticName)
             || property.flags.contains(&ParamFlag::StaticStrings);
 
         let name_value = &property.name;
-
-        // Name is non-canonical - create a fix
         let canonical_name = name_value.replace('_', "-");
         let replacement = format!("\"{}\"", canonical_name);
 
-        // Find the actual string literal to replace
         let Some(expr) = call.get_arg(0) else {
             return;
         };
 
         let string_lit_location = match expr {
             Expression::StringLiteral(lit) => &lit.location,
-            _ => return, // Unexpected structure
+            _ => return,
         };
 
         let fix = Fix::new(

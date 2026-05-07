@@ -191,7 +191,7 @@ impl Property {
     /// - g_param_spec_string(name, nick, blurb, default, flags)
     /// - g_param_spec_int(name, nick, blurb, min, max, default, flags)
     /// - g_param_spec_object(name, nick, blurb, object_type, flags)
-    pub fn from_param_spec_call(call: &CallExpression) -> Option<Self> {
+    pub(crate) fn from_param_spec_call(call: &CallExpression) -> Option<Self> {
         let func_name = call.function_name_str()?;
 
         // Extract common arguments (name, nick, blurb)
@@ -711,6 +711,16 @@ impl ParamSpecAssignment {
             Self::Variable { property, .. } => property,
             Self::OverrideProperty { property, .. } => property,
             Self::DirectInstall { property, .. } => property,
+        }
+    }
+
+    /// Get the g_param_spec_* call (None for OverrideProperty)
+    pub fn param_spec_call(&self) -> Option<&CallExpression> {
+        match self {
+            Self::ArraySubscript { call, .. }
+            | Self::Variable { call, .. }
+            | Self::DirectInstall { call, .. } => Some(call),
+            Self::OverrideProperty { .. } => None,
         }
     }
 
