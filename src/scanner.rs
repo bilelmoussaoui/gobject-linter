@@ -67,30 +67,18 @@ fn populate_snippets(violations: &mut [Violation], ast_context: &AstContext) {
 }
 
 /// Filter violations in-place based on per-rule ignore patterns
-/// Only filters violations added after `start_index`
 fn filter_violations_in_place(
     violations: &mut Vec<Violation>,
-    start_index: usize,
     project_root: &Path,
     config: &Config,
     rule_config: &RuleConfig,
 ) -> Result<()> {
     let ignore_matcher = config.build_rule_ignore_matcher(rule_config)?;
 
-    // Keep all violations before start_index, and filter the new ones
-    let mut i = start_index;
-    while i < violations.len() {
-        let path = Path::new(&violations[i].file);
-
-        // Try to make path relative to project root for matching
-        let relative_path = path.strip_prefix(project_root).unwrap_or(path);
-
-        if ignore_matcher.is_match(relative_path) {
-            violations.remove(i);
-        } else {
-            i += 1;
-        }
-    }
+    violations.retain(|v| {
+        let relative_path = v.file.strip_prefix(project_root).unwrap_or(&v.file);
+        !ignore_matcher.is_match(relative_path)
+    });
 
     Ok(())
 }
@@ -371,7 +359,6 @@ pub fn scan_with_ast(
             }
             let filter_result = filter_violations_in_place(
                 &mut rule_violations,
-                0,
                 project_root,
                 config,
                 entry.rule_config,

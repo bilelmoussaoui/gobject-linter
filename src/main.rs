@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use clap::Parser;
+use colored::Colorize;
 use gobject_linter::{
     ast_context, config, config::OutputFormat, fixer, output, reporter, rules::Category, scanner,
 };
@@ -119,10 +120,8 @@ fn main() -> Result<()> {
     ) {
         // Machine-readable formats never use colors
         colored::control::set_override(false);
-    } else {
-        if !std::io::stdout().is_terminal() {
-            colored::control::set_override(false);
-        }
+    } else if !std::io::stdout().is_terminal() {
+        colored::control::set_override(false);
     }
 
     // Merge CLI ignore patterns with config
@@ -167,6 +166,14 @@ fn main() -> Result<()> {
     }
 
     // Canonicalize directory path for consistent path handling
+    if !args.directory.exists() {
+        eprintln!(
+            "{} path '{}' does not exist",
+            "error:".red().bold(),
+            args.directory.display()
+        );
+        std::process::exit(1);
+    }
     let project_root = args
         .directory
         .canonicalize()
