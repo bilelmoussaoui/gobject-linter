@@ -112,7 +112,7 @@ impl UseGStealPointer {
         }
 
         // Get the variable name from the initializer
-        let Some(ptr_expr) = init_expr.extract_variable_name() else {
+        let Some(ptr_expr) = init_expr.extract_variable_name(&file.source) else {
             return false;
         };
 
@@ -124,7 +124,7 @@ impl UseGStealPointer {
         let tmp_name = &decl.name;
 
         // s2: ptr_expr = NULL
-        if !s2.is_null_assignment_to(&ptr_expr) {
+        if !s2.is_null_assignment_to(ptr_expr, &file.source) {
             return false;
         }
 
@@ -176,7 +176,7 @@ impl UseGStealPointer {
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) -> bool {
-        let Some((other_expr, ptr_expr)) = self.extract_assignment(s1) else {
+        let Some((other_expr, ptr_expr)) = self.extract_assignment(s1, &file.source) else {
             return false;
         };
 
@@ -185,7 +185,7 @@ impl UseGStealPointer {
             return false;
         }
 
-        if !s2.is_null_assignment_to(&ptr_expr) {
+        if !s2.is_null_assignment_to(ptr_expr, &file.source) {
             return false;
         }
 
@@ -229,7 +229,7 @@ impl UseGStealPointer {
         };
 
         // Extract tested expression from condition
-        let Some(expr_text) = if_stmt.extract_null_check_variable() else {
+        let Some(expr_text) = if_stmt.extract_null_check_variable(&file.source) else {
             return false;
         };
 
@@ -244,7 +244,8 @@ impl UseGStealPointer {
         }
 
         // then_body[0]: dest = expr
-        let Some((dest_expr, rhs)) = self.extract_assignment(&if_stmt.then_body[0]) else {
+        let Some((dest_expr, rhs)) = self.extract_assignment(&if_stmt.then_body[0], &file.source)
+        else {
             return false;
         };
         if rhs != expr_text {
@@ -252,7 +253,7 @@ impl UseGStealPointer {
         }
 
         // then_body[1]: expr = NULL
-        if !if_stmt.then_body[1].is_null_assignment_to(&expr_text) {
+        if !if_stmt.then_body[1].is_null_assignment_to(expr_text, &file.source) {
             return false;
         }
 
@@ -260,7 +261,7 @@ impl UseGStealPointer {
         if else_body.len() != 1 {
             return false;
         }
-        if !else_body[0].is_null_assignment_to(&dest_expr) {
+        if !else_body[0].is_null_assignment_to(dest_expr, &file.source) {
             return false;
         }
 
@@ -302,11 +303,13 @@ impl UseGStealPointer {
         }
 
         // Try to extract condition expression
-        let condition_expr = if_stmt.extract_null_check_variable();
+        let condition_expr = if_stmt.extract_null_check_variable(&file.source);
 
         // Pattern 1: 2 statements - dest = ptr; ptr = NULL;
         if if_stmt.then_body.len() == 2 {
-            let Some((dest_expr, ptr_expr)) = self.extract_assignment(&if_stmt.then_body[0]) else {
+            let Some((dest_expr, ptr_expr)) =
+                self.extract_assignment(&if_stmt.then_body[0], &file.source)
+            else {
                 return false;
             };
 
@@ -315,7 +318,7 @@ impl UseGStealPointer {
                 return false;
             }
 
-            if !if_stmt.then_body[1].is_null_assignment_to(&ptr_expr) {
+            if !if_stmt.then_body[1].is_null_assignment_to(ptr_expr, &file.source) {
                 return false;
             }
 
@@ -325,7 +328,7 @@ impl UseGStealPointer {
 
             // If condition tests the same variable being stolen, remove entire if
             // Otherwise just replace the body
-            let fix = if condition_expr.as_ref() == Some(&ptr_expr) {
+            let fix = if condition_expr == Some(ptr_expr) {
                 Fix::new(
                     if_stmt.location.start_byte,
                     if_stmt.location.end_byte,
@@ -367,7 +370,7 @@ impl UseGStealPointer {
                 return false;
             }
 
-            let Some(ptr_expr) = init_expr.extract_variable_name() else {
+            let Some(ptr_expr) = init_expr.extract_variable_name(&file.source) else {
                 return false;
             };
 
@@ -378,7 +381,7 @@ impl UseGStealPointer {
 
             let tmp_name = &decl.name;
 
-            if !if_stmt.then_body[1].is_null_assignment_to(&ptr_expr) {
+            if !if_stmt.then_body[1].is_null_assignment_to(ptr_expr, &file.source) {
                 return false;
             }
 
@@ -400,7 +403,7 @@ impl UseGStealPointer {
                 format!("Use {replacement} instead of copying {ptr_expr} and setting it to NULL");
 
             // If condition tests the same variable being stolen, remove entire if
-            let fix = if condition_expr.as_ref() == Some(&ptr_expr) {
+            let fix = if condition_expr == Some(ptr_expr) {
                 Fix::new(
                     if_stmt.location.start_byte,
                     if_stmt.location.end_byte,
@@ -431,7 +434,11 @@ impl UseGStealPointer {
     }
 
     /// Extract (lhs, rhs) from assignment statement
-    fn extract_assignment(&self, stmt: &Statement) -> Option<(String, String)> {
+    fn extract_assignment<'a>(
+        &self,
+        stmt: &'a Statement,
+        source: &'a [u8],
+    ) -> Option<(&'a str, &'a str)> {
         let Statement::Expression(expr_stmt) = stmt else {
             return None;
         };
@@ -446,8 +453,8 @@ impl UseGStealPointer {
 
         // Get rhs as string - handle various expression types
         let rhs = match &*assign.rhs {
-            Expression::Identifier(id) => id.name.clone(),
-            Expression::FieldAccess(f) => f.text(),
+            Expression::Identifier(id) => id.name.as_str(),
+            Expression::FieldAccess(f) => f.location.as_str(source).unwrap_or(""),
             Expression::Null(_) | Expression::Call(_) => {
                 // For NULL or function calls like g_strdup(), we don't want to suggest
                 // g_steal_pointer
@@ -458,7 +465,7 @@ impl UseGStealPointer {
             }
         };
 
-        let lhs = assign.lhs_as_text();
+        let lhs = assign.lhs_as_text(source);
         if lhs.is_empty() {
             return None;
         }

@@ -130,7 +130,7 @@ impl UseClearFunctions {
         };
 
         // Check if second statement is NULL assignment to the same variable
-        if !stmt2.is_assignment_to(&var, |expr| expr.is_null() || expr.is_zero()) {
+        if !stmt2.is_assignment_to(var, |expr| expr.is_null() || expr.is_zero(), source) {
             return false;
         }
 
@@ -188,12 +188,12 @@ impl UseClearFunctions {
 
         // Look for unref/free call and NULL assignment
         let Some((unref_function, _unref_stmt)) =
-            self.find_unref_call(&if_stmt.then_body, &checked_var, source)
+            self.find_unref_call(&if_stmt.then_body, checked_var, source)
         else {
             return false;
         };
 
-        if !self.has_null_assignment(&if_stmt.then_body, &checked_var) {
+        if !self.has_null_assignment(&if_stmt.then_body, checked_var, source) {
             return false;
         }
 
@@ -226,9 +226,13 @@ impl UseClearFunctions {
         true
     }
 
-    fn find_variable_in_condition(&self, expr: &Expression, source: &[u8]) -> Option<String> {
+    fn find_variable_in_condition<'a>(
+        &self,
+        expr: &Expression,
+        source: &'a [u8],
+    ) -> Option<&'a str> {
         // Try direct variable extraction first
-        if let Some(var) = expr.extract_variable_name() {
+        if let Some(var) = expr.extract_variable_name(source) {
             return Some(var);
         }
 
@@ -288,10 +292,10 @@ impl UseClearFunctions {
         None
     }
 
-    fn has_null_assignment(&self, statements: &[Statement], var_name: &str) -> bool {
-        statements
-            .iter()
-            .any(|stmt| stmt.is_assignment_to(var_name, |expr| expr.is_null() || expr.is_zero()))
+    fn has_null_assignment(&self, statements: &[Statement], var_name: &str, source: &[u8]) -> bool {
+        statements.iter().any(|stmt| {
+            stmt.is_assignment_to(var_name, |expr| expr.is_null() || expr.is_zero(), source)
+        })
     }
 
     fn suggest_clear_function(&self, unref_function: &str) -> &str {

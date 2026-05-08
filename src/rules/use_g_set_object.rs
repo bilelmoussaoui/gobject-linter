@@ -50,12 +50,14 @@ impl UseGSetObject {
         violations: &mut Vec<Violation>,
     ) -> bool {
         // First statement: g_clear_object(&var) or g_object_unref(var)
-        let Some((var_name, needs_deref)) = self.extract_clear_or_unref_var(s1) else {
+        let Some((var_name, needs_deref)) = self.extract_clear_or_unref_var(s1, &file.source)
+        else {
             return false;
         };
 
         // Second statement: var = g_object_ref(...) or *var = g_object_ref(...)
-        let Some((assign_var, new_val)) = self.extract_object_ref_assignment(s2) else {
+        let Some((assign_var, new_val)) = self.extract_object_ref_assignment(s2, &file.source)
+        else {
             return false;
         };
 
@@ -102,7 +104,11 @@ impl UseGSetObject {
     /// Extract variable from g_clear_object(&var)/g_clear_object(ptr) or
     /// g_object_unref(var) Returns (var_name, needs_deref) where
     /// needs_deref indicates if assignment should use *var
-    fn extract_clear_or_unref_var(&self, stmt: &Statement) -> Option<(String, bool)> {
+    fn extract_clear_or_unref_var<'a>(
+        &self,
+        stmt: &Statement,
+        source: &'a [u8],
+    ) -> Option<(&'a str, bool)> {
         let Statement::Expression(expr_stmt) = stmt else {
             return None;
         };
@@ -124,22 +130,26 @@ impl UseGSetObject {
                 && unary.operator == UnaryOp::AddressOf
             {
                 // Case 1: g_clear_object(&var)
-                return Some((unary.operand.to_text(), false));
+                return Some((unary.operand.to_source_string(source)?, false));
             } else {
                 // Case 2: g_clear_object(ptr) where ptr is GObject**
-                return Some((first_arg.to_text(), true));
+                return Some((first_arg.to_source_string(source)?, true));
             }
         } else if call.is_function("g_object_unref") {
             // g_object_unref(var) - assignment is var = ...
             let first_arg = call.get_arg(0)?;
-            return Some((first_arg.to_text(), false));
+            return Some((first_arg.to_source_string(source)?, false));
         }
 
         None
     }
 
     /// Extract (var, new_val) from var = g_object_ref(new_val)
-    fn extract_object_ref_assignment(&self, stmt: &Statement) -> Option<(String, String)> {
+    fn extract_object_ref_assignment(
+        &self,
+        stmt: &Statement,
+        source: &[u8],
+    ) -> Option<(String, String)> {
         let Statement::Expression(expr_stmt) = stmt else {
             return None;
         };
@@ -157,10 +167,10 @@ impl UseGSetObject {
             && call.is_function("g_object_ref")
             && !call.arguments.is_empty()
         {
-            let new_val = call.get_arg(0)?.to_text();
-            let var_name = assign.lhs_as_text();
+            let new_val = call.get_arg(0)?.to_source_string(source)?;
+            let var_name = assign.lhs_as_text(source);
             if !var_name.is_empty() {
-                return Some((var_name, new_val));
+                return Some((var_name.to_string(), new_val.to_owned()));
             }
         }
 

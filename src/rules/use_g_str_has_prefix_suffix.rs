@@ -131,7 +131,7 @@ impl UseGStrHasPrefixSuffix {
 
         let str_arg_text = call
             .get_arg(0)
-            .map(gobject_ast::Expression::to_text)
+            .and_then(|e| e.to_source_string(&file.source))
             .unwrap_or_default();
 
         let replacement = if *operator == BinaryOp::Equal {
@@ -190,7 +190,9 @@ impl UseGStrHasPrefixSuffix {
         };
 
         // First argument must be: str + strlen(str) - strlen("suffix")
-        let Some(str_expr) = self.extract_suffix_base(&call.arguments[0], &suffix_text) else {
+        let Some(str_expr) =
+            self.extract_suffix_base(&call.arguments[0], &suffix_text, &file.source)
+        else {
             return;
         };
 
@@ -216,7 +218,12 @@ impl UseGStrHasPrefixSuffix {
 
     /// Validates that arg is `<str_expr> + strlen(<str_expr>) -
     /// strlen("suffix")` and returns `str_expr` if so.
-    fn extract_suffix_base(&self, arg: &Argument, suffix_text: &str) -> Option<String> {
+    fn extract_suffix_base<'a>(
+        &self,
+        arg: &Argument,
+        suffix_text: &str,
+        source: &'a [u8],
+    ) -> Option<&'a str> {
         let Argument::Expression(expr) = arg;
 
         // Top level: X - strlen("suffix")
@@ -244,10 +251,10 @@ impl UseGStrHasPrefixSuffix {
             return None;
         }
 
-        let str_expr = inner_bin.left.to_text();
+        let str_expr = inner_bin.left.to_source_string(source)?;
 
         // Right side must be strlen(str_expr)
-        if !self.is_strlen_of_arg(&inner_bin.right, &str_expr) {
+        if !self.is_strlen_of_arg(&inner_bin.right, str_expr, source) {
             return None;
         }
 
@@ -279,7 +286,12 @@ impl UseGStrHasPrefixSuffix {
     }
 
     /// Returns true if expr is strlen(expected_text_with_quotes)
-    fn is_strlen_of_arg(&self, expr: &Expression, expected_text_with_quotes: &str) -> bool {
+    fn is_strlen_of_arg(
+        &self,
+        expr: &Expression,
+        expected_text_with_quotes: &str,
+        source: &[u8],
+    ) -> bool {
         let Expression::Call(call) = expr else {
             return false;
         };
@@ -292,8 +304,10 @@ impl UseGStrHasPrefixSuffix {
             return false;
         }
 
-        call.get_arg(0)
-            .is_some_and(|e| e.to_text() == expected_text_with_quotes)
+        call.get_arg(0).is_some_and(|e| {
+            e.to_source_string(source)
+                .is_some_and(|s| s == expected_text_with_quotes)
+        })
     }
 
     /// Returns true if expr is strlen("expected_string_value")

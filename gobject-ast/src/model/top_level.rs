@@ -432,7 +432,7 @@ impl FunctionDefItem {
                 let Expression::Call(call) = &*assignment.rhs else {
                     continue;
                 };
-                if !call.function_contains("g_signal_new") {
+                if !call.function_contains("g_signal_new", source) {
                     continue;
                 }
                 let Some(mut signal) = Signal::from_g_signal_new_call(call, source) else {
@@ -456,7 +456,7 @@ impl FunctionDefItem {
         // Second pass: standalone g_signal_new calls not already captured
         for (i, stmt) in self.body_statements.iter().enumerate() {
             for call in stmt.iter_calls() {
-                if !call.function_name().starts_with("g_signal_new") {
+                if !call.function_name(source).starts_with("g_signal_new") {
                     continue;
                 }
                 let Some(name) = call.extract_string_from_arg(0) else {
@@ -663,8 +663,8 @@ impl FunctionDefItem {
     /// (g_object_class_override_property(...))
     pub(crate) fn find_param_spec_assignments(&self, source: &[u8]) -> Vec<ParamSpecAssignment> {
         let mut assignments = Vec::new();
-        let mut array_assignments: HashMap<String, Vec<usize>> = HashMap::new();
-        let mut variable_assignments: HashMap<String, Vec<usize>> = HashMap::new();
+        let mut array_assignments: HashMap<&str, Vec<usize>> = HashMap::new();
+        let mut variable_assignments: HashMap<&str, Vec<usize>> = HashMap::new();
 
         // First pass: collect all assignments
         for (i, stmt) in self.body_statements.iter().enumerate() {
@@ -674,13 +674,14 @@ impl FunctionDefItem {
                         // Assignment: props[PROP_X] = g_param_spec_*() or spec = g_param_spec_*()
                         Expression::Assignment(assignment) => {
                             if let Expression::Call(param_call) = &*assignment.rhs {
-                                let func_name = param_call.function_name();
+                                let func_name = param_call.function_name(source);
                                 if !func_name.contains("_param_spec_") {
                                     return;
                                 }
 
                                 // Parse property from call
-                                let Some(mut property) = Property::from_param_spec_call(param_call)
+                                let Some(mut property) =
+                                    Property::from_param_spec_call(param_call, source)
                                 else {
                                     return;
                                 };
@@ -699,14 +700,10 @@ impl FunctionDefItem {
                                             subscript.index.to_source_string(source)
                                     {
                                         let idx = assignments.len();
-                                        array_assignments
-                                            .entry(array_name.clone())
-                                            .or_default()
-                                            .push(idx);
+                                        array_assignments.entry(array_name).or_default().push(idx);
                                         assignments.push(ParamSpecAssignment::ArraySubscript {
-                                            array_name,
-                                            enum_value,
-                                            property_name: property.name.clone(),
+                                            array_name: array_name.to_owned(),
+                                            enum_value: enum_value.to_owned(),
                                             statement_location: *s.location(),
                                             call: param_call.clone(),
                                             property,
@@ -718,13 +715,9 @@ impl FunctionDefItem {
                                 {
                                     // Variable pattern: param_spec = g_param_spec_*()
                                     let idx = assignments.len();
-                                    variable_assignments
-                                        .entry(var_name.clone())
-                                        .or_default()
-                                        .push(idx);
+                                    variable_assignments.entry(var_name).or_default().push(idx);
                                     assignments.push(ParamSpecAssignment::Variable {
-                                        variable_name: var_name,
-                                        property_name: property.name.clone(),
+                                        variable_name: var_name.to_owned(),
                                         statement_location: *s.location(),
                                         call: param_call.clone(),
                                         property,
@@ -735,7 +728,7 @@ impl FunctionDefItem {
                         }
                         // Direct call: g_object_class_override_property(class, PROP_X, "name")
                         Expression::Call(call) => {
-                            if call.function_contains("override_property")
+                            if call.function_contains("override_property", source)
                                 && let Some(mut property) =
                                     Property::from_override_property_call(call)
                                 && let Some(enum_arg) = call.get_arg(1)
@@ -747,8 +740,7 @@ impl FunctionDefItem {
                                     property.doc = PropertyDoc::from_comment(c);
                                 }
                                 assignments.push(ParamSpecAssignment::OverrideProperty {
-                                    enum_value,
-                                    property_name: property.name.clone(),
+                                    enum_value: enum_value.to_owned(),
                                     statement_location: *s.location(),
                                     call: call.clone(),
                                     property,
@@ -768,7 +760,7 @@ impl FunctionDefItem {
                     && let Expression::Call(call) = expr_stmt.as_ref()
                 {
                     // g_object_class_install_properties(class, N_PROPS, array)
-                    if call.function_contains("install_properties") {
+                    if call.function_contains("install_properties", source) {
                         if let Some(array_arg) = call.get_arg(2)
                             && let Some(array_name) = array_arg.to_source_string(source)
                             && let Some(indices) = array_assignments.get(&array_name)
@@ -784,14 +776,15 @@ impl FunctionDefItem {
                         }
                     }
                     // g_object_class_install_property(class, PROP_X, spec)
-                    else if call.function_contains("install_property")
+                    else if call.function_contains("install_property", source)
                         && let Some(spec_expr) = call.get_arg(2)
                     {
                         if let Expression::Call(spec_call) = spec_expr
-                            && spec_call.function_name().contains("_param_spec_")
+                            && spec_call.function_contains("_param_spec_", source)
                             && let Some(enum_arg) = call.get_arg(1)
                             && let Some(enum_value) = enum_arg.to_source_string(source)
-                            && let Some(mut property) = Property::from_param_spec_call(spec_call)
+                            && let Some(mut property) =
+                                Property::from_param_spec_call(spec_call, source)
                         {
                             if i > 0
                                 && let Statement::Comment(c) = &self.body_statements[i - 1]
@@ -799,15 +792,14 @@ impl FunctionDefItem {
                                 property.doc = PropertyDoc::from_comment(c);
                             }
                             assignments.push(ParamSpecAssignment::DirectInstall {
-                                enum_value,
-                                property_name: property.name.clone(),
+                                enum_value: enum_value.to_owned(),
                                 statement_location: *s.location(),
                                 call: spec_call.clone(),
                                 property,
                                 install_call: call.clone(),
                             });
                         } else if let Some(var_name) = spec_expr.to_source_string(source)
-                            && let Some(indices) = variable_assignments.get(&var_name)
+                            && let Some(indices) = variable_assignments.get(var_name)
                         {
                             let indices = indices.clone();
                             for idx in indices {

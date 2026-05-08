@@ -17,29 +17,25 @@ pub struct IfStatement {
 impl IfStatement {
     /// Extract variable from NULL check patterns: (ptr != NULL), (NULL != ptr),
     /// (ptr)
-    pub fn extract_null_check_variable(&self) -> Option<String> {
+    pub fn extract_null_check_variable<'a>(&self, source: &'a [u8]) -> Option<&'a str> {
         match &self.condition {
-            // Binary: ptr != NULL or NULL != ptr
-            Expression::Binary(bin) if bin.is_null_check() => bin.extract_compared_variable(),
-            // Bare identifier or field access: if (ptr) or if (self->ptr)
-            expr => expr.extract_variable_name(),
+            Expression::Binary(bin) if bin.is_null_check() => bin.extract_compared_variable(source),
+            expr => expr.extract_variable_name(source),
         }
     }
 
     /// Extract variable from non-zero check patterns: (id > 0), (id != 0),
     /// (id), (self->id)
-    pub fn extract_nonzero_check_variable(&self) -> Option<String> {
+    pub fn extract_nonzero_check_variable<'a>(&self, source: &'a [u8]) -> Option<&'a str> {
         match &self.condition {
-            // Binary comparisons: id > 0, id != 0, 0 < id, etc.
             Expression::Binary(bin) => {
                 if is_nonzero_comparison(bin) {
-                    bin.extract_compared_variable()
+                    bin.extract_compared_variable(source)
                 } else {
                     None
                 }
             }
-            // Direct identifier or field access: if (id) or if (self->id)
-            expr => expr.extract_variable_name(),
+            expr => expr.extract_variable_name(source),
         }
     }
 

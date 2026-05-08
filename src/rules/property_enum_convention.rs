@@ -268,13 +268,14 @@ impl PropertyEnumConvention {
                         for call in func.find_install_properties_calls() {
                             // Second argument (index 1) should be N_PROPS
                             if let Some(arg) = call.get_arg(1)
-                                && let Some(arg_str) = arg.to_simple_string()
+                                && let Some(arg_str) = arg.to_source_string(&file.source)
                                 && arg_str == n_props_name
                             {
                                 // Get the array name from third argument
                                 if let Some(array_arg) = call.get_arg(2)
-                                    && let Some(array_name) = array_arg.to_simple_string()
-                                    && array_names.contains(&array_name.as_str())
+                                    && let Some(array_name) =
+                                        array_arg.to_source_string(&file.source)
+                                    && array_names.contains(&array_name)
                                 {
                                     let replacement = format!("G_N_ELEMENTS ({})", array_name);
                                     fixes.push(Fix::new(

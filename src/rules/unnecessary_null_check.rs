@@ -58,7 +58,7 @@ impl UnnecessaryNullCheck {
         }
 
         // Extract variable being checked (e.g., "ptr" from "ptr != NULL")
-        let Some(checked_var) = if_stmt.extract_null_check_variable() else {
+        let Some(checked_var) = if_stmt.extract_null_check_variable(source) else {
             return;
         };
 
@@ -90,7 +90,7 @@ impl UnnecessaryNullCheck {
         let references_var = call
             .arguments
             .iter()
-            .any(|gobject_ast::Argument::Expression(e)| e.contains_identifier(&checked_var));
+            .any(|gobject_ast::Argument::Expression(e)| e.contains_identifier(checked_var));
 
         if !references_var {
             return;

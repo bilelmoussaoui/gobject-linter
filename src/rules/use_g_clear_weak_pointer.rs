@@ -67,12 +67,12 @@ impl UseGClearWeakPointer {
         }
 
         // Extract the variable from the second argument
-        let Some(var_name) = self.extract_weak_pointer_var(&call.arguments[1]) else {
+        let Some(var_name) = self.extract_weak_pointer_var(&call.arguments[1], &file.source) else {
             return;
         };
 
         // Second statement must be var = NULL
-        if !s2.is_null_assignment_to(&var_name) {
+        if !s2.is_null_assignment_to(&var_name, &file.source) {
             return;
         }
 
@@ -103,7 +103,11 @@ impl UseGClearWeakPointer {
 
     /// Extract variable name from the second argument of
     /// g_object_remove_weak_pointer Pattern: (gpointer*)&var or &var
-    fn extract_weak_pointer_var(&self, arg: &gobject_ast::Argument) -> Option<String> {
+    fn extract_weak_pointer_var(
+        &self,
+        arg: &gobject_ast::Argument,
+        source: &[u8],
+    ) -> Option<String> {
         let gobject_ast::Argument::Expression(expr) = arg;
 
         // Handle cast expressions: (gpointer*)&var
@@ -117,7 +121,10 @@ impl UseGClearWeakPointer {
         if let Expression::Unary(unary) = inner_expr.as_ref()
             && unary.operator == UnaryOp::AddressOf
         {
-            return unary.operand.extract_variable_name();
+            return unary
+                .operand
+                .extract_variable_name(source)
+                .map(std::string::ToString::to_string);
         }
 
         None

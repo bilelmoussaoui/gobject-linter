@@ -86,11 +86,9 @@ impl Expression {
     }
 
     /// Convert this expression back to source text
-    pub fn to_source_string(&self, source: &[u8]) -> Option<String> {
+    pub fn to_source_string<'a>(&self, source: &'a [u8]) -> Option<&'a str> {
         let loc = self.location();
-        std::str::from_utf8(&source[loc.start_byte..loc.end_byte])
-            .ok()
-            .map(ToOwned::to_owned)
+        std::str::from_utf8(&source[loc.start_byte..loc.end_byte]).ok()
     }
 
     /// Recursively walk all nested expressions. The closure receives a
@@ -161,10 +159,9 @@ impl Expression {
 
     /// Extract variable name from simple expressions (Identifier or
     /// FieldAccess)
-    pub fn extract_variable_name(&self) -> Option<String> {
+    pub fn extract_variable_name<'a>(&self, source: &'a [u8]) -> Option<&'a str> {
         match self {
-            Self::Identifier(id) => Some(id.name.clone()),
-            Self::FieldAccess(f) => Some(f.text()),
+            Self::Identifier(_) | Self::FieldAccess(_) => self.location().as_str(source),
             _ => None,
         }
     }
@@ -179,66 +176,6 @@ impl Expression {
     /// Check if this expression is the number 0
     pub fn is_zero(&self) -> bool {
         matches!(self, Self::NumberLiteral(n) if n.value.trim() == "0")
-    }
-
-    /// Convert simple expressions (identifier, number literal, boolean) to
-    /// strings Useful for comparing return values or simple constants
-    pub fn to_simple_string(&self) -> Option<String> {
-        match self {
-            Self::Identifier(id) => Some(id.name.clone()),
-            Self::NumberLiteral(n) => Some(n.value.clone()),
-            Self::Boolean(b) => Some(if b.value {
-                "true".to_string()
-            } else {
-                "false".to_string()
-            }),
-            _ => None,
-        }
-    }
-
-    /// Generate a text representation of an expression
-    /// Used for field access text generation where we need to reconstruct
-    /// expressions like "function()->field"
-    pub fn to_text(&self) -> String {
-        match self {
-            Self::Identifier(id) => id.name.clone(),
-            Self::NumberLiteral(n) => n.value.clone(),
-            Self::StringLiteral(s) => s.value.clone(),
-            Self::CharLiteral(c) => c.value.clone(),
-            Self::Boolean(b) => if b.value { "true" } else { "false" }.to_string(),
-            Self::Call(call) => {
-                let func = call.function.to_text();
-                let args = call
-                    .arguments
-                    .iter()
-                    .map(|arg| match arg {
-                        Argument::Expression(e) => e.to_text(),
-                    })
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                format!("{}({})", func, args)
-            }
-            Self::FieldAccess(f) => f.text(),
-            Self::Unary(u) => {
-                format!("{}{}", u.operator.as_str(), u.operand.to_text())
-            }
-            Self::Binary(b) => {
-                format!(
-                    "{} {} {}",
-                    b.left.to_text(),
-                    b.operator.as_str(),
-                    b.right.to_text()
-                )
-            }
-            Self::Cast(c) => {
-                format!("({}){}", c.type_info.full_text, c.operand.to_text())
-            }
-            Self::Subscript(s) => {
-                format!("{}[{}]", s.array.to_text(), s.index.to_text())
-            }
-            // For other complex expressions, just return a placeholder
-            _ => "<expr>".to_string(),
-        }
     }
 
     /// Check if this expression is a string literal

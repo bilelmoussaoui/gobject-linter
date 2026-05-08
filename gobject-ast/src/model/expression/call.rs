@@ -14,12 +14,8 @@ impl CallExpression {
     /// Get the function name as a string
     /// For identifiers, returns the name
     /// For field access, returns the full text (e.g., "parent_class->dispose")
-    pub fn function_name(&self) -> String {
-        match &*self.function {
-            Expression::Identifier(id) => id.name.clone(),
-            Expression::FieldAccess(field) => field.text(),
-            _ => String::new(),
-        }
+    pub fn function_name<'a>(&self, source: &'a [u8]) -> &'a str {
+        self.function.location().as_str(source).unwrap_or("")
     }
 
     /// Check if the function matches a specific name
@@ -31,13 +27,13 @@ impl CallExpression {
     }
 
     /// Check if function name contains a pattern
-    pub fn function_contains(&self, pattern: &str) -> bool {
-        self.function_name().contains(pattern)
+    pub fn function_contains(&self, pattern: &str, source: &[u8]) -> bool {
+        self.function_name(source).contains(pattern)
     }
 
     /// Check if function name ends with a pattern
-    pub fn function_ends_with(&self, pattern: &str) -> bool {
-        self.function_name().ends_with(pattern)
+    pub fn function_ends_with(&self, pattern: &str, source: &[u8]) -> bool {
+        self.function_name(source).ends_with(pattern)
     }
 
     /// Get the function name as &str (for common case of identifier)
@@ -58,8 +54,10 @@ impl CallExpression {
     }
 
     /// Get argument as source text
-    pub fn get_arg_text(&self, index: usize, source: &[u8]) -> Option<String> {
-        self.arguments.get(index)?.to_source_string(source)
+    pub fn get_arg_text<'a>(&self, index: usize, source: &'a [u8]) -> Option<&'a str> {
+        match self.arguments.get(index)? {
+            Argument::Expression(expr) => expr.to_source_string(source),
+        }
     }
 
     /// Check if the argument at the given index exists and matches the
@@ -74,17 +72,17 @@ impl CallExpression {
     /// Check if the argument at the given index contains a reference to the
     /// specified variable Handles both plain identifiers and field access
     /// (e.g., obj->field)
-    pub fn arg_contains_variable(&self, index: usize, var_name: &str) -> bool {
+    pub fn arg_contains_variable(&self, index: usize, var_name: &str, source: &[u8]) -> bool {
         self.has_arg_matching(index, |expr| {
-            expr.extract_variable_name()
+            expr.extract_variable_name(source)
                 .is_some_and(|name| name == var_name)
         })
     }
 
     /// Check if this looks like a macro call (ALL_CAPS or ends with _)
     /// Examples: I_, N_, G_STRINGIFY, GINT_TO_POINTER
-    pub fn is_likely_macro(&self) -> bool {
-        let name = self.function_name();
+    pub fn is_likely_macro(&self, source: &[u8]) -> bool {
+        let name = self.function_name(source);
         name.chars().all(|c| c.is_uppercase() || c == '_') || name.ends_with('_')
     }
 
@@ -178,7 +176,7 @@ pub enum Argument {
 
 impl Argument {
     /// Convert this argument back to source text
-    pub fn to_source_string(&self, source: &[u8]) -> Option<String> {
+    pub fn to_source_string<'a>(&self, source: &'a [u8]) -> Option<&'a str> {
         match self {
             Self::Expression(expr) => expr.to_source_string(source),
         }

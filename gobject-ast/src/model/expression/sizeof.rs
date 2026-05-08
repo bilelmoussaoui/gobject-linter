@@ -24,11 +24,16 @@ impl SizeofExpression {
     /// Get the type if this is sizeof(Type)
     /// Returns Some for both explicit types and simple identifiers (which are
     /// likely types)
-    pub fn type_name(&self) -> Option<String> {
+    pub fn type_name(&self) -> Option<&str> {
         match &self.operand {
-            Some(SizeofOperand::Type(t)) => Some(t.base_type.clone()),
-            // If it's a simple identifier, it's likely a type name
-            Some(SizeofOperand::Expression(expr)) => expr.extract_variable_name(),
+            Some(SizeofOperand::Type(t)) => Some(&t.base_type),
+            Some(SizeofOperand::Expression(expr)) => {
+                if let Expression::Identifier(id) = expr.as_ref() {
+                    Some(&id.name)
+                } else {
+                    None
+                }
+            }
             None => None,
         }
     }

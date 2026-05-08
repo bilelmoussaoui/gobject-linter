@@ -57,7 +57,7 @@ impl UseGBytesUnrefToData {
 
         // Second statement: g_bytes_unref(bytes)
         if self
-            .extract_bytes_unref(stmt2, &bytes_var, &file.source)
+            .extract_bytes_unref(stmt2, bytes_var, &file.source)
             .is_none()
         {
             return;
@@ -96,7 +96,13 @@ impl UseGBytesUnrefToData {
         &self,
         stmt: &'a Statement,
         source: &'a [u8],
-    ) -> Option<(String, String, String, &'a Assignment, &'a CallExpression)> {
+    ) -> Option<(
+        &'a str,
+        &'a str,
+        &'a str,
+        &'a Assignment,
+        &'a CallExpression,
+    )> {
         let Statement::Expression(expr_stmt) = stmt else {
             return None;
         };
@@ -127,7 +133,7 @@ impl UseGBytesUnrefToData {
         let bytes_var = call.get_arg_text(0, source)?;
         let size_arg = call.get_arg_text(1, source)?;
 
-        let dest_var = assignment.lhs_as_text();
+        let dest_var = assignment.lhs_as_text(source);
         if dest_var.is_empty() {
             return None;
         }

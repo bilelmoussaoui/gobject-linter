@@ -173,13 +173,13 @@ impl PropertySwitchExhaustiveness {
     /// Build a map of property names to their access permissions (readable,
     /// writable) Override properties return None to indicate unknown access
     /// type
-    fn build_property_access_map(
+    fn build_property_access_map<'a>(
         &self,
-        assignments: &[gobject_ast::ParamSpecAssignment],
-        source: &[u8],
+        assignments: &'a [gobject_ast::ParamSpecAssignment],
+        source: &'a [u8],
         readable_flags: &[ParamFlag],
         writable_flags: &[ParamFlag],
-    ) -> std::collections::HashMap<String, Option<(bool, bool)>> {
+    ) -> std::collections::HashMap<&'a str, Option<(bool, bool)>> {
         let mut access_map = std::collections::HashMap::new();
 
         for assignment in assignments {
@@ -244,7 +244,7 @@ impl PropertySwitchExhaustiveness {
         path: &std::path::Path,
         func_name: &str,
         property_names: &[&str],
-        property_access: &std::collections::HashMap<String, Option<(bool, bool)>>,
+        property_access: &std::collections::HashMap<&str, Option<(bool, bool)>>,
         is_getter: bool,
         style: &str,
         violations: &mut Vec<Violation>,

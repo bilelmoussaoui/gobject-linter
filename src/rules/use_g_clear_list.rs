@@ -37,7 +37,7 @@ impl Rule for UseGClearList {
             let Some((var_name, list_type)) = self.extract_list_free(first, &file.source) else {
                 return;
             };
-            if !second.is_null_assignment_to(&var_name) {
+            if !second.is_null_assignment_to(var_name, &file.source) {
                 return;
             }
             let clear_fn = if list_type == "GList" {
@@ -70,7 +70,11 @@ impl Rule for UseGClearList {
 }
 
 impl UseGClearList {
-    fn extract_list_free(&self, stmt: &Statement, source: &[u8]) -> Option<(String, &'static str)> {
+    fn extract_list_free<'a>(
+        &self,
+        stmt: &Statement,
+        source: &'a [u8],
+    ) -> Option<(&'a str, &'static str)> {
         let call = stmt.extract_call()?;
 
         let func_name = call.function_name_str()?;

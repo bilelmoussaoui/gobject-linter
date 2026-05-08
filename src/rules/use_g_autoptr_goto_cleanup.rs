@@ -49,7 +49,7 @@ impl UseGAutoptrGotoCleanup {
         let goto_labels = self.find_goto_labels(&func.body_statements);
 
         // Find cleanup labels (labels that unref/free variables)
-        let cleanup_labels = self.find_cleanup_labels(&func.body_statements);
+        let cleanup_labels = self.find_cleanup_labels(&func.body_statements, &file.source);
 
         // Match: if allocated var has goto to cleanup label that frees it
         for (var_name, (type_info, location)) in &allocated_vars {
@@ -150,13 +150,14 @@ impl UseGAutoptrGotoCleanup {
     fn find_cleanup_labels<'a>(
         &self,
         statements: &'a [Statement],
+        source: &[u8],
     ) -> HashMap<&'a str, HashSet<String>> {
         let mut result = HashMap::new();
 
         for stmt in statements {
             stmt.walk(&mut |s| {
                 if let Statement::Labeled(labeled) = s {
-                    let cleanup_vars = self.find_cleanup_calls(&labeled.statement);
+                    let cleanup_vars = self.find_cleanup_calls(&labeled.statement, source);
                     if !cleanup_vars.is_empty() {
                         result.insert(labeled.label.as_str(), cleanup_vars);
                     }
@@ -167,14 +168,14 @@ impl UseGAutoptrGotoCleanup {
         result
     }
 
-    fn find_cleanup_calls(&self, stmt: &Statement) -> HashSet<String> {
+    fn find_cleanup_calls(&self, stmt: &Statement, source: &[u8]) -> HashSet<String> {
         let mut cleanup_vars = HashSet::new();
         for call in stmt.iter_calls() {
             if call.is_cleanup_call()
                 && let Some(arg_expr) = call.get_arg(0)
-                && let Some(var_name) = arg_expr.extract_variable_name()
+                && let Some(var_name) = arg_expr.extract_variable_name(source)
             {
-                cleanup_vars.insert(var_name);
+                cleanup_vars.insert(var_name.to_string());
             }
         }
         cleanup_vars

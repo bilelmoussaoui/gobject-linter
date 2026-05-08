@@ -53,7 +53,7 @@ impl Rule for PropertyEnumCoverage {
             .collect();
 
         for prop_name in property_values {
-            if !installed_properties.iter().any(|p| p == prop_name) {
+            if !installed_properties.iter().any(|p| p == &prop_name) {
                 violations.push(self.violation(
                     &file.path,
                     enum_info.location.line,

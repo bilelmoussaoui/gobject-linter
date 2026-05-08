@@ -104,13 +104,12 @@ impl UseGObjectClassInstallProperties {
             .filter_map(|a| {
                 if let gobject_ast::ParamSpecAssignment::Variable {
                     variable_name,
-                    property_name,
                     statement_location,
                     call,
                     ..
                 } = a
                 {
-                    Some((variable_name, property_name, statement_location, call))
+                    Some((variable_name, statement_location, call))
                 } else {
                     None
                 }
@@ -217,7 +216,7 @@ impl UseGObjectClassInstallProperties {
             {
                 // Direct call pattern: g_object_class_install_property(...,
                 // g_param_spec_xxx(...))
-                let func_name = param_spec_call.function_name();
+                let func_name = param_spec_call.function_name(source);
                 let new_line_prefix = format!("{}[{}] = {} (", array_name, prop_id, func_name);
                 let target_column = indentation.len() + new_line_prefix.len();
 
@@ -225,7 +224,7 @@ impl UseGObjectClassInstallProperties {
                     continue;
                 };
                 (
-                    self.reindent_multiline(&param_spec_text, target_column),
+                    self.reindent_multiline(param_spec_text, target_column),
                     false,
                 )
             } else {
@@ -238,17 +237,16 @@ impl UseGObjectClassInstallProperties {
                 // Find the assignment that comes before this install_property call
                 let assignment = param_spec_assignments
                     .iter()
-                    .filter(|(name, _, stmt_loc, _)| {
+                    .filter(|(name, stmt_loc, _)| {
                         name.as_str() == var_name && stmt_loc.start_byte < call.location.start_byte
                     })
-                    .max_by_key(|(_, _, stmt_loc, _)| stmt_loc.start_byte);
+                    .max_by_key(|(_, stmt_loc, _)| stmt_loc.start_byte);
 
-                if let Some((_, _property_name, statement_location, g_param_spec_call)) = assignment
-                {
-                    param_spec_vars.insert(var_name.clone());
+                if let Some((_, statement_location, g_param_spec_call)) = assignment {
+                    param_spec_vars.insert(var_name);
 
                     // Use the g_param_spec call from the assignment
-                    let func_name = g_param_spec_call.function_name();
+                    let func_name = g_param_spec_call.function_name(source);
                     let new_line_prefix = format!("{}[{}] = {} (", array_name, prop_id, func_name);
                     // Note: indentation is not included because it stays in place during
                     // replacement
@@ -266,7 +264,7 @@ impl UseGObjectClassInstallProperties {
                         "{}[{}] = {};",
                         array_name,
                         prop_id,
-                        self.reindent_multiline(&param_spec_text, target_column)
+                        self.reindent_multiline(param_spec_text, target_column)
                     );
                     fixes.push(Fix::new(
                         statement_location.start_byte,
@@ -280,7 +278,7 @@ impl UseGObjectClassInstallProperties {
                     let Some(param_spec_text) = param_spec_arg.to_source_string(source) else {
                         continue;
                     };
-                    (param_spec_text, false)
+                    (param_spec_text.to_owned(), false)
                 }
             };
 

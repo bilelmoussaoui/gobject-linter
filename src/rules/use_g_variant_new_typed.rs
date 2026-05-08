@@ -87,7 +87,7 @@ impl UseGVariantNewTyped {
 
         // Collect remaining arguments (after format string)
         let rest_args = if call.arguments.len() > 1 {
-            let rest: Vec<String> = call.arguments[1..]
+            let rest: Vec<&str> = call.arguments[1..]
                 .iter()
                 .filter_map(|arg| arg.to_source_string(&file.source))
                 .collect();

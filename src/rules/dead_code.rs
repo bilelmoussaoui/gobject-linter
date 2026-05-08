@@ -397,7 +397,7 @@ fn collect_type_refs_from_stmt(stmt: &Statement, refs: &mut HashSet<String>) {
                 if let Some(name) = sizeof.type_name()
                     && !name.is_empty()
                 {
-                    refs.insert(name);
+                    refs.insert(name.to_owned());
                 }
             }
             _ => {}

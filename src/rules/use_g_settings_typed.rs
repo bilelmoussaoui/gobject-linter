@@ -237,7 +237,7 @@ impl UseGSettingsTyped {
 
         // Collect remaining arguments (after format string)
         let rest_args = if variant_call.arguments.len() > 1 {
-            let rest: Vec<String> = variant_call.arguments[1..]
+            let rest: Vec<&str> = variant_call.arguments[1..]
                 .iter()
                 .filter_map(|arg| arg.to_source_string(&file.source))
                 .collect();

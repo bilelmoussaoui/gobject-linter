@@ -97,7 +97,7 @@ impl UseGClearSignalHandler {
         }
 
         // Extract the guarded ID from the condition
-        let Some(guarded_id) = if_stmt.extract_nonzero_check_variable() else {
+        let Some(guarded_id) = if_stmt.extract_nonzero_check_variable(&file.source) else {
             return false;
         };
 
@@ -107,7 +107,9 @@ impl UseGClearSignalHandler {
         }
 
         // First statement: g_signal_handler_disconnect(obj, id)
-        let Some((obj, handler_id)) = self.extract_disconnect_args(&if_stmt.then_body[0]) else {
+        let Some((obj, handler_id)) =
+            self.extract_disconnect_args(&if_stmt.then_body[0], &file.source)
+        else {
             return false;
         };
 
@@ -117,7 +119,7 @@ impl UseGClearSignalHandler {
         }
 
         // Second statement: id = 0
-        if !self.is_zero_assign(&if_stmt.then_body[1], &handler_id) {
+        if !self.is_zero_assign(&if_stmt.then_body[1], &handler_id, &file.source) {
             return false;
         }
 
@@ -148,11 +150,11 @@ impl UseGClearSignalHandler {
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) -> bool {
-        let Some((obj, handler_id)) = self.extract_disconnect_args(s1) else {
+        let Some((obj, handler_id)) = self.extract_disconnect_args(s1, &file.source) else {
             return false;
         };
 
-        if !self.is_zero_assign(s2, &handler_id) {
+        if !self.is_zero_assign(s2, &handler_id, &file.source) {
             return false;
         }
 
@@ -188,7 +190,7 @@ impl UseGClearSignalHandler {
 
         violations: &mut Vec<Violation>,
     ) -> bool {
-        let Some((obj, handler_id)) = self.extract_disconnect_args(stmt) else {
+        let Some((obj, handler_id)) = self.extract_disconnect_args(stmt, &file.source) else {
             return false;
         };
 
@@ -204,7 +206,9 @@ impl UseGClearSignalHandler {
         }
 
         // Skip when the base struct or obj is freed in the same block
-        if self.is_freed_in_stmts(all_stmts, base) || self.is_freed_in_stmts(all_stmts, &obj) {
+        if self.is_freed_in_stmts(all_stmts, base, &file.source)
+            || self.is_freed_in_stmts(all_stmts, &obj, &file.source)
+        {
             return false;
         }
 
@@ -227,7 +231,7 @@ impl UseGClearSignalHandler {
 
     /// Extract `(obj, handler_id)` from a g_signal_handler_disconnect(obj, id)
     /// call
-    fn extract_disconnect_args(&self, stmt: &Statement) -> Option<(String, String)> {
+    fn extract_disconnect_args(&self, stmt: &Statement, source: &[u8]) -> Option<(String, String)> {
         let Statement::Expression(expr_stmt) = stmt else {
             return None;
         };
@@ -244,14 +248,14 @@ impl UseGClearSignalHandler {
             return None;
         }
 
-        let obj = call.get_arg(0)?.extract_variable_name()?;
-        let handler_id = call.get_arg(1)?.extract_variable_name()?;
+        let obj = call.get_arg(0)?.extract_variable_name(source)?.to_string();
+        let handler_id = call.get_arg(1)?.extract_variable_name(source)?.to_string();
 
         Some((obj, handler_id))
     }
 
     /// Check if stmt is `expected_id = 0;`
-    fn is_zero_assign(&self, stmt: &Statement, expected_id: &str) -> bool {
+    fn is_zero_assign(&self, stmt: &Statement, expected_id: &str, source: &[u8]) -> bool {
         let Statement::Expression(expr_stmt) = stmt else {
             return false;
         };
@@ -261,13 +265,13 @@ impl UseGClearSignalHandler {
         };
 
         // Check left side matches expected_id and right side is 0
-        assign.lhs_as_text() == expected_id
+        assign.lhs_as_text(source) == expected_id
             && assign.operator == AssignmentOp::Assign
             && assign.rhs.is_zero()
     }
 
     /// Check if any statement calls a cleanup function on the target
-    fn is_freed_in_stmts(&self, stmts: &[Statement], target: &str) -> bool {
+    fn is_freed_in_stmts(&self, stmts: &[Statement], target: &str, source: &[u8]) -> bool {
         for stmt in stmts {
             let Statement::Expression(expr_stmt) = stmt else {
                 continue;
@@ -278,17 +282,17 @@ impl UseGClearSignalHandler {
             };
 
             // Check if it's a cleanup function
-            if !call.function_contains("free")
-                && !call.function_contains("unref")
-                && !call.function_contains("destroy")
-                && !call.function_contains("clear")
+            if !call.function_contains("free", source)
+                && !call.function_contains("unref", source)
+                && !call.function_contains("destroy", source)
+                && !call.function_contains("clear", source)
             {
                 continue;
             }
 
             // Check if any argument references the target
             for arg in &call.arguments {
-                if self.arg_references(arg, target) {
+                if self.arg_references(arg, target, source) {
                     return true;
                 }
             }
@@ -297,7 +301,7 @@ impl UseGClearSignalHandler {
     }
 
     /// Check if an argument references the target variable
-    fn arg_references(&self, arg: &gobject_ast::Argument, target: &str) -> bool {
+    fn arg_references(&self, arg: &gobject_ast::Argument, target: &str, source: &[u8]) -> bool {
         let gobject_ast::Argument::Expression(expr) = arg;
 
         let mut found = false;
@@ -310,7 +314,7 @@ impl UseGClearSignalHandler {
                     }
                 Expression::FieldAccess(f)
                     // Match field access like `self->source`
-                    if f.text() == target => {
+                    if f.location.as_str(source) == Some(target) => {
                         found = true;
                     }
                 _ => {}

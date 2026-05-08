@@ -84,7 +84,7 @@ impl UseGSetStr {
     }
 
     /// Extract variable from g_free(var) or g_clear_pointer(&var, g_free)
-    fn extract_gfree_var(&self, stmt: &Statement, source: &[u8]) -> Option<String> {
+    fn extract_gfree_var<'a>(&self, stmt: &Statement, source: &'a [u8]) -> Option<&'a str> {
         let Statement::Expression(expr_stmt) = stmt else {
             return None;
         };
@@ -126,11 +126,11 @@ impl UseGSetStr {
 
     /// Extract (var, new_val) from var = g_strdup(new_val) or var = cond ?
     /// g_strdup(...) : NULL
-    fn extract_strdup_assignment(
+    fn extract_strdup_assignment<'a>(
         &self,
         stmt: &Statement,
-        source: &[u8],
-    ) -> Option<(String, String)> {
+        source: &'a [u8],
+    ) -> Option<(&'a str, &'a str)> {
         let Statement::Expression(expr_stmt) = stmt else {
             return None;
         };
@@ -149,7 +149,7 @@ impl UseGSetStr {
             && !call.arguments.is_empty()
         {
             let new_val = call.get_arg(0)?.to_source_string(source)?;
-            let var_name = assign.lhs_as_text();
+            let var_name = assign.lhs_as_text(source);
             if !var_name.is_empty() {
                 return Some((var_name, new_val));
             }
@@ -161,7 +161,7 @@ impl UseGSetStr {
         {
             // Use the condition variable as the value
             let cond_text = cond.condition.to_source_string(source)?;
-            let var_name = assign.lhs_as_text();
+            let var_name = assign.lhs_as_text(source);
             if !var_name.is_empty() {
                 return Some((var_name, cond_text));
             }

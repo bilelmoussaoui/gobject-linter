@@ -78,7 +78,7 @@ impl UseGClearHandleId {
             let stmt_count = if_stmt.then_body.len();
 
             let has_else = if_stmt.else_body.is_some();
-            let cond_id = if_stmt.extract_nonzero_check_variable();
+            let cond_id = if_stmt.extract_nonzero_check_variable(&file.source);
 
             for (var_name, cleanup_func, first_loc, second_loc) in conversions {
                 let replacement = format!("g_clear_handle_id (&{}, {});", var_name, cleanup_func);
@@ -87,7 +87,7 @@ impl UseGClearHandleId {
                     replacement, cleanup_func
                 );
                 let can_remove_if =
-                    !has_else && cond_id.as_deref() == Some(var_name.as_str()) && stmt_count == 2;
+                    !has_else && cond_id == Some(var_name.as_str()) && stmt_count == 2;
 
                 let fix = if can_remove_if {
                     Fix::new(
@@ -187,7 +187,11 @@ impl UseGClearHandleId {
 
         Statement::for_each_pair(statements, |first, second| {
             if let Some((var_name, cleanup_func)) = self.extract_handle_cleanup(first, file)
-                && second.is_assignment_to(&var_name, gobject_ast::Expression::is_zero)
+                && second.is_assignment_to(
+                    &var_name,
+                    gobject_ast::Expression::is_zero,
+                    &file.source,
+                )
             {
                 results.push((
                     var_name,

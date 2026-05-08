@@ -12,15 +12,3 @@ pub struct FieldAccessExpression {
     pub field: String,
     pub location: SourceLocation,
 }
-
-impl FieldAccessExpression {
-    /// Get the full text representation
-    pub fn text(&self) -> String {
-        format!(
-            "{}{}{}",
-            self.base.to_text(),
-            self.operator.as_str(),
-            self.field
-        )
-    }
-}

@@ -255,7 +255,7 @@ impl FileModel {
                         && let Expression::Identifier(index_id) = &*sub.index
                         && signal_names.contains(&index_id.name.as_str())
                         && let Expression::Call(call) = &*a.rhs
-                        && call.function_contains("g_signal_new")
+                        && call.function_contains("g_signal_new", &self.source)
                     {
                         true
                     } else {
@@ -328,7 +328,7 @@ impl FileModel {
             // Match by property enum values in assignments
             let has_matching_property = gt.properties.iter().any(|a| {
                 a.get_installed_enum_value(&self.source)
-                    .is_some_and(|ev| property_names.contains(&ev.as_str()))
+                    .is_some_and(|ev| property_names.contains(&ev))
             });
             if has_matching_property {
                 return true;

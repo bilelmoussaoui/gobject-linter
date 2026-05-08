@@ -174,11 +174,11 @@ impl UseGObjectNotifyByPspec {
                 if let gobject_ast::ParamSpecAssignment::ArraySubscript {
                     array_name,
                     enum_value,
-                    property_name,
+                    property,
                     ..
                 } = assignment
                 {
-                    map.entry(property_name).or_default().push((
+                    map.entry(&property.name).or_default().push((
                         enum_value.as_str(),
                         array_name.as_str(),
                         gt.function_prefix.as_str(),
@@ -203,7 +203,7 @@ impl UseGObjectNotifyByPspec {
         let obj_str = obj_expr.to_source_string(source)?;
 
         // Strip casts like G_OBJECT(self) to get the base identifier
-        let obj_identifier = self.extract_identifier(&obj_str);
+        let obj_identifier = self.extract_identifier(obj_str);
 
         // Find which function parameter matches this identifier
         let param_type = func.get_param_by_name(&obj_identifier).and_then(|p| {

@@ -47,11 +47,11 @@ impl GTaskSourceTag {
         violations: &mut Vec<Violation>,
     ) {
         // Find all g_task_new calls and their variables
-        let task_vars = self.find_gtask_new_vars(statements);
+        let task_vars = self.find_gtask_new_vars(statements, source);
 
         // For each task variable, check if there's a set_source_tag call
         for (var_name, name_location, stmt_location) in task_vars {
-            if !self.has_set_source_tag_call(statements, &var_name, source) {
+            if !self.has_set_source_tag_call(statements, var_name, source) {
                 // Extract indentation from the statement
                 let indentation = stmt_location.extract_indentation(source);
 
@@ -76,11 +76,12 @@ impl GTaskSourceTag {
         }
     }
 
-    fn find_gtask_new_vars(
+    fn find_gtask_new_vars<'a>(
         &self,
-        statements: &[Statement],
+        statements: &'a [Statement],
+        source: &'a [u8],
     ) -> Vec<(
-        String,
+        &'a str,
         gobject_ast::SourceLocation,
         gobject_ast::SourceLocation,
     )> {
@@ -94,7 +95,7 @@ impl GTaskSourceTag {
                         if let Some(Expression::Call(call)) = &decl.initializer
                             && call.is_function("g_task_new")
                         {
-                            results.push((decl.name.clone(), decl.name_location, decl.location));
+                            results.push((decl.name.as_str(), decl.name_location, decl.location));
                         }
                     }
                     // Check assignments: task = g_task_new(...)
@@ -103,7 +104,7 @@ impl GTaskSourceTag {
                             && let Expression::Call(call) = assignment.rhs.as_ref()
                             && call.is_function("g_task_new")
                         {
-                            let var_name = assignment.lhs_as_text();
+                            let var_name = assignment.lhs_as_text(source);
                             if !var_name.is_empty() {
                                 results.push((
                                     var_name,
