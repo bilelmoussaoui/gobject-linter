@@ -1,8 +1,10 @@
 [package]
 name = "gobject-ast"
-version = "0.1.0"
-edition = "2024"
-license = "MIT"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+description = "AST representation of GObject C code"
 
 [[bin]]
 name = "gobject-ast"
