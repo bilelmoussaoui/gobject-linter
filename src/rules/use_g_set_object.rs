@@ -145,11 +145,11 @@ impl UseGSetObject {
     }
 
     /// Extract (var, new_val) from var = g_object_ref(new_val)
-    fn extract_object_ref_assignment(
+    fn extract_object_ref_assignment<'a>(
         &self,
         stmt: &Statement,
-        source: &[u8],
-    ) -> Option<(String, String)> {
+        source: &'a [u8],
+    ) -> Option<(&'a str, &'a str)> {
         let Statement::Expression(expr_stmt) = stmt else {
             return None;
         };
@@ -170,7 +170,7 @@ impl UseGSetObject {
             let new_val = call.get_arg(0)?.to_source_string(source)?;
             let var_name = assign.lhs_as_text(source);
             if !var_name.is_empty() {
-                return Some((var_name.to_string(), new_val.to_owned()));
+                return Some((var_name, new_val));
             }
         }
 

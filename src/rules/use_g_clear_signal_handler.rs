@@ -119,7 +119,7 @@ impl UseGClearSignalHandler {
         }
 
         // Second statement: id = 0
-        if !self.is_zero_assign(&if_stmt.then_body[1], &handler_id, &file.source) {
+        if !self.is_zero_assign(&if_stmt.then_body[1], handler_id, &file.source) {
             return false;
         }
 
@@ -154,7 +154,7 @@ impl UseGClearSignalHandler {
             return false;
         };
 
-        if !self.is_zero_assign(s2, &handler_id, &file.source) {
+        if !self.is_zero_assign(s2, handler_id, &file.source) {
             return false;
         }
 
@@ -207,7 +207,7 @@ impl UseGClearSignalHandler {
 
         // Skip when the base struct or obj is freed in the same block
         if self.is_freed_in_stmts(all_stmts, base, &file.source)
-            || self.is_freed_in_stmts(all_stmts, &obj, &file.source)
+            || self.is_freed_in_stmts(all_stmts, obj, &file.source)
         {
             return false;
         }
@@ -231,7 +231,11 @@ impl UseGClearSignalHandler {
 
     /// Extract `(obj, handler_id)` from a g_signal_handler_disconnect(obj, id)
     /// call
-    fn extract_disconnect_args(&self, stmt: &Statement, source: &[u8]) -> Option<(String, String)> {
+    fn extract_disconnect_args<'a>(
+        &self,
+        stmt: &Statement,
+        source: &'a [u8],
+    ) -> Option<(&'a str, &'a str)> {
         let Statement::Expression(expr_stmt) = stmt else {
             return None;
         };
@@ -248,8 +252,8 @@ impl UseGClearSignalHandler {
             return None;
         }
 
-        let obj = call.get_arg(0)?.extract_variable_name(source)?.to_string();
-        let handler_id = call.get_arg(1)?.extract_variable_name(source)?.to_string();
+        let obj = call.get_arg(0)?.extract_variable_name(source)?;
+        let handler_id = call.get_arg(1)?.extract_variable_name(source)?;
 
         Some((obj, handler_id))
     }

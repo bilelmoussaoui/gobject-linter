@@ -150,8 +150,8 @@ impl UseGAutoptrGotoCleanup {
     fn find_cleanup_labels<'a>(
         &self,
         statements: &'a [Statement],
-        source: &[u8],
-    ) -> HashMap<&'a str, HashSet<String>> {
+        source: &'a [u8],
+    ) -> HashMap<&'a str, HashSet<&'a str>> {
         let mut result = HashMap::new();
 
         for stmt in statements {
@@ -168,14 +168,14 @@ impl UseGAutoptrGotoCleanup {
         result
     }
 
-    fn find_cleanup_calls(&self, stmt: &Statement, source: &[u8]) -> HashSet<String> {
+    fn find_cleanup_calls<'a>(&self, stmt: &Statement, source: &'a [u8]) -> HashSet<&'a str> {
         let mut cleanup_vars = HashSet::new();
         for call in stmt.iter_calls() {
             if call.is_cleanup_call()
                 && let Some(arg_expr) = call.get_arg(0)
                 && let Some(var_name) = arg_expr.extract_variable_name(source)
             {
-                cleanup_vars.insert(var_name.to_string());
+                cleanup_vars.insert(var_name);
             }
         }
         cleanup_vars

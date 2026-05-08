@@ -469,8 +469,8 @@ impl Property {
                 let variant_type = args.get(3).and_then(|arg| {
                     let Argument::Expression(expr) = arg;
                     match expr.as_ref() {
-                        Expression::Identifier(id) => Some(id.name.clone()),
-                        Expression::Call(call) => Some(call.function_name(source).to_owned()),
+                        Expression::Identifier(id) => Some(id.name.as_str()),
+                        Expression::Call(call) => Some(call.function_name(source)),
                         _ => None,
                     }
                 });
@@ -483,7 +483,7 @@ impl Property {
                     }
                 });
                 PropertyType::Variant {
-                    variant_type,
+                    variant_type: variant_type.map(ToOwned::to_owned),
                     default_value,
                 }
             }

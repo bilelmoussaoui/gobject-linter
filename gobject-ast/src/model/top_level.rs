@@ -628,7 +628,7 @@ impl FunctionDefItem {
     /// Map every named parameter and local variable to its `TypeInfo`.
     /// Parameters appear first; local declarations in body order after that,
     /// so an inner-scope shadowing declaration overwrites the outer one.
-    pub fn local_var_types(&self) -> std::collections::HashMap<String, TypeInfo> {
+    pub fn local_var_types(&self) -> std::collections::HashMap<&str, &TypeInfo> {
         let mut map = std::collections::HashMap::new();
         for param in &self.parameters {
             if let Parameter::Regular {
@@ -637,13 +637,13 @@ impl FunctionDefItem {
                 ..
             } = param
             {
-                map.insert(name.clone(), type_info.clone());
+                map.insert(name.as_str(), type_info);
             }
         }
         for stmt in &self.body_statements {
             stmt.walk(&mut |s| {
                 if let Statement::Declaration(decl) = s {
-                    map.insert(decl.name.clone(), decl.type_info.clone());
+                    map.insert(decl.name.as_str(), &decl.type_info);
                 }
             });
         }

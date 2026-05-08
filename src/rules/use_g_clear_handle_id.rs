@@ -86,8 +86,7 @@ impl UseGClearHandleId {
                     "Use {} instead of {} and zero assignment",
                     replacement, cleanup_func
                 );
-                let can_remove_if =
-                    !has_else && cond_id == Some(var_name.as_str()) && stmt_count == 2;
+                let can_remove_if = !has_else && cond_id == Some(var_name) && stmt_count == 2;
 
                 let fix = if can_remove_if {
                     Fix::new(
@@ -178,20 +177,16 @@ impl UseGClearHandleId {
         }
     }
 
-    fn check_cleanup_then_zero(
+    fn check_cleanup_then_zero<'a>(
         &self,
-        file: &gobject_ast::FileModel,
+        file: &'a gobject_ast::FileModel,
         statements: &[Statement],
-    ) -> Vec<(String, String, SourceLocation, SourceLocation)> {
+    ) -> Vec<(&'a str, String, SourceLocation, SourceLocation)> {
         let mut results = Vec::new();
 
         Statement::for_each_pair(statements, |first, second| {
             if let Some((var_name, cleanup_func)) = self.extract_handle_cleanup(first, file)
-                && second.is_assignment_to(
-                    &var_name,
-                    gobject_ast::Expression::is_zero,
-                    &file.source,
-                )
+                && second.is_assignment_to(var_name, gobject_ast::Expression::is_zero, &file.source)
             {
                 results.push((
                     var_name,
@@ -205,11 +200,11 @@ impl UseGClearHandleId {
         results
     }
 
-    fn extract_handle_cleanup(
+    fn extract_handle_cleanup<'a>(
         &self,
         stmt: &Statement,
-        file: &gobject_ast::FileModel,
-    ) -> Option<(String, String)> {
+        file: &'a gobject_ast::FileModel,
+    ) -> Option<(&'a str, String)> {
         let call = stmt.extract_call()?;
 
         let func_name = call.function_name_str()?;
@@ -220,8 +215,8 @@ impl UseGClearHandleId {
         }
 
         let arg_expr = call.get_arg(0)?;
-        let var_name = arg_expr.location().as_str(&file.source)?.trim().to_string();
+        let var_name = arg_expr.location().as_str(&file.source)?.trim();
 
-        Some((var_name, func_name.to_string()))
+        Some((var_name, func_name.to_owned()))
     }
 }

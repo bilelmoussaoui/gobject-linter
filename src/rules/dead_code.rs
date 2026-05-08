@@ -85,7 +85,7 @@ fn collect_all_refs(ast_context: &AstContext) -> AllRefs {
     let mut type_refs: HashSet<String> = HashSet::new();
     let mut field_qualified: HashMap<String, HashSet<String>> = HashMap::new();
     let mut field_unqualified: HashSet<String> = HashSet::new();
-    let empty_map: HashMap<String, String> = HashMap::new();
+    let empty_map: HashMap<&str, String> = HashMap::new();
 
     for (_path, file) in ast_context.iter_all_files() {
         for func in file.iter_function_definitions() {
@@ -96,7 +96,7 @@ fn collect_all_refs(ast_context: &AstContext) -> AllRefs {
                 }
             }
 
-            let type_map: HashMap<String, String> = func
+            let type_map: HashMap<&str, String> = func
                 .local_var_types()
                 .into_iter()
                 .filter(|(_, ti)| !ti.base_type.is_empty())
@@ -459,7 +459,7 @@ fn collect_func_refs_from_decl(decl: &VariableDecl, refs: &mut HashSet<String>) 
 fn collect_field_refs_from_decl(
     ast_context: &AstContext,
     decl: &VariableDecl,
-    type_map: &HashMap<String, String>,
+    type_map: &HashMap<&str, String>,
     qualified: &mut HashMap<String, HashSet<String>>,
     unqualified: &mut HashSet<String>,
 ) {
@@ -504,7 +504,7 @@ fn extract_function_calls_from_text(text: &str, refs: &mut HashSet<String>) {
 fn collect_field_refs_from_stmt(
     ast_context: &AstContext,
     stmt: &Statement,
-    type_map: &HashMap<String, String>,
+    type_map: &HashMap<&str, String>,
     qualified: &mut HashMap<String, HashSet<String>>,
     unqualified: &mut HashSet<String>,
 ) {
@@ -528,7 +528,7 @@ fn collect_field_reads_impl(
     ast_context: &AstContext,
     expr: &Expression,
     is_write_lhs: bool,
-    type_map: &HashMap<String, String>,
+    type_map: &HashMap<&str, String>,
     qualified: &mut HashMap<String, HashSet<String>>,
     unqualified: &mut HashSet<String>,
 ) {
@@ -536,7 +536,7 @@ fn collect_field_reads_impl(
         Expression::FieldAccess(f) => {
             if !is_write_lhs {
                 if let Expression::Identifier(id) = f.base.as_ref()
-                    && let Some(type_name) = type_map.get(&id.name)
+                    && let Some(type_name) = type_map.get(id.name.as_str())
                 {
                     ast_context
                         .type_aliases()

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use gobject_ast::{
     EnumInfo, EnumValue, Expression, FileModel, PropertyType, top_level::TopLevelItem,
 };
@@ -13,10 +15,10 @@ pub struct PropertyEnumConvention;
 
 /// Context about which class owns a property enum
 #[derive(Debug)]
-struct ClassContext {
-    class_type_info: gobject_ast::TypeInfo,
-    get_property_func: Option<String>,
-    set_property_func: Option<String>,
+struct ClassContext<'a> {
+    class_type_info: &'a gobject_ast::TypeInfo,
+    get_property_func: Option<&'a str>,
+    set_property_func: Option<&'a str>,
 }
 
 impl Rule for PropertyEnumConvention {
@@ -77,7 +79,7 @@ impl PropertyEnumConvention {
         for (path, file) in ast_context.iter_all_files() {
             // Collect N_PROPS names from enums that will be transformed
             // (skip override pattern enums and already-modern enums)
-            let n_props_usage: std::collections::HashMap<String, usize> = file
+            let n_props_usage: HashMap<&str, usize> = file
                 .iter_property_enums()
                 .filter(|e| {
                     // Apply same checks as main loop to see if this enum will be transformed
@@ -100,9 +102,9 @@ impl PropertyEnumConvention {
                     e.values
                         .iter()
                         .find(|v| v.is_prop_last())
-                        .map(|v| v.name.clone())
+                        .map(|v| v.name.as_str())
                 })
-                .fold(std::collections::HashMap::new(), |mut map, name| {
+                .fold(HashMap::new(), |mut map, name| {
                     *map.entry(name).or_insert(0) += 1;
                     map
                 });
@@ -184,18 +186,18 @@ impl PropertyEnumConvention {
                                     && !v.is_prop_last()
                                     && !property_map.get(&v.name).copied().unwrap_or(false)
                             })
-                            .map_or_else(|| second_to_last.name.clone(), |v| v.name.clone())
+                            .map_or_else(|| second_to_last.name.as_str(), |v| v.name.as_str())
                     } else {
-                        second_to_last.name.clone()
+                        second_to_last.name.as_str()
                     }
                 } else {
-                    enum_info.values.last().unwrap().name.clone()
+                    enum_info.values.last().unwrap().name.as_str()
                 };
 
                 // Determine the enum name to use (either from typedef or derived from
                 // class_init)
                 let derived_enum_name = if enum_info.name.is_none() {
-                    self.derive_enum_name_from_class_type(&class_context.class_type_info)
+                    self.derive_enum_name_from_class_type(class_context.class_type_info)
                 } else {
                     None
                 };
@@ -259,7 +261,7 @@ impl PropertyEnumConvention {
                     let array_names = self.find_and_fix_param_spec_arrays(
                         file,
                         n_props_name,
-                        &last_real_prop_name,
+                        last_real_prop_name,
                         &mut fixes,
                     );
 
@@ -298,15 +300,15 @@ impl PropertyEnumConvention {
                     derived.clone()
                 } else {
                     // Try to derive from class type if we have it
-                    self.derive_enum_name_from_class_type(&class_context.class_type_info)
+                    self.derive_enum_name_from_class_type(class_context.class_type_info)
                         .unwrap_or_else(|| "UnknownProps".to_string())
                 };
 
                 if !enum_name.is_empty() {
-                    if let Some(ref func_name) = class_context.get_property_func {
+                    if let Some(func_name) = class_context.get_property_func {
                         self.add_switch_cast_for_function(file, func_name, &enum_name, &mut fixes);
                     }
-                    if let Some(ref func_name) = class_context.set_property_func {
+                    if let Some(func_name) = class_context.set_property_func {
                         self.add_switch_cast_for_function(file, func_name, &enum_name, &mut fixes);
                     }
                 }
@@ -400,12 +402,12 @@ impl PropertyEnumConvention {
         // Check each file's enums
         for (path, file) in ast_context.iter_all_files() {
             // First pass: collect all existing PROP_0 variants to avoid duplicates
-            let existing_prop_zeros: std::collections::HashSet<String> = file
+            let existing_prop_zeros: std::collections::HashSet<&str> = file
                 .iter_property_enums()
                 .flat_map(|enum_info| &enum_info.values)
                 .filter_map(|val| {
                     if val.is_prop_0() {
-                        Some(val.name.clone())
+                        Some(val.name.as_str())
                     } else {
                         None
                     }
@@ -625,7 +627,7 @@ impl PropertyEnumConvention {
         &self,
         file: &'a FileModel,
         enum_info: &EnumInfo,
-    ) -> Option<(ClassContext, &'a [gobject_ast::ParamSpecAssignment])> {
+    ) -> Option<(ClassContext<'a>, &'a [gobject_ast::ParamSpecAssignment])> {
         let gobject_type = file.find_gobject_type_for_property_enum(enum_info)?;
 
         let class_init_name = gobject_type.class_init_function_name();
@@ -636,7 +638,7 @@ impl PropertyEnumConvention {
         // Extract class type from parameter
         let class_type_info = func.parameters.first().and_then(|p| {
             if let gobject_ast::model::types::Parameter::Regular { type_info, .. } = p {
-                Some(type_info.clone())
+                Some(type_info)
             } else {
                 None
             }
@@ -655,9 +657,9 @@ impl PropertyEnumConvention {
                 && let gobject_ast::Expression::Identifier(ident) = assignment.rhs.as_ref()
             {
                 if field.field == "get_property" {
-                    get_property_func = Some(ident.name.to_string());
+                    get_property_func = Some(ident.name.as_str());
                 } else if field.field == "set_property" {
-                    set_property_func = Some(ident.name.to_string());
+                    set_property_func = Some(ident.name.as_str());
                 }
             }
         }
@@ -703,8 +705,8 @@ impl PropertyEnumConvention {
     fn build_property_override_map(
         &self,
         assignments: &[gobject_ast::ParamSpecAssignment],
-    ) -> std::collections::HashMap<String, bool> {
-        let mut property_map = std::collections::HashMap::new();
+    ) -> HashMap<String, bool> {
+        let mut property_map = HashMap::new();
 
         for assignment in assignments {
             // Only track assignments that have an enum_value (ArraySubscript and
@@ -726,7 +728,7 @@ impl PropertyEnumConvention {
         file: &FileModel,
         path: &std::path::Path,
         enum_info: &EnumInfo,
-        class_context: &ClassContext,
+        class_context: &ClassContext<'_>,
         violations: &mut Vec<Violation>,
     ) {
         // Determine the enum name (derive if anonymous)
@@ -734,7 +736,7 @@ impl PropertyEnumConvention {
             name.clone()
         } else {
             // For anonymous enums, derive the name from the class type
-            match self.derive_enum_name_from_class_type(&class_context.class_type_info) {
+            match self.derive_enum_name_from_class_type(class_context.class_type_info) {
                 Some(name) => name,
                 None => return, // Can't derive a name
             }
@@ -748,10 +750,10 @@ impl PropertyEnumConvention {
         }
 
         // Add switch casts for getter/setter functions
-        if let Some(ref func_name) = class_context.get_property_func {
+        if let Some(func_name) = class_context.get_property_func {
             self.add_switch_cast_for_function(file, func_name, &enum_name, &mut fixes);
         }
-        if let Some(ref func_name) = class_context.set_property_func {
+        if let Some(func_name) = class_context.set_property_func {
             self.add_switch_cast_for_function(file, func_name, &enum_name, &mut fixes);
         }
 
