@@ -1,0 +1,7 @@
+signal_handler_basic.c:14:3: use_clear_functions: Use g_clear_signal_handler (&self->signal_id, self->source) instead of g_signal_handler_disconnect and zeroing the ID
+signal_handler_basic.c:23:3: use_clear_functions: Use g_clear_signal_handler (&self->signal_id, self->source) instead of g_signal_handler_disconnect and zeroing the ID
+signal_handler_basic.c:25:3: use_clear_functions: Use g_clear_signal_handler (&self->notify_id, self->source) instead of g_signal_handler_disconnect and zeroing the ID
+signal_handler_basic.c:34:3: use_clear_functions: Use g_clear_signal_handler (&self->signal_id, self->source) instead of if-guarded g_signal_handler_disconnect
+signal_handler_basic.c:46:3: use_clear_functions: Use g_clear_signal_handler (&self->signal_id, self->source) instead of if-guarded g_signal_handler_disconnect
+signal_handler_basic.c:58:3: use_clear_functions: Use g_clear_signal_handler (&self->notify_id, self->source) instead of if-guarded g_signal_handler_disconnect
+signal_handler_basic.c:70:3: use_clear_functions: Use g_clear_signal_handler (&self->signal_id, self->source) instead of g_signal_handler_disconnect (also zeroes the stored ID)

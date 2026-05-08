@@ -1,0 +1,4 @@
+handle_id_issue_25.c:15:7: use_clear_functions: Use g_clear_handle_id (&self->autosave_idle_handler, g_source_remove) instead of g_source_remove and zero assignment
+handle_id_issue_25.c:27:7: use_clear_functions: Use g_clear_handle_id (&self->timeout_id, g_source_remove) instead of g_source_remove and zero assignment
+handle_id_issue_25.c:39:7: use_clear_functions: Use g_clear_handle_id (&self->autosave_idle_handler, g_source_remove) instead of g_source_remove and zero assignment
+handle_id_issue_25.c:51:7: use_clear_functions: Use g_clear_handle_id (&self->timeout_id, g_source_remove) instead of g_source_remove and zero assignment

@@ -395,10 +395,6 @@ rule_test!(
 );
 rule_test!(use_g_source_once, gobject_linter::rules::UseGSourceOnce);
 rule_test!(
-    use_g_clear_signal_handler,
-    gobject_linter::rules::UseGClearSignalHandler
-);
-rule_test!(
     unnecessary_null_check,
     gobject_linter::rules::UnnecessaryNullCheck
 );
@@ -409,15 +405,6 @@ rule_test!(
 rule_test!(
     use_explicit_default_flags,
     gobject_linter::rules::UseExplicitDefaultFlags
-);
-rule_test!(
-    use_g_clear_handle_id,
-    gobject_linter::rules::UseGClearHandleId
-);
-rule_test!(use_g_clear_list, gobject_linter::rules::UseGClearList);
-rule_test!(
-    use_g_clear_weak_pointer,
-    gobject_linter::rules::UseGClearWeakPointer
 );
 rule_test!(
     use_g_object_notify_by_pspec,

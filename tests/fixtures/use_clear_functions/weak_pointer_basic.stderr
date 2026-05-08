@@ -1,0 +1,1 @@
+weak_pointer_basic.c:6:3: use_clear_functions: Use g_clear_weak_pointer (&obj) instead of g_object_remove_weak_pointer and NULL/zero assignment

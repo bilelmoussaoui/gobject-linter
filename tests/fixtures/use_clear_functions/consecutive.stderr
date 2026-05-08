@@ -1,1 +1,1 @@
-consecutive.c:2:5: use_clear_functions: Use g_clear_pointer (&self->display_seat_id, g_free); instead of manual unref and NULL assignment
+consecutive.c:2:5: use_clear_functions: Use g_clear_pointer (&self->display_seat_id, g_free) instead of g_free and NULL/zero assignment

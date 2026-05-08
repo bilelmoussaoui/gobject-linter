@@ -1,2 +1,2 @@
-basic.c:7:3: use_clear_functions: Use g_clear_object (&obj); instead of manual NULL check, unref, and assignment
-basic.c:12:3: use_clear_functions: Use g_clear_pointer (&str, g_free); instead of manual NULL check, unref, and assignment
+basic.c:7:3: use_clear_functions: Use g_clear_object (&obj) instead of manual NULL check, unref, and assignment
+basic.c:12:3: use_clear_functions: Use g_clear_pointer (&str, g_free) instead of manual NULL check, unref, and assignment

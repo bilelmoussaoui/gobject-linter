@@ -1,0 +1,2 @@
+handle_id_basic.c:7:5: use_clear_functions: Use g_clear_handle_id (&timeout_id, g_source_remove) instead of g_source_remove and zero assignment
+handle_id_basic.c:11:3: use_clear_functions: Use g_clear_handle_id (&handler_id, g_source_remove) instead of g_source_remove and NULL/zero assignment
