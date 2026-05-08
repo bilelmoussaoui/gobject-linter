@@ -1,0 +1,27 @@
+# GObject Linter Configuration
+#
+# For all available options and rules, see CONFIG.md
+
+# Minimum supported GLib version (optional)
+# Rules requiring newer GLib versions will be automatically disabled
+# min_glib_version = "2.76"
+
+# Ignore patterns (glob syntax)
+ignore = [
+    "target/**",
+    "**/build/**",
+    "vendor/**",
+]
+
+# Output format: "text", "json", "sarif", "gcc", or "gitlab-codequality"
+format = "text"
+
+# Editor URL format for clickable links
+# Placeholders: {path}, {line}, {column}
+# editor_url = "vscode://file{path}:{line}:{column}"
+
+# [rules]
+# Rules default to "warn". Override individually:
+#   rule_name = "error"    # fail CI
+#   rule_name = "ignore"   # disable
+#   rule_name = { level = "warn", ignore = ["tests/**"] }
