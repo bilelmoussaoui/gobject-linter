@@ -80,7 +80,7 @@ impl PropertyCanonicalName {
         let fix = Fix::new(
             string_lit_location.start_byte,
             string_lit_location.end_byte,
-            replacement.clone(),
+            replacement,
         );
 
         let message = if has_static_name {

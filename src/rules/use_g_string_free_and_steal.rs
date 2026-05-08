@@ -76,21 +76,21 @@ impl UseGStringFreeAndSteal {
 
         // Build replacement
         let replacement = format!("g_string_free_and_steal ({})", first_text);
-
+        let message = format!(
+            "Use {} instead of g_string_free({}, {}) for readability",
+            replacement, first_text, second_text
+        );
         let fix = Fix::new(
             call.location.start_byte,
             call.location.end_byte,
-            replacement.clone(),
+            replacement,
         );
 
         violations.push(self.violation_with_fix(
             file_path,
             call.location.line,
             call.location.column,
-            format!(
-                "Use {} instead of g_string_free({}, {}) for readability",
-                replacement, first_text, second_text
-            ),
+            message,
             fix,
         ));
     }

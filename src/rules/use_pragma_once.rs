@@ -93,10 +93,10 @@ impl Rule for UsePragmaOnce {
 impl UsePragmaOnce {
     /// Find traditional include guard pattern
     /// Returns (ifndef_location, define_location, endif_location, guard_name)
-    fn find_include_guard(
+    fn find_include_guard<'a>(
         &self,
-        items: &[gobject_ast::top_level::TopLevelItem],
-    ) -> Option<(SourceLocation, SourceLocation, SourceLocation, String)> {
+        items: &'a [gobject_ast::top_level::TopLevelItem],
+    ) -> Option<(SourceLocation, SourceLocation, SourceLocation, &'a str)> {
         // The first non-comment item should be #ifndef (traditional include guard)
         items
             .iter()
@@ -128,7 +128,7 @@ impl UsePragmaOnce {
                         location.start_byte,
                     );
 
-                    Some((ifndef_loc, define_loc, endif_loc, name.clone()))
+                    Some((ifndef_loc, define_loc, endif_loc, name.as_str()))
                 }
                 _ => None, // First item is not #ifndef
             })

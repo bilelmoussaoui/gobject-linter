@@ -33,7 +33,7 @@ impl Rule for UseGSourceConstants {
         _config: &Config,
         violations: &mut Vec<Violation>,
     ) {
-        let mut callbacks: HashSet<String> = HashSet::new();
+        let mut callbacks: HashSet<&str> = HashSet::new();
 
         for (_path, file) in ast_context.iter_c_files() {
             for func in file.iter_function_definitions() {
@@ -58,7 +58,7 @@ impl Rule for UseGSourceConstants {
 
         for (path, file) in ast_context.iter_c_files() {
             for func in file.iter_function_definitions() {
-                if callbacks.contains(&func.name) {
+                if callbacks.contains(func.name.as_str()) {
                     self.check_statements(path, &func.body_statements, &file.source, violations);
                 }
             }
@@ -67,11 +67,11 @@ impl Rule for UseGSourceConstants {
 }
 
 impl UseGSourceConstants {
-    fn extract_callback_name(
+    fn extract_callback_name<'a>(
         &self,
-        call: &gobject_ast::CallExpression,
+        call: &'a gobject_ast::CallExpression,
         _source: &[u8],
-    ) -> Option<String> {
+    ) -> Option<&'a str> {
         // Map of source-add function name → zero-based index of the GSourceFunc
         // argument
         let func_name = call.function_name_str()?;
@@ -89,7 +89,7 @@ impl UseGSourceConstants {
         // Get the callback argument (should be an identifier)
         let arg_expr = call.get_arg(callback_arg_index)?;
         if let Expression::Identifier(id) = arg_expr {
-            Some(id.name.clone())
+            Some(&id.name)
         } else {
             None
         }

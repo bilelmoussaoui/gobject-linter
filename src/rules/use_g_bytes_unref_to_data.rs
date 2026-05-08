@@ -70,12 +70,15 @@ impl UseGBytesUnrefToData {
             "{} = g_bytes_unref_to_data ({}, {});",
             dest, bytes_var, size_arg
         );
-
+        let message = format!(
+            "Use g_bytes_unref_to_data({}, {}) instead of g_bytes_get_data() followed by g_bytes_unref()",
+            bytes_var, size_arg
+        );
         // Use two separate fixes to preserve comments between statements
         let stmt1_end = stmt1.location().find_semicolon_end(&file.source);
         let fixes = vec![
             // Replace the first statement with the new call
-            Fix::new(stmt1.location().start_byte, stmt1_end, replacement.clone()),
+            Fix::new(stmt1.location().start_byte, stmt1_end, replacement),
             // Delete the entire second line
             Fix::delete_line(stmt2.location(), &file.source),
         ];
@@ -84,10 +87,7 @@ impl UseGBytesUnrefToData {
             file_path,
             assignment.location.line,
             assignment.location.column,
-            format!(
-                "Use g_bytes_unref_to_data({}, {}) instead of g_bytes_get_data() followed by g_bytes_unref()",
-                bytes_var, size_arg
-            ),
+            message,
             fixes,
         ));
     }

@@ -131,17 +131,19 @@ impl UseGClearSignalHandler {
         }
 
         let replacement = format!("g_clear_signal_handler (&{handler_id}, {obj});");
+        let message =
+            format!("Use {replacement} instead of if-guarded g_signal_handler_disconnect");
         let fix = Fix::new(
             if_stmt.location.start_byte,
             if_stmt.location.end_byte,
-            replacement.clone(),
+            replacement,
         );
 
         violations.push(self.violation_with_fix(
             file_path,
             if_stmt.location.line,
             if_stmt.location.column,
-            format!("Use {replacement} instead of if-guarded g_signal_handler_disconnect"),
+            message,
             fix,
         ));
         true
@@ -165,12 +167,14 @@ impl UseGClearSignalHandler {
         }
 
         let replacement = format!("g_clear_signal_handler (&{handler_id}, {obj});");
+        let message =
+            format!("Use {replacement} instead of g_signal_handler_disconnect and zeroing the ID");
         let s1_end = s1.location().find_semicolon_end(&file.source);
 
         // Use two separate fixes to preserve comments between statements
         let fixes = vec![
             // Replace the first statement with the new call
-            Fix::new(s1.location().start_byte, s1_end, replacement.clone()),
+            Fix::new(s1.location().start_byte, s1_end, replacement),
             // Delete the entire second line
             Fix::delete_line(s2.location(), &file.source),
         ];
@@ -179,7 +183,7 @@ impl UseGClearSignalHandler {
             file_path,
             s1.location().line,
             s1.location().column,
-            format!("Use {replacement} instead of g_signal_handler_disconnect and zeroing the ID"),
+            message,
             fixes,
         ));
         true
@@ -215,14 +219,17 @@ impl UseGClearSignalHandler {
         }
 
         let replacement = format!("g_clear_signal_handler (&{handler_id}, {obj});");
+        let message = format!(
+            "Use {replacement} instead of g_signal_handler_disconnect (also zeroes the stored ID)"
+        );
         let stmt_end = stmt.location().find_semicolon_end(source);
-        let fix = Fix::new(stmt.location().start_byte, stmt_end, replacement.clone());
+        let fix = Fix::new(stmt.location().start_byte, stmt_end, replacement);
 
         violations.push(self.violation_with_fix(
             file_path,
             stmt.location().line,
             stmt.location().column,
-            format!("Use {replacement} instead of g_signal_handler_disconnect (also zeroes the stored ID)"),
+            message,
             fix,
         ));
         true

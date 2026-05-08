@@ -142,11 +142,14 @@ impl UseClearFunctions {
         } else {
             format!("g_clear_pointer (&{}, {});", var, unref_func)
         };
-
+        let message = format!(
+            "Use {} instead of manual unref and NULL assignment",
+            replacement
+        );
         // Create fixes: replace first statement, delete second
         let stmt1_end = stmt1.location().find_semicolon_end(source);
         let fixes = vec![
-            Fix::new(stmt1.location().start_byte, stmt1_end, replacement.clone()),
+            Fix::new(stmt1.location().start_byte, stmt1_end, replacement),
             Fix::delete_line(stmt2.location(), source),
         ];
 
@@ -154,10 +157,7 @@ impl UseClearFunctions {
             file_path,
             stmt1.location().line,
             stmt1.location().column,
-            format!(
-                "Use {} instead of manual unref and NULL assignment",
-                replacement
-            ),
+            message,
             fixes,
         ));
 
@@ -205,21 +205,22 @@ impl UseClearFunctions {
         } else {
             format!("g_clear_pointer (&{}, {});", checked_var, unref_function)
         };
+        let message = format!(
+            "Use {} instead of manual NULL check, unref, and assignment",
+            replacement
+        );
 
         let fix = Fix::new(
             if_stmt.location.start_byte,
             if_stmt.location.end_byte,
-            replacement.clone(),
+            replacement,
         );
 
         violations.push(self.violation_with_fix(
             file_path,
             if_stmt.location.line,
             if_stmt.location.column,
-            format!(
-                "Use {} instead of manual NULL check, unref, and assignment",
-                replacement
-            ),
+            message,
             fix,
         ));
 

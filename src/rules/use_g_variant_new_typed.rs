@@ -105,20 +105,21 @@ impl UseGVariantNewTyped {
             format!("{} ({})", typed_func, rest_args)
         };
 
+        let message = format!(
+            "Use {} instead of g_variant_new(\"{}\", ...) for type safety",
+            replacement, format_str
+        );
         let fix = Fix::new(
             call.location.start_byte,
             call.location.end_byte,
-            replacement.clone(),
+            replacement,
         );
 
         violations.push(self.violation_with_fix(
             file_path,
             call.location.line,
             call.location.column,
-            format!(
-                "Use {} instead of g_variant_new(\"{}\", ...) for type safety",
-                replacement, format_str
-            ),
+            message,
             fix,
         ));
     }

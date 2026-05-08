@@ -43,7 +43,7 @@ impl UseGAutolist {
         violations: &mut Vec<Violation>,
     ) {
         // Find all GList*/GSList* declarations
-        let list_vars: HashMap<String, (gobject_ast::TypeInfo, gobject_ast::SourceLocation)> = func
+        let list_vars: HashMap<&str, (&gobject_ast::TypeInfo, gobject_ast::SourceLocation)> = func
             .iter_local_declarations()
             .filter(|d| {
                 !d.type_info.uses_auto_cleanup()
@@ -51,7 +51,7 @@ impl UseGAutolist {
                     && d.type_info.is_pointer()
                     && d.is_simple_identifier()
             })
-            .map(|d| (d.name.clone(), (d.type_info.clone(), d.location)))
+            .map(|d| (d.name.as_str(), (&d.type_info, d.location)))
             .collect();
 
         // For each list variable, check if it's freed with

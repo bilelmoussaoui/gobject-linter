@@ -107,21 +107,22 @@ impl UseGSettingsTyped {
                 typed_func, settings_arg, key_arg, value_args
             )
         };
+        let message = format!(
+            "Use {} instead of g_settings_set_value with g_variant_new for type safety",
+            replacement
+        );
 
         let fix = Fix::new(
             call.location.start_byte,
             call.location.end_byte,
-            replacement.clone(),
+            replacement,
         );
 
         violations.push(self.violation_with_fix(
             file_path,
             call.location.line,
             call.location.column,
-            format!(
-                "Use {} instead of g_settings_set_value with g_variant_new for type safety",
-                replacement
-            ),
+            message,
             fix,
         ));
     }
@@ -183,21 +184,21 @@ impl UseGSettingsTyped {
 
         // Build replacement
         let replacement = format!("{} ({}, {})", typed_func, settings_arg, key_arg);
-
+        let message = format!(
+            "Use {} instead of g_variant_get_* with g_settings_get_value for type safety",
+            replacement
+        );
         let fix = Fix::new(
             call.location.start_byte,
             call.location.end_byte,
-            replacement.clone(),
+            replacement,
         );
 
         violations.push(self.violation_with_fix(
             file_path,
             call.location.line,
             call.location.column,
-            format!(
-                "Use {} instead of g_variant_get_* with g_settings_get_value for type safety",
-                replacement
-            ),
+            message,
             fix,
         ));
     }

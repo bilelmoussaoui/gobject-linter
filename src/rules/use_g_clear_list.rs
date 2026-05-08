@@ -52,20 +52,18 @@ impl Rule for UseGClearList {
             } else {
                 "g_slist"
             };
+            let message =
+                format!("Use {replacement} instead of {base_type}_free and NULL assignment");
             let second_end = second.location().find_semicolon_end(&file.source);
             let fixes = vec![
                 Fix::delete_line(first.location(), &file.source),
-                Fix::new(
-                    second.location().start_byte,
-                    second_end,
-                    replacement.clone(),
-                ),
+                Fix::new(second.location().start_byte, second_end, replacement),
             ];
             violations.push(self.violation_with_fixes(
                 path,
                 first.location().line,
                 first.location().column,
-                format!("Use {replacement} instead of {base_type}_free and NULL assignment"),
+                message,
                 fixes,
             ));
         });

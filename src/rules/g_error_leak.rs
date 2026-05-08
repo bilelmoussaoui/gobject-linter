@@ -44,7 +44,7 @@ impl Rule for GErrorLeak {
                         .as_ref()
                         .is_some_and(gobject_ast::Expression::is_null)
                 {
-                    gerror_vars.push((decl.name.clone(), decl.location));
+                    gerror_vars.push((decl.name.as_str(), decl.location));
                 }
             }
         }
@@ -52,15 +52,15 @@ impl Rule for GErrorLeak {
         // For each GError* variable, check if it's properly handled
         for (var_name, loc) in gerror_vars {
             // Check if the variable is actually used (passed to functions as &error)
-            let is_used = is_error_used(&func.body_statements, &var_name);
+            let is_used = is_error_used(&func.body_statements, var_name);
 
             if !is_used {
                 continue; // Not used, so no leak
             }
 
             // Check if it's properly handled (freed or propagated)
-            let is_freed = is_error_freed(&func.body_statements, &var_name);
-            let is_propagated = is_error_propagated(&func.body_statements, &var_name);
+            let is_freed = is_error_freed(&func.body_statements, var_name);
+            let is_propagated = is_error_propagated(&func.body_statements, var_name);
 
             // If the function contains noreturn calls (g_error, g_assert, etc.),
             // skip the leak check as the program will terminate anyway

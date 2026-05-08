@@ -40,12 +40,12 @@ impl Rule for MissingAutoptrCleanup {
     ) {
         let mut types_needing_cleanup: Vec<(
             &std::path::Path,
-            String,
+            &str,
             gobject_ast::SourceLocation,
             &'static str,
         )> = Vec::new();
-        let mut declared_types: HashSet<String> = HashSet::new();
-        let mut autoptr_cleanups: HashSet<String> = HashSet::new();
+        let mut declared_types: HashSet<&str> = HashSet::new();
+        let mut autoptr_cleanups: HashSet<&str> = HashSet::new();
 
         for (path, file) in ast_context.iter_all_files() {
             for gobject_type in file.iter_all_gobject_types() {
@@ -54,7 +54,7 @@ impl Rule for MissingAutoptrCleanup {
                     | GObjectTypeKind::Define(DefineKind::Pointer) => {
                         types_needing_cleanup.push((
                             path,
-                            gobject_type.type_name.clone(),
+                            &gobject_type.type_name,
                             gobject_type.location,
                             "boxed",
                         ));
@@ -62,13 +62,13 @@ impl Rule for MissingAutoptrCleanup {
                     GObjectTypeKind::Define(_) => {
                         types_needing_cleanup.push((
                             path,
-                            gobject_type.type_name.clone(),
+                            &gobject_type.type_name,
                             gobject_type.location,
                             "old-style",
                         ));
                     }
                     GObjectTypeKind::Declare { .. } => {
-                        declared_types.insert(gobject_type.type_name.clone());
+                        declared_types.insert(&gobject_type.type_name);
                     }
                     GObjectTypeKind::DefineQuark { .. } => {}
                 }
@@ -81,17 +81,17 @@ impl Rule for MissingAutoptrCleanup {
                         ..
                     } = directive
                 {
-                    autoptr_cleanups.insert(type_name.clone());
+                    autoptr_cleanups.insert(type_name);
                 }
             }
         }
 
         for (path, type_name, location, kind) in types_needing_cleanup {
-            if declared_types.contains(&type_name) {
+            if declared_types.contains(type_name) {
                 continue;
             }
 
-            if autoptr_cleanups.contains(&type_name) {
+            if autoptr_cleanups.contains(type_name) {
                 continue;
             }
 

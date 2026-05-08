@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::{collections::HashMap, path::Path};
 
 use gobject_ast::{TypeInfo, types::Parameter};
 
@@ -13,17 +10,17 @@ use crate::{
 
 pub struct InconsistentFunctionSignature;
 
-struct DeclInfo {
-    return_type: TypeInfo,
-    parameters: Vec<Parameter>,
+struct DeclInfo<'a> {
+    return_type: &'a TypeInfo,
+    parameters: &'a [Parameter],
 }
 
-struct DefInfo {
+struct DefInfo<'a> {
     line: usize,
     column: usize,
-    path: PathBuf,
-    return_type: TypeInfo,
-    parameters: Vec<Parameter>,
+    path: &'a Path,
+    return_type: &'a TypeInfo,
+    parameters: &'a [Parameter],
 }
 
 impl Rule for InconsistentFunctionSignature {
@@ -49,8 +46,8 @@ impl Rule for InconsistentFunctionSignature {
         _config: &Config,
         violations: &mut Vec<Violation>,
     ) {
-        let mut global_decls: HashMap<String, DeclInfo> = HashMap::new();
-        let mut all_defs: HashMap<String, Vec<DefInfo>> = HashMap::new();
+        let mut global_decls: HashMap<&str, DeclInfo> = HashMap::new();
+        let mut all_defs: HashMap<&str, Vec<DefInfo>> = HashMap::new();
         let mut static_violations: Vec<Violation> = Vec::new();
 
         for (path, file) in ast_context.iter_all_files() {
@@ -60,33 +57,33 @@ impl Rule for InconsistentFunctionSignature {
                 for decl in file.iter_function_declarations() {
                     if !decl.is_static {
                         global_decls
-                            .entry(decl.name.clone())
+                            .entry(decl.name.as_str())
                             .or_insert_with(|| DeclInfo {
-                                return_type: decl.return_type.clone(),
-                                parameters: decl.parameters.clone(),
+                                return_type: &decl.return_type,
+                                parameters: &decl.parameters,
                             });
                     }
                 }
             }
 
             if ext == Some("c") {
-                let mut local_decls: HashMap<String, DeclInfo> = HashMap::new();
+                let mut local_decls: HashMap<&str, DeclInfo> = HashMap::new();
                 for decl in file.iter_function_declarations() {
                     local_decls
-                        .entry(decl.name.clone())
+                        .entry(decl.name.as_str())
                         .or_insert_with(|| DeclInfo {
-                            return_type: decl.return_type.clone(),
-                            parameters: decl.parameters.clone(),
+                            return_type: &decl.return_type,
+                            parameters: &decl.parameters,
                         });
                 }
 
                 for func in file.iter_function_definitions() {
                     if func.is_static {
-                        if let Some(decl) = local_decls.get(&func.name) {
+                        if let Some(decl) = local_decls.get(func.name.as_str()) {
                             self.check_signatures(
                                 &func.name,
-                                &decl.return_type,
-                                &decl.parameters,
+                                decl.return_type,
+                                decl.parameters,
                                 &func.return_type,
                                 &func.parameters,
                                 path,
@@ -97,14 +94,14 @@ impl Rule for InconsistentFunctionSignature {
                         }
                     } else {
                         all_defs
-                            .entry(func.name.clone())
+                            .entry(func.name.as_str())
                             .or_default()
                             .push(DefInfo {
                                 line: func.location.line,
                                 column: func.location.column,
-                                path: path.to_path_buf(),
-                                return_type: func.return_type.clone(),
-                                parameters: func.parameters.clone(),
+                                path,
+                                return_type: &func.return_type,
+                                parameters: &func.parameters,
                             });
                     }
                 }
@@ -118,8 +115,8 @@ impl Rule for InconsistentFunctionSignature {
 
             let first = &defs[0];
             let definitions_agree = defs.iter().skip(1).all(|d| {
-                first.return_type.matches(&d.return_type)
-                    && self.params_match(&first.parameters, &d.parameters)
+                first.return_type.matches(d.return_type)
+                    && self.params_match(first.parameters, d.parameters)
             });
             if !definitions_agree {
                 continue;
@@ -128,11 +125,11 @@ impl Rule for InconsistentFunctionSignature {
             for def in defs {
                 self.check_signatures(
                     name,
-                    &decl.return_type,
-                    &decl.parameters,
-                    &def.return_type,
-                    &def.parameters,
-                    &def.path,
+                    decl.return_type,
+                    decl.parameters,
+                    def.return_type,
+                    def.parameters,
+                    def.path,
                     def.line,
                     def.column,
                     violations,

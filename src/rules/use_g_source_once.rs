@@ -40,11 +40,11 @@ impl Rule for UseGSourceOnce {
             // Get the callback name from the first argument
             if let Some(callback_name) = self.extract_callback_name(call, source) {
                 // Only proceed if callback is NOT used elsewhere
-                if !self.is_callback_used_elsewhere(ast_context, &callback_name, path) {
+                if !self.is_callback_used_elsewhere(ast_context, callback_name, path) {
                     // Find the callback function definition and check if all returns are
                     // FALSE/G_SOURCE_REMOVE
                     if let Some(callback_fixes) =
-                        self.get_callback_fixes(ast_context, &callback_name, path)
+                        self.get_callback_fixes(ast_context, callback_name, path)
                     {
                         let func_name = call.function_name();
                         let replacement = match func_name.as_str() {
@@ -109,11 +109,11 @@ impl Rule for UseGSourceOnce {
 }
 
 impl UseGSourceOnce {
-    fn extract_callback_name(
+    fn extract_callback_name<'a>(
         &self,
-        call: &gobject_ast::CallExpression,
+        call: &'a gobject_ast::CallExpression,
         _source: &[u8],
-    ) -> Option<String> {
+    ) -> Option<&'a str> {
         // Determine which argument is the callback based on the function name
         // g_idle_add(callback, user_data) -> arg 0
         // g_timeout_add(interval, callback, user_data) -> arg 1
@@ -129,14 +129,14 @@ impl UseGSourceOnce {
 
         // Handle direct identifier
         if let Expression::Identifier(id) = arg_expr {
-            return Some(id.name.clone());
+            return Some(id.name.as_str());
         }
 
         // Handle casted callback: (GSourceFunc) callback_name
         if let Expression::Cast(cast) = arg_expr
             && let Expression::Identifier(id) = &*cast.operand
         {
-            return Some(id.name.clone());
+            return Some(id.name.as_str());
         }
 
         None

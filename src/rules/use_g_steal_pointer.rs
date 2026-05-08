@@ -153,6 +153,8 @@ impl UseGStealPointer {
         }
 
         let replacement = format!("return g_steal_pointer (&{ptr_expr});");
+        let message =
+            format!("Use {replacement} instead of copying {ptr_expr} and setting it to NULL");
 
         // Use three separate fixes to preserve comments between statements
         let fixes = vec![
@@ -163,7 +165,7 @@ impl UseGStealPointer {
             Fix::new(
                 s3.location().start_byte,
                 s3.location().end_byte,
-                replacement.clone(),
+                replacement,
             ),
         ];
 
@@ -171,7 +173,7 @@ impl UseGStealPointer {
             file_path,
             s1.location().line,
             s1.location().column,
-            format!("Use {replacement} instead of copying {ptr_expr} and setting it to NULL"),
+            message,
             fixes,
         ));
         true
@@ -200,6 +202,8 @@ impl UseGStealPointer {
         }
 
         let replacement = format!("{other_expr} = g_steal_pointer (&{ptr_expr});");
+        let message =
+            format!("Use g_steal_pointer (&{ptr_expr}) instead of copying and setting to NULL");
 
         // Use two separate fixes to preserve comments between statements
         let s2_end = s2.location().find_semicolon_end(&file.source);
@@ -207,14 +211,14 @@ impl UseGStealPointer {
             // Delete the entire first line
             Fix::delete_line(s1.location(), &file.source),
             // Replace the second statement
-            Fix::new(s2.location().start_byte, s2_end, replacement.clone()),
+            Fix::new(s2.location().start_byte, s2_end, replacement),
         ];
 
         violations.push(self.violation_with_fixes(
             file_path,
             s1.location().line,
             s1.location().column,
-            format!("Use g_steal_pointer (&{ptr_expr}) instead of copying and setting to NULL"),
+            message,
             fixes,
         ));
         true
@@ -274,16 +278,18 @@ impl UseGStealPointer {
         }
 
         let replacement = format!("{dest_expr} = g_steal_pointer (&{expr_text});");
+        let message =
+            format!("Use g_steal_pointer (&{expr_text}) instead of if/else copy-and-NULL pattern");
         let fix = Fix::new(
             if_stmt.location.start_byte,
             if_stmt.location.end_byte,
-            replacement.clone(),
+            replacement,
         );
         violations.push(self.violation_with_fix(
             file_path,
             if_stmt.location.line,
             if_stmt.location.column,
-            format!("Use g_steal_pointer (&{expr_text}) instead of if/else copy-and-NULL pattern"),
+            message,
             fix,
         ));
         true
@@ -327,6 +333,8 @@ impl UseGStealPointer {
             }
 
             let replacement = format!("{dest_expr} = g_steal_pointer (&{ptr_expr});");
+            let message =
+                format!("Use g_steal_pointer (&{ptr_expr}) instead of copying and setting to NULL");
 
             // If condition tests the same variable being stolen, remove entire if
             // Otherwise just replace the body
@@ -334,29 +342,24 @@ impl UseGStealPointer {
                 Fix::new(
                     if_stmt.location.start_byte,
                     if_stmt.location.end_byte,
-                    replacement.clone(),
+                    replacement,
                 )
             } else if if_stmt.then_has_braces {
-                // If it has braces, remove them and replace body with single statement
                 let body_start = if_stmt.then_body[0].location().start_byte;
                 let (open_brace, close_brace) =
                     gobject_ast::SourceLocation::find_braces_around(body_start, source);
-                // The `{` is on its own line with indentation already in the source.
-                // When we replace from `{` to `}`, that indentation before `{` stays in place.
-                // So we don't add any extra indentation to the replacement.
-                Fix::new(open_brace, close_brace, replacement.clone())
+                Fix::new(open_brace, close_brace, replacement)
             } else {
-                // No braces, just replace the body
                 let body_start = if_stmt.then_body[0].location().start_byte;
                 let body_end = if_stmt.then_body[1].location().end_byte;
-                Fix::new(body_start, body_end, replacement.clone())
+                Fix::new(body_start, body_end, replacement)
             };
 
             violations.push(self.violation_with_fix(
                 file_path,
                 if_stmt.then_body[0].location().line,
                 if_stmt.then_body[0].location().column,
-                format!("Use g_steal_pointer (&{ptr_expr}) instead of copying and setting to NULL"),
+                message,
                 fix,
             ));
             return true;
@@ -406,35 +409,32 @@ impl UseGStealPointer {
             }
 
             let replacement = format!("return g_steal_pointer (&{ptr_expr});");
+            let message =
+                format!("Use {replacement} instead of copying {ptr_expr} and setting it to NULL");
 
             // If condition tests the same variable being stolen, remove entire if
             let fix = if condition_expr.as_ref() == Some(&ptr_expr) {
                 Fix::new(
                     if_stmt.location.start_byte,
                     if_stmt.location.end_byte,
-                    replacement.clone(),
+                    replacement,
                 )
             } else if if_stmt.then_has_braces {
-                // If it has braces, remove them and replace body with single statement
                 let body_start = if_stmt.then_body[0].location().start_byte;
                 let (open_brace, close_brace) =
                     gobject_ast::SourceLocation::find_braces_around(body_start, source);
-                // The `{` is on its own line with indentation already in the source.
-                // When we replace from `{` to `}`, that indentation before `{` stays in place.
-                // So we don't add any extra indentation to the replacement.
-                Fix::new(open_brace, close_brace, replacement.clone())
+                Fix::new(open_brace, close_brace, replacement)
             } else {
-                // No braces, just replace the body
                 let body_start = if_stmt.then_body[0].location().start_byte;
                 let body_end = if_stmt.then_body[2].location().end_byte;
-                Fix::new(body_start, body_end, replacement.clone())
+                Fix::new(body_start, body_end, replacement)
             };
 
             violations.push(self.violation_with_fix(
                 file_path,
                 if_stmt.then_body[0].location().line,
                 if_stmt.then_body[0].location().column,
-                format!("Use {replacement} instead of copying {ptr_expr} and setting it to NULL"),
+                message,
                 fix,
             ));
             return true;

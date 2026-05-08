@@ -445,7 +445,7 @@ impl GiMissingSince {
                     for (func_name, role) in &getter_setter_names {
                         let func_since = self.find_function_since(ast_context, func_name);
 
-                        match (prop_since, func_since.as_deref()) {
+                        match (prop_since, func_since) {
                             (Some(pv), None) => {
                                 violations.push(self.violation(
                                     path,
@@ -487,11 +487,15 @@ impl GiMissingSince {
         }
     }
 
-    fn find_function_since(&self, ast_context: &AstContext, func_name: &str) -> Option<String> {
+    fn find_function_since<'a>(
+        &self,
+        ast_context: &'a AstContext,
+        func_name: &str,
+    ) -> Option<&'a str> {
         for (_, file) in ast_context.iter_header_files() {
             for func_decl in file.iter_function_declarations() {
                 if func_decl.name == func_name
-                    && let Some(since) = func_decl.doc.as_ref().and_then(|d| d.since.clone())
+                    && let Some(since) = func_decl.doc.as_ref().and_then(|d| d.since.as_deref())
                 {
                     return Some(since);
                 }
@@ -501,7 +505,7 @@ impl GiMissingSince {
         for (_, file) in ast_context.iter_c_files() {
             for func_def in file.iter_function_definitions() {
                 if func_def.name == func_name
-                    && let Some(since) = func_def.doc.as_ref().and_then(|d| d.since.clone())
+                    && let Some(since) = func_def.doc.as_ref().and_then(|d| d.since.as_deref())
                 {
                     return Some(since);
                 }

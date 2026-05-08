@@ -111,7 +111,7 @@ impl Rule for PropertySwitchExhaustiveness {
                     self.check_property_function(
                         file,
                         path,
-                        &func_name,
+                        func_name,
                         &property_names,
                         &property_access,
                         true, // is_getter
@@ -125,7 +125,7 @@ impl Rule for PropertySwitchExhaustiveness {
                     self.check_property_function(
                         file,
                         path,
-                        &func_name,
+                        func_name,
                         &property_names,
                         &property_access,
                         false, // is_getter
@@ -215,11 +215,11 @@ impl PropertySwitchExhaustiveness {
     }
 
     /// Find function name assigned to object_class->field in class_init
-    fn find_assigned_function(
+    fn find_assigned_function<'a>(
         &self,
-        class_init: &gobject_ast::top_level::FunctionDefItem,
+        class_init: &'a gobject_ast::top_level::FunctionDefItem,
         field_name: &str,
-    ) -> Option<String> {
+    ) -> Option<&'a str> {
         class_init
             .body_statements
             .iter()
@@ -229,7 +229,7 @@ impl PropertySwitchExhaustiveness {
                     && field_access.field == field_name
                     && let Expression::Identifier(id) = &*assignment.rhs
                 {
-                    Some(id.name.clone())
+                    Some(id.name.as_str())
                 } else {
                     None
                 }
@@ -273,7 +273,7 @@ impl PropertySwitchExhaustiveness {
 
                 // Check which properties are missing
                 for prop_name in property_names {
-                    if handled_cases.contains(&prop_name.to_string()) {
+                    if handled_cases.contains(prop_name) {
                         continue; // Property is handled
                     }
 

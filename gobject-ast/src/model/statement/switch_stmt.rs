@@ -35,13 +35,13 @@ impl SwitchStatement {
     /// Extract identifiers from non-default case labels
     /// Returns vector of case value identifier names (e.g., ["PROP_NAME",
     /// "PROP_TITLE"])
-    pub fn case_identifiers(&self) -> Vec<String> {
+    pub fn case_identifiers(&self) -> Vec<&str> {
         self.cases
             .iter()
             .filter_map(|case| case.label.value.as_ref())
             .filter_map(|expr| {
                 if let Expression::Identifier(id) = expr {
-                    Some(id.name.clone())
+                    Some(id.name.as_str())
                 } else {
                     None
                 }

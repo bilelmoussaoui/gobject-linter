@@ -80,24 +80,25 @@ impl UseGClearWeakPointer {
 
         // Create a fix
         let replacement = format!("g_clear_weak_pointer (&{});", var_name);
-
+        let message = format!(
+            "Use {} instead of g_object_remove_weak_pointer + NULL assignment",
+            replacement.trim_end_matches(';')
+        );
         // Use two separate fixes to preserve comments between statements
         let s2_end = s2.location().find_semicolon_end(&file.source);
+
         let fixes = vec![
             // Delete the entire first line
             Fix::delete_line(s1.location(), &file.source),
             // Replace the second statement
-            Fix::new(s2.location().start_byte, s2_end, replacement.clone()),
+            Fix::new(s2.location().start_byte, s2_end, replacement),
         ];
 
         violations.push(self.violation_with_fixes(
             file_path,
             s1.location().line,
             s1.location().column,
-            format!(
-                "Use {} instead of g_object_remove_weak_pointer + NULL assignment",
-                replacement.trim_end_matches(';')
-            ),
+            message,
             fixes,
         ));
     }

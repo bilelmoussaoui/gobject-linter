@@ -39,14 +39,14 @@ impl UseGAutoptrError {
         violations: &mut Vec<Violation>,
     ) {
         // Find all GError* declarations
-        let gerror_vars: Vec<(String, (gobject_ast::TypeInfo, gobject_ast::SourceLocation))> = func
+        let gerror_vars: Vec<(&str, (&gobject_ast::TypeInfo, gobject_ast::SourceLocation))> = func
             .iter_local_declarations()
             .filter(|d| {
                 !d.type_info.uses_auto_cleanup()
                     && d.type_info.is_base_type("GError")
                     && d.type_info.is_pointer()
             })
-            .map(|d| (d.name.clone(), (d.type_info.clone(), d.location)))
+            .map(|d| (d.name.as_str(), (&d.type_info, d.location)))
             .collect();
 
         // For each GError* variable, check if it's manually freed

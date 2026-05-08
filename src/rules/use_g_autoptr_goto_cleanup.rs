@@ -55,7 +55,7 @@ impl UseGAutoptrGotoCleanup {
         for (var_name, (type_info, location)) in &allocated_vars {
             for goto_label in &goto_labels {
                 if let Some(cleanup_vars) = cleanup_labels.get(goto_label)
-                    && cleanup_vars.contains(var_name)
+                    && cleanup_vars.contains(*var_name)
                 {
                     // Extract base type name (strip pointer and qualifiers)
                     violations.push(self.violation(
@@ -74,13 +74,13 @@ impl UseGAutoptrGotoCleanup {
 
     /// Find variables allocated with g_object_new, g_new, etc.
     /// Returns map of var_name -> (type_name, location)
-    fn find_allocated_variables(
+    fn find_allocated_variables<'a>(
         &self,
-        statements: &[Statement],
-    ) -> HashMap<String, (TypeInfo, SourceLocation)> {
+        statements: &'a [Statement],
+    ) -> HashMap<&'a str, (&'a TypeInfo, SourceLocation)> {
         let mut result = HashMap::new();
 
-        let local_vars: HashMap<String, (TypeInfo, SourceLocation)> = statements
+        let local_vars: HashMap<&str, (&TypeInfo, SourceLocation)> = statements
             .iter()
             .flat_map(gobject_ast::Statement::iter_declarations)
             .filter(|d| {
@@ -88,7 +88,7 @@ impl UseGAutoptrGotoCleanup {
                     && d.type_info.is_pointer()
                     && d.is_simple_identifier()
             })
-            .map(|d| (d.name.clone(), (d.type_info.clone(), d.location)))
+            .map(|d| (d.name.as_str(), (&d.type_info, d.location)))
             .collect();
 
         // Second pass: find assignments to those variables from allocation functions
@@ -97,11 +97,11 @@ impl UseGAutoptrGotoCleanup {
         result
     }
 
-    fn collect_allocated_vars(
+    fn collect_allocated_vars<'a>(
         &self,
-        statements: &[Statement],
-        local_vars: &HashMap<String, (TypeInfo, SourceLocation)>,
-        result: &mut HashMap<String, (TypeInfo, SourceLocation)>,
+        statements: &'a [Statement],
+        local_vars: &HashMap<&str, (&'a TypeInfo, SourceLocation)>,
+        result: &mut HashMap<&'a str, (&'a TypeInfo, SourceLocation)>,
     ) {
         for stmt in statements {
             stmt.walk(&mut |s| {
@@ -110,9 +110,9 @@ impl UseGAutoptrGotoCleanup {
                     Statement::Declaration(decl) => {
                         if let Some(Expression::Call(call)) = &decl.initializer
                             && call.is_allocation_call()
-                            && let Some((type_info, location)) = local_vars.get(&decl.name)
+                            && let Some((type_info, location)) = local_vars.get(decl.name.as_str())
                         {
-                            result.insert(decl.name.clone(), (type_info.clone(), *location));
+                            result.insert(decl.name.as_str(), (*type_info, *location));
                         }
                     }
                     // Pattern 2: var = allocation_call();
@@ -120,11 +120,10 @@ impl UseGAutoptrGotoCleanup {
                         if let Expression::Assignment(assign) = expr_stmt.as_ref()
                             && let Expression::Call(call) = &*assign.rhs
                             && call.is_allocation_call()
-                            // Only simple identifiers, not field expressions
                             && let Expression::Identifier(id) = &*assign.lhs
-                            && let Some((type_info, location)) = local_vars.get(&id.name)
+                            && let Some((type_info, location)) = local_vars.get(id.name.as_str())
                         {
-                            result.insert(id.name.clone(), (type_info.clone(), *location));
+                            result.insert(id.name.as_str(), (*type_info, *location));
                         }
                     }
                     _ => {}
@@ -134,12 +133,12 @@ impl UseGAutoptrGotoCleanup {
     }
 
     /// Find all goto statements and collect the labels they target
-    fn find_goto_labels(&self, statements: &[Statement]) -> HashSet<String> {
+    fn find_goto_labels<'a>(&self, statements: &'a [Statement]) -> HashSet<&'a str> {
         let mut labels = HashSet::new();
         for stmt in statements {
             stmt.walk(&mut |s| {
                 if let Statement::Goto(goto_stmt) = s {
-                    labels.insert(goto_stmt.label.clone());
+                    labels.insert(goto_stmt.label.as_str());
                 }
             });
         }
@@ -148,16 +147,18 @@ impl UseGAutoptrGotoCleanup {
 
     /// Find all labels and what variables they cleanup (unref/free)
     /// Returns map of label_name -> set of variable names
-    fn find_cleanup_labels(&self, statements: &[Statement]) -> HashMap<String, HashSet<String>> {
+    fn find_cleanup_labels<'a>(
+        &self,
+        statements: &'a [Statement],
+    ) -> HashMap<&'a str, HashSet<String>> {
         let mut result = HashMap::new();
 
         for stmt in statements {
             stmt.walk(&mut |s| {
                 if let Statement::Labeled(labeled) = s {
-                    // Find cleanup calls in this labeled statement
                     let cleanup_vars = self.find_cleanup_calls(&labeled.statement);
                     if !cleanup_vars.is_empty() {
-                        result.insert(labeled.label.clone(), cleanup_vars);
+                        result.insert(labeled.label.as_str(), cleanup_vars);
                     }
                 }
             });
@@ -171,10 +172,9 @@ impl UseGAutoptrGotoCleanup {
         for call in stmt.iter_calls() {
             if call.is_cleanup_call()
                 && let Some(arg_expr) = call.get_arg(0)
-                // Extract variable name (handle &var or var)
                 && let Some(var_name) = arg_expr.extract_variable_name()
             {
-                cleanup_vars.insert(var_name.to_string());
+                cleanup_vars.insert(var_name);
             }
         }
         cleanup_vars

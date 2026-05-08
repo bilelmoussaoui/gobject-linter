@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use gobject_ast::Expression;
 
 use crate::{
@@ -54,7 +56,7 @@ impl UseGObjectNotifyByPspec {
         file_path: &std::path::Path,
         call: &gobject_ast::CallExpression,
         source: &[u8],
-        property_map: &std::collections::HashMap<String, Vec<(String, String, String)>>,
+        property_map: &HashMap<&str, Vec<(&str, &str, &str)>>,
         func: &gobject_ast::top_level::FunctionDefItem,
         violations: &mut Vec<Violation>,
     ) {
@@ -79,10 +81,10 @@ impl UseGObjectNotifyByPspec {
         let property_name = string_lit.value.trim_matches('"');
 
         // Collect all unique array names from the property map
-        let array_names: Vec<String> = property_map
+        let array_names: Vec<&str> = property_map
             .values()
             .flatten()
-            .map(|(_, array_name, _)| array_name.clone())
+            .map(|(_, array_name, _)| *array_name)
             .collect::<std::collections::HashSet<_>>()
             .into_iter()
             .collect();
@@ -141,7 +143,7 @@ impl UseGObjectNotifyByPspec {
 
             // Use actual array name if we have any, otherwise generic "properties"
             let suggested_array = if !array_names.is_empty() {
-                &array_names[0]
+                array_names[0]
             } else {
                 "properties"
             };
@@ -161,12 +163,11 @@ impl UseGObjectNotifyByPspec {
     /// Build a map of property names to Vec<(enum_value, array_name,
     /// class_prefix)> Multiple entries indicate ambiguity (same property
     /// name in multiple classes)
-    fn build_property_map(
+    fn build_property_map<'a>(
         &self,
-        file: &gobject_ast::FileModel,
-    ) -> std::collections::HashMap<String, Vec<(String, String, String)>> {
-        let mut map: std::collections::HashMap<String, Vec<(String, String, String)>> =
-            std::collections::HashMap::new();
+        file: &'a gobject_ast::FileModel,
+    ) -> HashMap<&'a str, Vec<(&'a str, &'a str, &'a str)>> {
+        let mut map: HashMap<&str, Vec<(&str, &str, &str)>> = HashMap::new();
 
         for gt in file.iter_all_gobject_types() {
             for assignment in &gt.properties {
@@ -177,10 +178,10 @@ impl UseGObjectNotifyByPspec {
                     ..
                 } = assignment
                 {
-                    map.entry(property_name.clone()).or_default().push((
-                        enum_value.clone(),
-                        array_name.clone(),
-                        gt.function_prefix.clone(),
+                    map.entry(property_name).or_default().push((
+                        enum_value.as_str(),
+                        array_name.as_str(),
+                        gt.function_prefix.as_str(),
                     ));
                 }
             }
@@ -195,8 +196,8 @@ impl UseGObjectNotifyByPspec {
         call: &gobject_ast::CallExpression,
         source: &[u8],
         func: &gobject_ast::top_level::FunctionDefItem,
-        candidates: &'a [(String, String, String)],
-    ) -> Option<&'a (String, String, String)> {
+        candidates: &'a [(&'a str, &'a str, &'a str)],
+    ) -> Option<&'a (&'a str, &'a str, &'a str)> {
         // Get the object expression (first argument)
         let obj_expr = call.get_arg(0)?;
         let obj_str = obj_expr.to_source_string(source)?;

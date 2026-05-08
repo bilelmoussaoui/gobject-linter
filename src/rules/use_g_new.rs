@@ -73,21 +73,21 @@ impl UseGNew {
         };
 
         let replacement = format!("{} ({}, 1)", suggested_func, type_name);
-
+        let message = format!(
+            "Use {} instead of {}(sizeof({})) for type safety",
+            replacement, func_name, type_name
+        );
         let fix = Fix::new(
             call.location.start_byte,
             call.location.end_byte,
-            replacement.clone(),
+            replacement,
         );
 
         violations.push(self.violation_with_fix(
             file_path,
             call.location.line,
             call.location.column,
-            format!(
-                "Use {} instead of {}(sizeof({})) for type safety",
-                replacement, func_name, type_name
-            ),
+            message,
             fix,
         ));
     }

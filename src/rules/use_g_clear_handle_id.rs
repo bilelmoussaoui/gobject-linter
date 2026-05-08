@@ -85,7 +85,10 @@ impl UseGClearHandleId {
 
             for (var_name, cleanup_func, first_loc, second_loc) in conversions {
                 let replacement = format!("g_clear_handle_id (&{}, {});", var_name, cleanup_func);
-
+                let message = format!(
+                    "Use {} instead of {} and zero assignment",
+                    replacement, cleanup_func
+                );
                 let can_remove_if =
                     !has_else && cond_id.as_deref() == Some(var_name.as_str()) && stmt_count == 2;
 
@@ -93,7 +96,7 @@ impl UseGClearHandleId {
                     Fix::new(
                         if_stmt.location.start_byte,
                         if_stmt.location.end_byte,
-                        replacement.clone(),
+                        replacement,
                     )
                 } else if stmt_count == 2 {
                     // Find braces around the statements
@@ -115,21 +118,14 @@ impl UseGClearHandleId {
 
                     Fix::new(brace_start, brace_end, formatted_replacement)
                 } else {
-                    Fix::new(
-                        first_loc.start_byte,
-                        second_loc.end_byte,
-                        replacement.clone(),
-                    )
+                    Fix::new(first_loc.start_byte, second_loc.end_byte, replacement)
                 };
 
                 violations.push(self.violation_with_fix(
                     file_path,
                     first_loc.line,
                     first_loc.column,
-                    format!(
-                        "Use {} instead of {} and zero assignment",
-                        replacement, cleanup_func
-                    ),
+                    message,
                     fix,
                 ));
             }
@@ -170,21 +166,17 @@ impl UseGClearHandleId {
             self.check_cleanup_then_zero(statements, source)
         {
             let replacement = format!("g_clear_handle_id (&{}, {});", var_name, cleanup_func);
-
-            let fix = Fix::new(
-                first_loc.start_byte,
-                second_loc.end_byte,
-                replacement.clone(),
+            let message = format!(
+                "Use {} instead of {} and zero assignment",
+                replacement, cleanup_func
             );
+            let fix = Fix::new(first_loc.start_byte, second_loc.end_byte, replacement);
 
             violations.push(self.violation_with_fix(
                 file_path,
                 first_loc.line,
                 first_loc.column,
-                format!(
-                    "Use {} instead of {} and zero assignment",
-                    replacement, cleanup_func
-                ),
+                message,
                 fix,
             ));
         }

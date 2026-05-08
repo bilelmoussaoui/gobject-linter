@@ -86,15 +86,15 @@ impl UseGAutoptrInlineCleanup {
         ignore_types: &GlobSet,
     ) {
         // Find all local pointer declarations
-        let local_vars: HashMap<String, (gobject_ast::TypeInfo, gobject_ast::SourceLocation)> =
-            func.iter_local_declarations()
-                .filter(|d| {
-                    !d.type_info.uses_auto_cleanup()
-                        && d.type_info.is_pointer()
-                        && d.is_simple_identifier()
-                })
-                .map(|d| (d.name.clone(), (d.type_info.clone(), d.location)))
-                .collect();
+        let local_vars: HashMap<&str, (&gobject_ast::TypeInfo, gobject_ast::SourceLocation)> = func
+            .iter_local_declarations()
+            .filter(|d| {
+                !d.type_info.uses_auto_cleanup()
+                    && d.type_info.is_pointer()
+                    && d.is_simple_identifier()
+            })
+            .map(|d| (d.name.as_str(), (&d.type_info, d.location)))
+            .collect();
 
         // For each variable, check if it's a candidate for g_autoptr
         for (var_name, (type_info, location)) in &local_vars {

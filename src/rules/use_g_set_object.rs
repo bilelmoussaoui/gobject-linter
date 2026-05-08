@@ -75,7 +75,7 @@ impl UseGSetObject {
         // g_set_object takes GObject**, so:
         // - If var is GObject* (needs_deref=false), use &var
         // - If var is GObject** (needs_deref=true), use var directly
-        let set_object_call = if needs_deref {
+        let replacement = if needs_deref {
             format!("g_set_object ({var_name}, {new_val});")
         } else {
             format!("g_set_object (&{var_name}, {new_val});")
@@ -83,18 +83,19 @@ impl UseGSetObject {
 
         // Use two separate fixes to preserve comments between statements
         let s2_end = s2.location().find_semicolon_end(&file.source);
+        let message = format!("Use {replacement} instead of g_clear_object and g_object_ref");
         let fixes = vec![
             // Delete the entire first line (g_clear_object/g_object_unref)
             Fix::delete_line(s1.location(), &file.source),
             // Replace the second statement with g_set_object
-            Fix::new(s2.location().start_byte, s2_end, set_object_call.clone()),
+            Fix::new(s2.location().start_byte, s2_end, replacement),
         ];
 
         violations.push(self.violation_with_fixes(
             file_path,
             s1.location().line,
             s1.location().column,
-            format!("Use {set_object_call} instead of g_clear_object and g_object_ref"),
+            message,
             fixes,
         ));
         true

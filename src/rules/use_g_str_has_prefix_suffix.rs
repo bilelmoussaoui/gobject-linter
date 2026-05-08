@@ -139,17 +139,17 @@ impl UseGStrHasPrefixSuffix {
         } else {
             format!("!g_str_has_prefix ({str_arg_text}, \"{prefix_text}\")")
         };
-
-        let fix = Fix::new(location.start_byte, location.end_byte, replacement.clone());
+        let message = format!(
+            "Use {replacement} instead of strncmp() {} 0",
+            operator.as_str()
+        );
+        let fix = Fix::new(location.start_byte, location.end_byte, replacement);
 
         violations.push(self.violation_with_fix(
             file_path,
             location.line,
             location.column,
-            format!(
-                "Use {replacement} instead of strncmp() {} 0",
-                operator.as_str()
-            ),
+            message,
             fix,
         ));
     }
@@ -199,17 +199,17 @@ impl UseGStrHasPrefixSuffix {
         } else {
             format!("!g_str_has_suffix ({str_expr}, \"{suffix_text}\")")
         };
-
-        let fix = Fix::new(location.start_byte, location.end_byte, replacement.clone());
+        let message = format!(
+            "Use {replacement} instead of strcmp() {} 0",
+            operator.as_str()
+        );
+        let fix = Fix::new(location.start_byte, location.end_byte, replacement);
 
         violations.push(self.violation_with_fix(
             file_path,
             location.line,
             location.column,
-            format!(
-                "Use {replacement} instead of strcmp() {} 0",
-                operator.as_str()
-            ),
+            message,
             fix,
         ));
     }
