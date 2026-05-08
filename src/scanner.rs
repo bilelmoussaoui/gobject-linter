@@ -1,4 +1,4 @@
-use std::{collections::HashSet, fs, path::Path};
+use std::{collections::HashSet, path::Path};
 
 use anyhow::Result;
 use colored::Colorize;
@@ -15,9 +15,10 @@ use crate::{
 
 pub type ScanResult = Result<(Vec<Violation>, Vec<(&'static str, std::time::Duration)>)>;
 
-/// Extract a source snippet from a file at the given line with context
-fn get_source_snippet(file_path: &Path, line: usize) -> Option<String> {
-    let content = fs::read_to_string(file_path).ok()?;
+/// Extract a source snippet from in-memory source bytes at the given line with
+/// context
+fn get_source_snippet(source: &[u8], line: usize) -> Option<String> {
+    let content = std::str::from_utf8(source).ok()?;
     let lines: Vec<&str> = content.lines().collect();
 
     if line == 0 || line > lines.len() {
@@ -55,11 +56,12 @@ fn get_source_snippet(file_path: &Path, line: usize) -> Option<String> {
 }
 
 /// Populate snippets for violations that don't have them
-fn populate_snippets(violations: &mut [Violation], start_index: usize) {
-    for violation in violations.iter_mut().skip(start_index) {
-        if violation.snippet.is_none() {
-            let path = Path::new(&violation.file);
-            violation.snippet = get_source_snippet(path, violation.line);
+fn populate_snippets(violations: &mut [Violation], ast_context: &AstContext) {
+    for violation in violations.iter_mut() {
+        if violation.snippet.is_none()
+            && let Some(file) = ast_context.project.files.get(&violation.file)
+        {
+            violation.snippet = get_source_snippet(&file.source, violation.line);
         }
     }
 }
@@ -365,7 +367,7 @@ pub fn scan_with_ast(
             }
 
             if generate_snippets {
-                populate_snippets(&mut rule_violations, 0);
+                populate_snippets(&mut rule_violations, ast_context);
             }
             let filter_result = filter_violations_in_place(
                 &mut rule_violations,
