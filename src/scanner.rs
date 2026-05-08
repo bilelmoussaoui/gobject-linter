@@ -1,8 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    fs,
-    path::Path,
-};
+use std::{collections::HashSet, fs, path::Path};
 
 use anyhow::Result;
 use colored::Colorize;
@@ -517,29 +513,20 @@ pub fn list_all_rules_json(config: &Config) -> String {
 /// Keep only the violation with the highest rule_index for each (file, line)
 /// pair
 fn deduplicate_by_rule_precedence(violations: &mut Vec<Violation>) {
-    // Group violations by (file, line), keeping the one with highest rule_index
-    let mut best: HashMap<(std::path::PathBuf, usize), usize> = HashMap::new();
-
-    for (i, v) in violations.iter().enumerate() {
-        let key = (v.file.clone(), v.line);
-        match best.get(&key) {
-            Some(&existing_idx) => {
-                if v.rule_index > violations[existing_idx].rule_index {
-                    best.insert(key, i);
-                }
-            }
-            None => {
-                best.insert(key, i);
-            }
-        }
+    if violations.len() <= 1 {
+        return;
     }
 
-    // Keep only the violations that are in best
-    let best_indices: std::collections::HashSet<_> = best.values().copied().collect();
-    let mut i = 0;
-    violations.retain(|_| {
-        let keep = best_indices.contains(&i);
-        i += 1;
-        keep
+    // Sort by (file, line) so duplicates are adjacent, then by rule_index
+    // descending so the best candidate comes first in each group
+    violations.sort_by(|a, b| {
+        a.file
+            .cmp(&b.file)
+            .then(a.line.cmp(&b.line))
+            .then(b.rule_index.cmp(&a.rule_index))
     });
+
+    // Walk linearly: keep the first of each (file, line) group (highest
+    // rule_index due to sort order)
+    violations.dedup_by(|b, a| a.file == b.file && a.line == b.line);
 }
