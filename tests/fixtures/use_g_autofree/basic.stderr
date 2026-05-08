@@ -1,1 +1,0 @@
-basic.c:6:3: use_g_autofree: Consider using g_autofree copy to avoid manual g_free

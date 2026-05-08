@@ -1,0 +1,2 @@
+plain_struct.c:12:5: use_auto_cleanup: Consider using g_autofree p to avoid manual g_free
+plain_struct.c:20:5: use_auto_cleanup: Consider using g_autoptr(GObject) obj to avoid manual cleanup

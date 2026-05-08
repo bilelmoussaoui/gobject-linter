@@ -1,1 +1,0 @@
-basic.c:6:3: use_g_autoptr_error: Consider using g_autoptr(GError) error instead of manual g_error_free

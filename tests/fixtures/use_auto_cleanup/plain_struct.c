@@ -5,7 +5,7 @@ typedef struct {
     int y;
 } Point;
 
-// This should NOT be flagged by use_g_autoptr_inline_cleanup
+// This should NOT be flagged by use_auto_cleanup
 // Plain structs should use g_autofree, not g_autoptr
 void test_plain_struct(void)
 {

@@ -1,0 +1,1 @@
+autofree_basic.c:6:3: use_auto_cleanup: Consider using g_autofree copy to avoid manual g_free

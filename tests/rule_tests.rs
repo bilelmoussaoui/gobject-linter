@@ -365,21 +365,11 @@ rule_test!(
     use_g_object_new_with_properties,
     gobject_linter::rules::UseGObjectNewWithProperties
 );
-rule_test!(use_g_autofree, gobject_linter::rules::UseGAutofree);
-rule_test!(use_g_autolist, gobject_linter::rules::UseGAutolist);
 rule_test!(
     use_g_bytes_unref_to_data,
     gobject_linter::rules::UseGBytesUnrefToData
 );
-rule_test!(use_g_autoptr_error, gobject_linter::rules::UseGAutoptrError);
-rule_test!(
-    use_g_autoptr_goto_cleanup,
-    gobject_linter::rules::UseGAutoptrGotoCleanup
-);
-rule_test!(
-    use_g_autoptr_inline_cleanup,
-    gobject_linter::rules::UseGAutoptrInlineCleanup
-);
+rule_test!(use_auto_cleanup, gobject_linter::rules::UseAutoCleanup);
 rule_test!(
     use_g_file_load_bytes,
     gobject_linter::rules::UseGFileLoadBytes

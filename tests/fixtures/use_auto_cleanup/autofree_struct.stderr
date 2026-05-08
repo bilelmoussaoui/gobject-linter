@@ -1,0 +1,2 @@
+autofree_struct.c:16:5: use_auto_cleanup: Consider using g_autofree p to avoid manual g_free
+autofree_struct.c:22:5: use_auto_cleanup: Consider using g_autofree person to avoid manual g_free

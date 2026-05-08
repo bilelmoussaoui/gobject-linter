@@ -1,0 +1,1 @@
+basic.c:6:3: use_auto_cleanup: Consider using g_autoptr(GObject) obj to avoid manual cleanup

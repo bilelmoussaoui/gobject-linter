@@ -1,1 +1,0 @@
-basic.c:6:3: use_g_autoptr_goto_cleanup: Consider using g_autoptr(GObject) obj and g_steal_pointer to avoid goto cleanup
