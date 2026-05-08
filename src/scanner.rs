@@ -325,6 +325,21 @@ pub fn scan_with_ast(
         eprintln!("{}", warning);
     }
 
+    // Warn about unrecognized rule config options
+    for entry in &rules {
+        let known: HashSet<&str> = entry.rule.config_options().iter().map(|o| o.name).collect();
+        for key in entry.rule_config.options.keys() {
+            if !known.contains(key.as_str()) {
+                eprintln!(
+                    "{}: unknown option '{}' for rule '{}'",
+                    "warning".yellow(),
+                    key,
+                    entry.rule.name()
+                );
+            }
+        }
+    }
+
     if let Some(sp) = spinner {
         sp.set_message("Running linter rules...");
     }
