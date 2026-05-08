@@ -1,5 +1,7 @@
 # gobject-linter
 
+[![crates.io](https://img.shields.io/crates/v/gobject-linter)](https://crates.io/crates/gobject-linter) ![CI](https://github.com/bilelmoussaoui/gobject-linter/workflows/CI/badge.svg)
+
 A fast tree-sitter-based linter for GObject/C code.
 
 Previously known as **goblint**.
