@@ -130,7 +130,7 @@ pub fn report_summary(
     let fix_w = "Autofix".len();
     let cat_w = rows
         .iter()
-        .map(|(.., cat, ..)| cat.to_string().len())
+        .map(|(_, _, _, cat, _, _)| cat.to_string().len())
         .max()
         .unwrap_or(0)
         .max("Category".len());
