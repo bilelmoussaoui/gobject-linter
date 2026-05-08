@@ -46,6 +46,22 @@ impl Category {
     }
 }
 
+impl std::fmt::Display for Category {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Correctness => write!(f, "Correctness"),
+            Self::Suspicious => write!(f, "Suspicious"),
+            Self::Style => write!(f, "Style"),
+            Self::Complexity => write!(f, "Complexity"),
+            Self::Perf => write!(f, "Performance"),
+            Self::Pedantic => write!(f, "Pedantic"),
+            Self::Restriction => write!(f, "Restriction"),
+            Self::Portability => write!(f, "Portability"),
+            Self::Introspection => write!(f, "Introspection"),
+        }
+    }
+}
+
 /// Represents an automated fix for a violation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Fix {

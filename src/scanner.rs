@@ -411,14 +411,32 @@ pub fn list_all_rules(config: &Config) {
             RuleLevel::Ignore => "-".dimmed(),
         };
         let name = entry.rule.name().cyan().bold();
-        let category = format!("[{}]", entry.rule.category().as_str()).magenta();
+        let category = format!("[{}]", entry.rule.category()).magenta();
         let desc = entry.rule.description().dimmed();
-        let fixable = if entry.rule.fixable() {
-            format!(" {}", "[auto-fix]".yellow())
+
+        let mut tags = Vec::new();
+        if entry.rule.fixable() {
+            tags.push("[auto-fix]".yellow().to_string());
+        }
+        if entry.opt_in {
+            tags.push("[opt-in]".blue().to_string());
+        }
+        if entry.rule.requires_meson() {
+            tags.push("[meson]".blue().to_string());
+        }
+        if entry.requires_auto_cleanup {
+            tags.push("[no-msvc]".blue().to_string());
+        }
+        let (major, minor) = entry.min_glib_version;
+        if major > 2 || (major == 2 && minor > 0) {
+            tags.push(format!("[glib>={major}.{minor}]").dimmed().to_string());
+        }
+        let tags_str = if tags.is_empty() {
+            String::new()
         } else {
-            "".to_string()
+            format!(" {}", tags.join(" "))
         };
-        println!("  {} {} {}{} - {}", status, name, category, fixable, desc);
+        println!("  {} {} {}{} - {}", status, name, category, tags_str, desc);
     }
 }
 

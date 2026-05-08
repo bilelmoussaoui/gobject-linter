@@ -4,7 +4,7 @@ use colored::*;
 
 use crate::{
     config::{Config, RuleLevel},
-    rules::Violation,
+    rules::{Category, Violation},
 };
 
 pub fn report_violations(
@@ -83,20 +83,19 @@ pub fn report_summary(
         return;
     }
 
-    // Aggregate counts per rule and capture level (all violations of same rule
-    // should have same level)
     let mut counts: HashMap<&str, usize> = HashMap::new();
     let mut levels: HashMap<&str, RuleLevel> = HashMap::new();
+    let mut categories: HashMap<&str, Category> = HashMap::new();
     for v in violations {
         *counts.entry(v.rule).or_insert(0) += 1;
         levels.entry(v.rule).or_insert(v.level);
+        categories.entry(v.rule).or_insert(v.category);
     }
 
     // Build timing lookup
     let timings: HashMap<&str, Duration> = rule_timings.iter().copied().collect();
 
-    // Build sorted rows: (rule, count, level, fixable, time), descending by count.
-    let mut rows: Vec<(&str, usize, RuleLevel, bool, String)> = counts
+    let mut rows: Vec<(&str, usize, RuleLevel, Category, bool, String)> = counts
         .iter()
         .map(|(&rule, &count)| {
             let time_str = timings
@@ -107,6 +106,7 @@ pub fn report_summary(
                 rule,
                 count,
                 *levels.get(rule).unwrap(),
+                *categories.get(rule).unwrap(),
                 *fixable.get(rule).unwrap_or(&false),
                 time_str,
             )
@@ -114,21 +114,26 @@ pub fn report_summary(
         .collect();
     rows.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
 
-    // Column widths — at least wide enough for the header labels.
     let count_w = rows
         .iter()
         .map(|(_, c, ..)| c.to_string().len())
         .max()
         .unwrap_or(0)
         .max("Count".len());
-    let level_w = "Level".len();
     let rule_w = rows
         .iter()
         .map(|(r, ..)| r.len())
         .max()
         .unwrap_or(0)
         .max("Rule".len());
+    let level_w = "Level".len();
     let fix_w = "Autofix".len();
+    let cat_w = rows
+        .iter()
+        .map(|(.., cat, ..)| cat.to_string().len())
+        .max()
+        .unwrap_or(0)
+        .max("Category".len());
     let time_w = rows
         .iter()
         .map(|(.., t)| t.len())
@@ -137,7 +142,8 @@ pub fn report_summary(
         .max("Time".len());
 
     let top = format!(
-        "┌{:─<cw$}┬{:─<rw$}┬{:─<lw$}┬{:─<fw$}┬{:─<tw$}┐",
+        "┌{:─<cw$}┬{:─<rw$}┬{:─<lw$}┬{:─<fw$}┬{:─<aw$}┬{:─<tw$}┐",
+        "",
         "",
         "",
         "",
@@ -147,10 +153,12 @@ pub fn report_summary(
         rw = rule_w + 2,
         lw = level_w + 2,
         fw = fix_w + 2,
+        aw = cat_w + 2,
         tw = time_w + 2,
     );
     let sep = format!(
-        "├{:─<cw$}┼{:─<rw$}┼{:─<lw$}┼{:─<fw$}┼{:─<tw$}┤",
+        "├{:─<cw$}┼{:─<rw$}┼{:─<lw$}┼{:─<fw$}┼{:─<aw$}┼{:─<tw$}┤",
+        "",
         "",
         "",
         "",
@@ -160,10 +168,12 @@ pub fn report_summary(
         rw = rule_w + 2,
         lw = level_w + 2,
         fw = fix_w + 2,
+        aw = cat_w + 2,
         tw = time_w + 2,
     );
     let bot = format!(
-        "└{:─<cw$}┴{:─<rw$}┴{:─<lw$}┴{:─<fw$}┴{:─<tw$}┘",
+        "└{:─<cw$}┴{:─<rw$}┴{:─<lw$}┴{:─<fw$}┴{:─<aw$}┴{:─<tw$}┘",
+        "",
         "",
         "",
         "",
@@ -173,27 +183,31 @@ pub fn report_summary(
         rw = rule_w + 2,
         lw = level_w + 2,
         fw = fix_w + 2,
+        aw = cat_w + 2,
         tw = time_w + 2,
     );
 
     println!("{}", top);
     println!(
-        "│ {:<cw$} │ {:<rw$} │ {:<lw$} │ {:<fw$} │ {:<tw$} │",
+        "│ {:<cw$} │ {:<rw$} │ {:<lw$} │ {:<fw$} │ {:<aw$} │ {:<tw$} │",
         "Count".bold(),
         "Rule".bold(),
         "Level".bold(),
         "Autofix".bold(),
+        "Category".bold(),
         "Time".bold(),
         cw = count_w,
         rw = rule_w,
         lw = level_w,
         fw = fix_w,
+        aw = cat_w,
         tw = time_w,
     );
     println!("{}", sep);
 
-    for (rule, count, level, is_fixable, time_str) in &rows {
+    for (rule, count, level, category, is_fixable, time_str) in &rows {
         let count_str = count.to_string().yellow().to_string();
+        let rule_str = rule.cyan().to_string();
         let (level_str, level_len) = match level {
             RuleLevel::Error => ("error".red().to_string(), 5),
             RuleLevel::Warn => ("warn".yellow().to_string(), 4),
@@ -201,22 +215,24 @@ pub fn report_summary(
                 unreachable!("Ignored violations should not be in summary")
             }
         };
-        let rule_str = rule.cyan().to_string();
         let fix_str = if *is_fixable {
             "Yes".green().to_string()
         } else {
             "No".dimmed().to_string()
         };
+        let cat_display = category.to_string();
+        let cat_str = cat_display.magenta().to_string();
         let time_colored = time_str.dimmed().to_string();
 
         let count_pad = count_w - count.to_string().len();
-        let level_pad = level_w - level_len;
         let rule_pad = rule_w - rule.len();
+        let level_pad = level_w - level_len;
         let fix_pad = fix_w - if *is_fixable { 3 } else { 2 };
+        let cat_pad = cat_w - cat_display.len();
         let time_pad = time_w - time_str.len();
 
         println!(
-            "│ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │",
+            "│ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │",
             count_str,
             " ".repeat(count_pad),
             rule_str,
@@ -225,6 +241,8 @@ pub fn report_summary(
             " ".repeat(level_pad),
             fix_str,
             " ".repeat(fix_pad),
+            cat_str,
+            " ".repeat(cat_pad),
             time_colored,
             " ".repeat(time_pad),
         );
