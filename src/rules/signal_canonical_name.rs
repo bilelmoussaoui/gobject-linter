@@ -30,7 +30,7 @@ impl Rule for SignalCanonicalName {
         _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         const NAME_ARG_FIRST: &[&str] = &[
@@ -59,7 +59,7 @@ impl Rule for SignalCanonicalName {
             let name = call.function_name_str().unwrap();
             let arg_index = if NAME_ARG_FIRST.contains(&name) { 0 } else { 1 };
             if let Some(Argument::Expression(arg_expr)) = call.arguments.get(arg_index) {
-                self.check_signal_name_arg(arg_expr, path, violations);
+                self.check_signal_name_arg(arg_expr, file, violations);
             }
         }
     }
@@ -70,7 +70,7 @@ impl SignalCanonicalName {
     fn check_signal_name_arg(
         &self,
         expr: &gobject_ast::Expression,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         if let Expression::StringLiteral(string_lit) = expr {
@@ -89,7 +89,7 @@ impl SignalCanonicalName {
                 );
 
                 violations.push(self.violation_with_fix(
-                    path,
+                    &file.path,
                     string_lit.location.line,
                     string_lit.location.column,
                     format!(

@@ -284,7 +284,7 @@ pub trait Rule: Send + Sync {
         ast_context: &AstContext,
         config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Default: no-op
@@ -298,7 +298,7 @@ pub trait Rule: Send + Sync {
         ast_context: &AstContext,
         config: &Config,
         func: &gobject_ast::top_level::FunctionDeclItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Default: no-op
@@ -312,7 +312,6 @@ pub trait Rule: Send + Sync {
         config: &Config,
         enum_info: &gobject_ast::EnumInfo,
         file: &gobject_ast::FileModel,
-        path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
         // Default: no-op
@@ -327,7 +326,7 @@ pub trait Rule: Send + Sync {
         ast_context: &AstContext,
         config: &Config,
         gobject_type: &gobject_ast::GObjectType,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Default: no-op
@@ -348,19 +347,19 @@ pub trait Rule: Send + Sync {
             let ext = path.extension().and_then(|e| e.to_str());
             if ext == Some("c") {
                 for func in file.iter_function_definitions() {
-                    self.check_func_impl(ast_context, config, func, path, violations);
+                    self.check_func_impl(ast_context, config, func, file, violations);
                 }
             }
             if ext == Some("h") {
                 for func in file.iter_function_declarations() {
-                    self.check_func_decl(ast_context, config, func, path, violations);
+                    self.check_func_decl(ast_context, config, func, file, violations);
                 }
             }
             for gt in file.iter_all_gobject_types() {
-                self.check_gobject_type(ast_context, config, gt, path, violations);
+                self.check_gobject_type(ast_context, config, gt, file, violations);
             }
             for enum_info in file.iter_all_enums() {
-                self.check_enum(ast_context, config, enum_info, file, path, violations);
+                self.check_enum(ast_context, config, enum_info, file, violations);
             }
         }
     }

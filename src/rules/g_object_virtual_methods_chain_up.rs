@@ -26,7 +26,7 @@ impl Rule for GObjectVirtualMethodsChainUp {
         _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Check if function name ends with _dispose, _finalize, or _constructed
@@ -69,7 +69,7 @@ impl Rule for GObjectVirtualMethodsChainUp {
         // Check if it chains up to parent class
         if !self.has_chainup_call(&func.body_statements, method_type) {
             violations.push(self.violation(
-                path,
+                &file.path,
                 func.location.line,
                 1,
                 format!(

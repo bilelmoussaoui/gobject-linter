@@ -26,7 +26,7 @@ impl Rule for UseGAutofree {
         _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Find all local pointer declarations
@@ -62,7 +62,7 @@ impl Rule for UseGAutofree {
             // 3. Variable is not returned (would need g_steal_pointer)
             if is_allocated && is_manually_freed && !is_returned {
                 violations.push(self.violation(
-                    path,
+                    &file.path,
                     location.line,
                     location.column,
                     format!(

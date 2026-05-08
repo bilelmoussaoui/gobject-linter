@@ -49,7 +49,7 @@ impl Rule for GParamSpecStaticStrings {
         _ast_context: &AstContext,
         config: &Config,
         gobject_type: &gobject_ast::GObjectType,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         let static_flags = config
@@ -67,7 +67,7 @@ impl Rule for GParamSpecStaticStrings {
             let Some(call) = assignment.param_spec_call() else {
                 continue;
             };
-            self.check_call(path, call, assignment.property(), &static_flags, violations);
+            self.check_call(file, call, assignment.property(), &static_flags, violations);
         }
     }
 }
@@ -75,7 +75,7 @@ impl Rule for GParamSpecStaticStrings {
 impl GParamSpecStaticStrings {
     fn check_call(
         &self,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         call: &CallExpression,
         property: &Property,
         custom_static_flags: &[String],
@@ -133,7 +133,7 @@ impl GParamSpecStaticStrings {
         );
 
         violations.push(self.violation_with_fix(
-            file_path,
+            &file.path,
             call.location.line,
             call.location.column,
             format!(

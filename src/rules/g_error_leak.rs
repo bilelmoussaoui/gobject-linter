@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use gobject_ast::{Expression, Statement, UnaryOp};
 
 use crate::{
@@ -28,7 +26,7 @@ impl Rule for GErrorLeak {
         _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Find all local GError* variables initialized to NULL
@@ -68,7 +66,7 @@ impl Rule for GErrorLeak {
 
             if !is_freed && !is_propagated && !has_noreturn {
                 violations.push(self.violation(
-                    path,
+                    &file.path,
                     loc.line,
                     loc.column,
                     format!(

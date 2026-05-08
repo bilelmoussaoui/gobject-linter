@@ -30,12 +30,12 @@ impl Rule for StrcmpExplicitComparison {
         _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         for stmt in &func.body_statements {
             for if_stmt in stmt.iter_if_statements() {
-                self.check_condition(&if_stmt.condition, path, violations);
+                self.check_condition(&if_stmt.condition, file, violations);
             }
         }
     }
@@ -45,7 +45,8 @@ impl StrcmpExplicitComparison {
     fn check_condition(
         &self,
         condition: &Expression,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
+
         violations: &mut Vec<Violation>,
     ) {
         match condition {
@@ -64,13 +65,13 @@ impl StrcmpExplicitComparison {
                     }
                     // For logical operators, recurse into both sides
                     BinaryOp::LogicalAnd | BinaryOp::LogicalOr => {
-                        self.check_condition(&binary.left, file_path, violations);
-                        self.check_condition(&binary.right, file_path, violations);
+                        self.check_condition(&binary.left, file, violations);
+                        self.check_condition(&binary.right, file, violations);
                     }
                     _ => {
                         // For other binary operators, recurse
-                        self.check_condition(&binary.left, file_path, violations);
-                        self.check_condition(&binary.right, file_path, violations);
+                        self.check_condition(&binary.left, file, violations);
+                        self.check_condition(&binary.right, file, violations);
                     }
                 }
             }
@@ -89,7 +90,7 @@ impl StrcmpExplicitComparison {
                 );
 
                 violations.push(self.violation_with_fix(
-                    file_path,
+                    &file.path,
                     call.location.line,
                     call.location.column,
                     format!(
@@ -124,7 +125,7 @@ impl StrcmpExplicitComparison {
                     ];
 
                     violations.push(self.violation_with_fixes(
-                        file_path,
+                        &file.path,
                         call.location.line,
                         call.location.column,
                         format!(

@@ -32,10 +32,10 @@ impl Rule for UseGFileLoadBytes {
         _ast_context: &AstContext,
         _config: &Config,
         func: &FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        self.check_function(func, path, violations);
+        self.check_function(func, file, violations);
     }
 }
 
@@ -43,7 +43,7 @@ impl UseGFileLoadBytes {
     fn check_function(
         &self,
         func: &FunctionDefItem,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Find all g_file_load_contents calls and track their output variables
@@ -52,7 +52,7 @@ impl UseGFileLoadBytes {
         // Find all g_bytes_new_take calls that use those variables
         self.find_bytes_new_take_violations(
             &func.body_statements,
-            file_path,
+            file,
             &load_contents_vars,
             violations,
         );
@@ -81,7 +81,7 @@ impl UseGFileLoadBytes {
     fn find_bytes_new_take_violations(
         &self,
         statements: &[Statement],
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         load_contents_vars: &HashSet<String>,
         violations: &mut Vec<Violation>,
     ) {
@@ -90,7 +90,7 @@ impl UseGFileLoadBytes {
                 Statement::Expression(expr_stmt) => {
                     self.check_expr_for_bytes_new_take(
                         expr_stmt,
-                        file_path,
+                        file,
                         load_contents_vars,
                         violations,
                     );
@@ -99,7 +99,7 @@ impl UseGFileLoadBytes {
                     if let Some(init) = &decl.initializer {
                         self.check_expr_for_bytes_new_take(
                             init,
-                            file_path,
+                            file,
                             load_contents_vars,
                             violations,
                         );
@@ -109,7 +109,7 @@ impl UseGFileLoadBytes {
                     if let Some(expr) = &ret.value {
                         self.check_expr_for_bytes_new_take(
                             expr,
-                            file_path,
+                            file,
                             load_contents_vars,
                             violations,
                         );
@@ -123,7 +123,7 @@ impl UseGFileLoadBytes {
     fn check_expr_for_bytes_new_take(
         &self,
         expr: &Expression,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         load_contents_vars: &HashSet<String>,
         violations: &mut Vec<Violation>,
     ) {
@@ -136,7 +136,7 @@ impl UseGFileLoadBytes {
                 // Check if this contents variable came from g_file_load_contents
                 if load_contents_vars.contains(&contents_var) {
                     violations.push(self.violation(
-                            file_path,
+                            &file.path,
                             call.location.line,
                             call.location.column,
                             "Consider using g_file_load_bytes/g_file_load_bytes_async instead of g_file_load_contents + g_bytes_new_take for simplicity".to_string(),

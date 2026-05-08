@@ -28,10 +28,10 @@ impl Rule for UseGAutoptrGotoCleanup {
         _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        self.check_function(func, path, violations);
+        self.check_function(func, file, violations);
     }
 }
 
@@ -39,7 +39,7 @@ impl UseGAutoptrGotoCleanup {
     fn check_function(
         &self,
         func: &gobject_ast::top_level::FunctionDefItem,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Find all allocated variables (g_object_new, g_new, etc.)
@@ -59,7 +59,7 @@ impl UseGAutoptrGotoCleanup {
                 {
                     // Extract base type name (strip pointer and qualifiers)
                     violations.push(self.violation(
-                        file_path,
+                        &file.path,
                         location.line,
                         location.column,
                         format!(

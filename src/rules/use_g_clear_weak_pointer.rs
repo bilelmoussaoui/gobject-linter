@@ -27,15 +27,14 @@ impl Rule for UseGClearWeakPointer {
 
     fn check_func_impl(
         &self,
-        ast_context: &AstContext,
+        _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        let file = ast_context.project.files.get(path).unwrap();
         Statement::walk_pairs(&func.body_statements, &mut |s1, s2| {
-            self.try_remove_weak_then_null(s1, s2, file, path, violations);
+            self.try_remove_weak_then_null(s1, s2, file, violations);
         });
     }
 }
@@ -47,7 +46,6 @@ impl UseGClearWeakPointer {
         s1: &Statement,
         s2: &Statement,
         file: &gobject_ast::FileModel,
-        file_path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
         // First statement must be g_object_remove_weak_pointer call
@@ -95,7 +93,7 @@ impl UseGClearWeakPointer {
         ];
 
         violations.push(self.violation_with_fixes(
-            file_path,
+            &file.path,
             s1.location().line,
             s1.location().column,
             message,

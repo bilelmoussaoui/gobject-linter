@@ -27,13 +27,12 @@ impl Rule for UseGClearList {
 
     fn check_func_impl(
         &self,
-        ast_context: &AstContext,
+        _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        let file = ast_context.project.files.get(path).unwrap();
         Statement::walk_pairs(&func.body_statements, &mut |first, second| {
             let Some((var_name, list_type)) = self.extract_list_free(first, &file.source) else {
                 return;
@@ -60,7 +59,7 @@ impl Rule for UseGClearList {
                 Fix::new(second.location().start_byte, second_end, replacement),
             ];
             violations.push(self.violation_with_fixes(
-                path,
+                &file.path,
                 first.location().line,
                 first.location().column,
                 message,

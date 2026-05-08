@@ -26,7 +26,7 @@ impl Rule for GSourceIdNotStored {
         _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // List of GSource functions that return a source ID
@@ -56,7 +56,7 @@ impl Rule for GSourceIdNotStored {
                             })
                         {
                             violations.push(self.violation(
-                                path,
+                                &file.path,
                                 call.location.line,
                                 call.location.column,
                                 format!(

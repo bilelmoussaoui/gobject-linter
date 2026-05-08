@@ -27,15 +27,14 @@ impl Rule for UseGValueSetStaticString {
 
     fn check_func_impl(
         &self,
-        ast_context: &AstContext,
+        _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        let source = &ast_context.project.files.get(path).unwrap().source;
         for call in func.find_calls(&["g_value_set_string"]) {
-            self.check_call(path, call, source, violations);
+            self.check_call(file, call, violations);
         }
     }
 }
@@ -43,9 +42,9 @@ impl Rule for UseGValueSetStaticString {
 impl UseGValueSetStaticString {
     fn check_call(
         &self,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
+
         call: &gobject_ast::CallExpression,
-        source: &[u8],
         violations: &mut Vec<Violation>,
     ) {
         // Need at least 2 arguments
@@ -71,7 +70,7 @@ impl UseGValueSetStaticString {
             "g_value_set_static_string ({})",
             call.arguments
                 .iter()
-                .filter_map(|arg| arg.to_source_string(source))
+                .filter_map(|arg| arg.to_source_string(&file.source))
                 .collect::<Vec<_>>()
                 .join(", ")
         );
@@ -83,7 +82,7 @@ impl UseGValueSetStaticString {
         );
 
         violations.push(self.violation_with_fix(
-            file_path,
+            &file.path,
             call.location.line,
             call.location.column,
             format!(

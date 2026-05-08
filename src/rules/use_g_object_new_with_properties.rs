@@ -26,7 +26,7 @@ impl Rule for UseGObjectNewWithProperties {
         _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Find all g_object_new calls with no properties
@@ -41,7 +41,7 @@ impl Rule for UseGObjectNewWithProperties {
         }
 
         // Check statements for the pattern
-        self.check_statements(&func.body_statements, &empty_new_calls, path, violations);
+        self.check_statements(&func.body_statements, &empty_new_calls, file, violations);
     }
 }
 
@@ -50,7 +50,8 @@ impl UseGObjectNewWithProperties {
         &self,
         statements: &[Statement],
         empty_new_calls: &[&CallExpression],
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
+
         violations: &mut Vec<Violation>,
     ) {
         for i in 0..statements.len() {
@@ -76,7 +77,7 @@ impl UseGObjectNewWithProperties {
                 // Only report if there's at least one g_object_set call
                 if set_count > 0 {
                     violations.push(self.violation(
-                        file_path,
+                        &file.path,
                         location.line,
                         location.column,
                         format!(
@@ -89,7 +90,7 @@ impl UseGObjectNewWithProperties {
             }
 
             statements[i].for_each_child_block(|body| {
-                self.check_statements(body, empty_new_calls, file_path, violations);
+                self.check_statements(body, empty_new_calls, file, violations);
             });
         }
     }

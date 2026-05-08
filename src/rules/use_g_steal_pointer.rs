@@ -27,14 +27,13 @@ impl Rule for UseGStealPointer {
 
     fn check_func_impl(
         &self,
-        ast_context: &AstContext,
+        _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        let file = ast_context.project.files.get(path).unwrap();
-        self.check_function(func, path, file, violations);
+        self.check_function(func, file, violations);
     }
 }
 
@@ -42,27 +41,25 @@ impl UseGStealPointer {
     fn check_function(
         &self,
         func: &gobject_ast::top_level::FunctionDefItem,
-        file_path: &std::path::Path,
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        self.check_statements(&func.body_statements, file_path, file, violations);
+        self.check_statements(&func.body_statements, file, violations);
     }
 
     fn check_statements(
         &self,
         statements: &[Statement],
-        file_path: &std::path::Path,
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         let mut i = 0;
         while i < statements.len() {
-            if self.try_if_else_steal(&statements[i], file_path, &file.source, violations) {
+            if self.try_if_else_steal(&statements[i], file, violations) {
                 i += 1;
                 continue;
             }
-            if self.try_if_no_else_steal(&statements[i], file_path, &file.source, violations) {
+            if self.try_if_no_else_steal(&statements[i], file, violations) {
                 i += 1;
                 continue;
             }
@@ -72,7 +69,6 @@ impl UseGStealPointer {
                     &statements[i + 1],
                     &statements[i + 2],
                     file,
-                    file_path,
                     violations,
                 )
             {
@@ -80,19 +76,13 @@ impl UseGStealPointer {
                 continue;
             }
             if i + 1 < statements.len()
-                && self.try_assign_null(
-                    &statements[i],
-                    &statements[i + 1],
-                    file,
-                    file_path,
-                    violations,
-                )
+                && self.try_assign_null(&statements[i], &statements[i + 1], file, violations)
             {
                 i += 2;
                 continue;
             }
             statements[i].for_each_child_block(|body| {
-                self.check_statements(body, file_path, file, violations);
+                self.check_statements(body, file, violations);
             });
             i += 1;
         }
@@ -105,7 +95,6 @@ impl UseGStealPointer {
         s2: &Statement,
         s3: &Statement,
         file: &FileModel,
-        file_path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) -> bool {
         // s1: T *tmp = ptr_expr
@@ -170,7 +159,7 @@ impl UseGStealPointer {
         ];
 
         violations.push(self.violation_with_fixes(
-            file_path,
+            &file.path,
             s1.location().line,
             s1.location().column,
             message,
@@ -185,7 +174,6 @@ impl UseGStealPointer {
         s1: &Statement,
         s2: &Statement,
         file: &FileModel,
-        file_path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) -> bool {
         let Some((other_expr, ptr_expr)) = self.extract_assignment(s1) else {
@@ -215,7 +203,7 @@ impl UseGStealPointer {
         ];
 
         violations.push(self.violation_with_fixes(
-            file_path,
+            &file.path,
             s1.location().line,
             s1.location().column,
             message,
@@ -228,8 +216,7 @@ impl UseGStealPointer {
     fn try_if_else_steal(
         &self,
         stmt: &Statement,
-        file_path: &std::path::Path,
-        _source: &[u8],
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) -> bool {
         let Statement::If(if_stmt) = stmt else {
@@ -286,7 +273,7 @@ impl UseGStealPointer {
             replacement,
         );
         violations.push(self.violation_with_fix(
-            file_path,
+            &file.path,
             if_stmt.location.line,
             if_stmt.location.column,
             message,
@@ -301,8 +288,8 @@ impl UseGStealPointer {
     fn try_if_no_else_steal(
         &self,
         stmt: &Statement,
-        file_path: &std::path::Path,
-        source: &[u8],
+        file: &FileModel,
+
         violations: &mut Vec<Violation>,
     ) -> bool {
         let Statement::If(if_stmt) = stmt else {
@@ -347,7 +334,7 @@ impl UseGStealPointer {
             } else if if_stmt.then_has_braces {
                 let body_start = if_stmt.then_body[0].location().start_byte;
                 let (open_brace, close_brace) =
-                    gobject_ast::SourceLocation::find_braces_around(body_start, source);
+                    gobject_ast::SourceLocation::find_braces_around(body_start, &file.source);
                 Fix::new(open_brace, close_brace, replacement)
             } else {
                 let body_start = if_stmt.then_body[0].location().start_byte;
@@ -356,7 +343,7 @@ impl UseGStealPointer {
             };
 
             violations.push(self.violation_with_fix(
-                file_path,
+                &file.path,
                 if_stmt.then_body[0].location().line,
                 if_stmt.then_body[0].location().column,
                 message,
@@ -422,7 +409,7 @@ impl UseGStealPointer {
             } else if if_stmt.then_has_braces {
                 let body_start = if_stmt.then_body[0].location().start_byte;
                 let (open_brace, close_brace) =
-                    gobject_ast::SourceLocation::find_braces_around(body_start, source);
+                    gobject_ast::SourceLocation::find_braces_around(body_start, &file.source);
                 Fix::new(open_brace, close_brace, replacement)
             } else {
                 let body_start = if_stmt.then_body[0].location().start_byte;
@@ -431,7 +418,7 @@ impl UseGStealPointer {
             };
 
             violations.push(self.violation_with_fix(
-                file_path,
+                &file.path,
                 if_stmt.then_body[0].location().line,
                 if_stmt.then_body[0].location().column,
                 message,

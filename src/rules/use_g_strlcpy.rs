@@ -28,7 +28,7 @@ impl Rule for UseGStrlcpy {
         _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         for call in func.find_calls(&["strcpy", "strcat", "strncat"]) {
@@ -49,7 +49,7 @@ impl Rule for UseGStrlcpy {
             };
 
             violations.push(self.violation(
-                path,
+                &file.path,
                 call.location.line,
                 call.location.column,
                 message.to_string(),

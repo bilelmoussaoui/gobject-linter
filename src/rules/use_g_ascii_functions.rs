@@ -46,13 +46,13 @@ impl Rule for UseGAsciiFunctions {
 
     fn check_func_impl(
         &self,
-        ast_context: &AstContext,
+        _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        let source = &ast_context.project.files.get(path).unwrap().source;
+        let source = &file.source;
         for call in func.find_calls(&[
             "tolower", "toupper", "isdigit", "isalpha", "isalnum", "isspace", "isupper", "islower",
             "isxdigit", "ispunct", "isprint", "isgraph", "iscntrl",
@@ -75,7 +75,7 @@ impl Rule for UseGAsciiFunctions {
                 );
 
                 violations.push(self.violation_with_fix(
-                    path,
+                    &file.path,
                     call.location.line,
                     call.location.column,
                     format!(

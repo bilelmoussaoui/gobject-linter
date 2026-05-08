@@ -39,21 +39,20 @@ impl Rule for UseClearFunctions {
 
     fn check_func_impl(
         &self,
-        ast_context: &AstContext,
+        _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        let source = &ast_context.project.files.get(path).unwrap().source;
-        self.check_statements(path, &func.body_statements, source, violations);
+        self.check_statements(file, &func.body_statements, &file.source, violations);
     }
 }
 
 impl UseClearFunctions {
     fn check_statements(
         &self,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         statements: &[Statement],
         source: &[u8],
         violations: &mut Vec<Violation>,
@@ -62,7 +61,7 @@ impl UseClearFunctions {
         let mut i = 0;
         while i + 1 < statements.len() {
             if self.check_consecutive_pattern(
-                file_path,
+                file,
                 &statements[i],
                 &statements[i + 1],
                 source,
@@ -79,16 +78,16 @@ impl UseClearFunctions {
             if let Statement::If(if_stmt) = stmt {
                 // check_if_statement returns true if it matched the pattern itself;
                 // only recurse into bodies when it didn't to avoid duplicate violations
-                let matched_if = self.check_if_statement(file_path, if_stmt, source, violations);
+                let matched_if = self.check_if_statement(file, if_stmt, source, violations);
                 if !matched_if {
-                    self.check_statements(file_path, &if_stmt.then_body, source, violations);
+                    self.check_statements(file, &if_stmt.then_body, source, violations);
                     if let Some(else_body) = &if_stmt.else_body {
-                        self.check_statements(file_path, else_body, source, violations);
+                        self.check_statements(file, else_body, source, violations);
                     }
                 }
             } else {
                 stmt.for_each_child_block(|body| {
-                    self.check_statements(file_path, body, source, violations);
+                    self.check_statements(file, body, source, violations);
                 });
             }
         }
@@ -96,7 +95,7 @@ impl UseClearFunctions {
 
     fn check_consecutive_pattern(
         &self,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         stmt1: &Statement,
         stmt2: &Statement,
         source: &[u8],
@@ -154,7 +153,7 @@ impl UseClearFunctions {
         ];
 
         violations.push(self.violation_with_fixes(
-            file_path,
+            &file.path,
             stmt1.location().line,
             stmt1.location().column,
             message,
@@ -166,7 +165,7 @@ impl UseClearFunctions {
 
     fn check_if_statement(
         &self,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         if_stmt: &IfStatement,
         source: &[u8],
         violations: &mut Vec<Violation>,
@@ -217,7 +216,7 @@ impl UseClearFunctions {
         );
 
         violations.push(self.violation_with_fix(
-            file_path,
+            &file.path,
             if_stmt.location.line,
             if_stmt.location.column,
             message,

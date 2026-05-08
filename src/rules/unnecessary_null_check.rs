@@ -27,18 +27,17 @@ impl Rule for UnnecessaryNullCheck {
 
     fn check_func_impl(
         &self,
-        ast_context: &AstContext,
+        _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        let source = &ast_context.project.files.get(path).unwrap().source;
         // Walk through function body looking for if statements
 
         for stmt in &func.body_statements {
             for if_stmt in stmt.iter_if_statements() {
-                self.check_if_statement(if_stmt, path, source, violations);
+                self.check_if_statement(if_stmt, file, &file.source, violations);
             }
         }
     }
@@ -48,7 +47,7 @@ impl UnnecessaryNullCheck {
     fn check_if_statement(
         &self,
         if_stmt: &gobject_ast::IfStatement,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         source: &[u8],
         violations: &mut Vec<Violation>,
     ) {
@@ -110,7 +109,7 @@ impl UnnecessaryNullCheck {
         );
 
         violations.push(self.violation_with_fix(
-            file_path,
+            &file.path,
             if_stmt.location.line,
             if_stmt.location.column,
             format!(

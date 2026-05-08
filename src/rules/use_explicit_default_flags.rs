@@ -86,14 +86,14 @@ impl Rule for UseExplicitDefaultFlags {
         _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Collect all function names from FLAG_REPLACEMENTS
         let function_names: Vec<&str> = FLAG_REPLACEMENTS.iter().map(|(name, ..)| *name).collect();
 
         for call in func.find_calls(&function_names) {
-            self.check_call(path, call, violations);
+            self.check_call(file, call, violations);
         }
     }
 }
@@ -101,7 +101,7 @@ impl Rule for UseExplicitDefaultFlags {
 impl UseExplicitDefaultFlags {
     fn check_call(
         &self,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         call: &gobject_ast::CallExpression,
         violations: &mut Vec<Violation>,
     ) {
@@ -118,7 +118,7 @@ impl UseExplicitDefaultFlags {
                     );
 
                     violations.push(self.violation_with_fix(
-                        file_path,
+                        &file.path,
                         call.location.line,
                         call.location.column,
                         format!(

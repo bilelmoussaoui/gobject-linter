@@ -25,7 +25,6 @@ impl Rule for SignalEnumCoverage {
         _config: &Config,
         enum_info: &gobject_ast::EnumInfo,
         file: &gobject_ast::FileModel,
-        path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
         if !enum_info.is_signal_enum() {
@@ -56,7 +55,7 @@ impl Rule for SignalEnumCoverage {
         for signal_name in &signal_values {
             if !installed.contains(signal_name) {
                 violations.push(self.violation(
-                    path,
+                    &file.path,
                     enum_info.location.line,
                     1,
                     format!(

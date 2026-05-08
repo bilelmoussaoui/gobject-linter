@@ -31,7 +31,6 @@ impl Rule for UseGObjectClassInstallProperties {
         _config: &Config,
         enum_info: &gobject_ast::EnumInfo,
         file: &gobject_ast::FileModel,
-        path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
         if !enum_info.is_property_enum() {
@@ -78,7 +77,7 @@ impl Rule for UseGObjectClassInstallProperties {
         };
 
         violations.push(self.violation_with_fixes(
-            path,
+            &file.path,
             first_call.location.line,
             first_call.location.column,
             message,

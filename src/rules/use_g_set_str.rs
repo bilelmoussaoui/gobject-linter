@@ -27,15 +27,14 @@ impl Rule for UseGSetStr {
 
     fn check_func_impl(
         &self,
-        ast_context: &AstContext,
+        _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        let file = ast_context.project.files.get(path).unwrap();
         Statement::walk_pairs(&func.body_statements, &mut |s1, s2| {
-            self.try_free_then_strdup(s1, s2, file, path, violations);
+            self.try_free_then_strdup(s1, s2, file, violations);
         });
     }
 }
@@ -47,7 +46,6 @@ impl UseGSetStr {
         s1: &Statement,
         s2: &Statement,
         file: &gobject_ast::FileModel,
-        file_path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) -> bool {
         // First statement: g_free(var) or g_clear_pointer(&var, g_free)
@@ -76,7 +74,7 @@ impl UseGSetStr {
         ];
 
         violations.push(self.violation_with_fixes(
-            file_path,
+            &file.path,
             s1.location().line,
             s1.location().column,
             message,

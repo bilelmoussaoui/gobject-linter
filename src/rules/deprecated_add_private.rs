@@ -24,12 +24,12 @@ impl Rule for DeprecatedAddPrivate {
         _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         for call in func.find_calls(&["g_type_class_add_private"]) {
             violations.push(self.violation(
-                path,
+                &file.path,
                 call.location.line,
                 call.location.column,
                 "g_type_class_add_private is deprecated since GLib 2.58. Use G_DEFINE_TYPE_WITH_PRIVATE or G_ADD_PRIVATE instead".to_string(),

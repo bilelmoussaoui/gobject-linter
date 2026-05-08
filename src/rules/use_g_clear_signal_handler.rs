@@ -27,15 +27,13 @@ impl Rule for UseGClearSignalHandler {
 
     fn check_func_impl(
         &self,
-        ast_context: &AstContext,
+        _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        let file = ast_context.project.files.get(path).unwrap();
-        // Walk through function body looking for patterns
-        self.check_statements(&func.body_statements, file, path, violations);
+        self.check_statements(&func.body_statements, file, violations);
     }
 }
 
@@ -44,13 +42,12 @@ impl UseGClearSignalHandler {
         &self,
         statements: &[Statement],
         file: &gobject_ast::FileModel,
-        file_path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
         let mut i = 0;
         while i < statements.len() {
             // if (id) / if (id > 0) { disconnect; id = 0; } — replace entire if_statement
-            if self.try_if_guarded(&statements[i], file_path, violations) {
+            if self.try_if_guarded(&statements[i], file, violations) {
                 i += 1;
                 continue;
             }
@@ -61,7 +58,6 @@ impl UseGClearSignalHandler {
                     &statements[i],
                     &statements[i + 1],
                     file,
-                    file_path,
                     violations,
                 )
             {
@@ -70,19 +66,13 @@ impl UseGClearSignalHandler {
             }
 
             // bare g_signal_handler_disconnect(obj, struct->member) — no zero-assign
-            if self.try_bare_disconnect_on_member(
-                &statements[i],
-                statements,
-                &file.source,
-                file_path,
-                violations,
-            ) {
+            if self.try_bare_disconnect_on_member(&statements[i], statements, file, violations) {
                 i += 1;
                 continue;
             }
 
             statements[i].for_each_child_block(|body| {
-                self.check_statements(body, file, file_path, violations);
+                self.check_statements(body, file, violations);
             });
 
             i += 1;
@@ -93,7 +83,8 @@ impl UseGClearSignalHandler {
     fn try_if_guarded(
         &self,
         stmt: &Statement,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
+
         violations: &mut Vec<Violation>,
     ) -> bool {
         let Statement::If(if_stmt) = stmt else {
@@ -140,7 +131,7 @@ impl UseGClearSignalHandler {
         );
 
         violations.push(self.violation_with_fix(
-            file_path,
+            &file.path,
             if_stmt.location.line,
             if_stmt.location.column,
             message,
@@ -155,7 +146,6 @@ impl UseGClearSignalHandler {
         s1: &Statement,
         s2: &Statement,
         file: &gobject_ast::FileModel,
-        file_path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) -> bool {
         let Some((obj, handler_id)) = self.extract_disconnect_args(s1) else {
@@ -180,7 +170,7 @@ impl UseGClearSignalHandler {
         ];
 
         violations.push(self.violation_with_fixes(
-            file_path,
+            &file.path,
             s1.location().line,
             s1.location().column,
             message,
@@ -194,8 +184,8 @@ impl UseGClearSignalHandler {
         &self,
         stmt: &Statement,
         all_stmts: &[Statement],
-        source: &[u8],
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
+
         violations: &mut Vec<Violation>,
     ) -> bool {
         let Some((obj, handler_id)) = self.extract_disconnect_args(stmt) else {
@@ -222,11 +212,11 @@ impl UseGClearSignalHandler {
         let message = format!(
             "Use {replacement} instead of g_signal_handler_disconnect (also zeroes the stored ID)"
         );
-        let stmt_end = stmt.location().find_semicolon_end(source);
+        let stmt_end = stmt.location().find_semicolon_end(&file.source);
         let fix = Fix::new(stmt.location().start_byte, stmt_end, replacement);
 
         violations.push(self.violation_with_fix(
-            file_path,
+            &file.path,
             stmt.location().line,
             stmt.location().column,
             message,

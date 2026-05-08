@@ -29,7 +29,6 @@ impl Rule for UseGGnucFlagEnum {
         _config: &Config,
         enum_info: &gobject_ast::EnumInfo,
         file: &gobject_ast::FileModel,
-        path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
         let Some(ref enum_name) = enum_info.name else {
@@ -48,7 +47,7 @@ impl Rule for UseGGnucFlagEnum {
         let fix = self.generate_fix(enum_info, source, enum_name);
 
         violations.push(self.violation_with_fix(
-            path,
+            &file.path,
             enum_info.location.line,
             enum_info.location.column,
             format!(

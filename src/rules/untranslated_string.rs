@@ -26,10 +26,10 @@ impl Rule for UntranslatedString {
         _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        self.check_statements(&func.body_statements, path, violations);
+        self.check_statements(&func.body_statements, file, violations);
     }
 }
 
@@ -37,7 +37,7 @@ impl UntranslatedString {
     fn check_statements(
         &self,
         statements: &[Statement],
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         for stmt in statements {
@@ -47,7 +47,7 @@ impl UntranslatedString {
                 s.walk_expressions(&mut |expr| {
                     // Recursively check this expression and all nested expressions
                     expr.walk(&mut |e| {
-                        self.check_expression(e, file_path, violations);
+                        self.check_expression(e, file, violations);
                     });
                 });
             });
@@ -57,7 +57,7 @@ impl UntranslatedString {
     fn check_expression(
         &self,
         expr: &Expression,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Look for function calls
@@ -70,7 +70,7 @@ impl UntranslatedString {
             if let Some(arg_index) = self.get_translatable_param(func_name)
                 && let Some(arg) = call.arguments.get(arg_index)
             {
-                self.check_argument(arg, func_name, file_path, violations);
+                self.check_argument(arg, func_name, file, violations);
             }
         }
     }
@@ -79,7 +79,7 @@ impl UntranslatedString {
         &self,
         arg: &Argument,
         func_name: &str,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Extract the expression from the argument
@@ -107,7 +107,7 @@ impl UntranslatedString {
 
             let location = arg_expr.location();
             violations.push(self.violation(
-                file_path,
+                &file.path,
                 location.line,
                 location.column,
                 format!(

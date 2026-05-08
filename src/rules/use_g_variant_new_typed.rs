@@ -27,15 +27,14 @@ impl Rule for UseGVariantNewTyped {
 
     fn check_func_impl(
         &self,
-        ast_context: &AstContext,
+        _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        let source = &ast_context.project.files.get(path).unwrap().source;
         for call in func.find_calls(&["g_variant_new"]) {
-            self.check_call(path, call, source, violations);
+            self.check_call(file, call, violations);
         }
     }
 }
@@ -43,9 +42,8 @@ impl Rule for UseGVariantNewTyped {
 impl UseGVariantNewTyped {
     fn check_call(
         &self,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         call: &gobject_ast::CallExpression,
-        source: &[u8],
         violations: &mut Vec<Violation>,
     ) {
         // Need at least 1 argument (the format string)
@@ -91,7 +89,7 @@ impl UseGVariantNewTyped {
         let rest_args = if call.arguments.len() > 1 {
             let rest: Vec<String> = call.arguments[1..]
                 .iter()
-                .filter_map(|arg| arg.to_source_string(source))
+                .filter_map(|arg| arg.to_source_string(&file.source))
                 .collect();
             rest.join(", ")
         } else {
@@ -116,7 +114,7 @@ impl UseGVariantNewTyped {
         );
 
         violations.push(self.violation_with_fix(
-            file_path,
+            &file.path,
             call.location.line,
             call.location.column,
             message,

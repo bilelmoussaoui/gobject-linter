@@ -27,21 +27,20 @@ impl Rule for GTaskSourceTag {
 
     fn check_func_impl(
         &self,
-        ast_context: &AstContext,
+        _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        let source = &ast_context.project.files.get(path).unwrap().source;
-        self.check_statements(path, func, &func.body_statements, source, violations);
+        self.check_statements(file, func, &func.body_statements, &file.source, violations);
     }
 }
 
 impl GTaskSourceTag {
     fn check_statements(
         &self,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         func: &gobject_ast::top_level::FunctionDefItem,
         statements: &[Statement],
         source: &[u8],
@@ -67,7 +66,7 @@ impl GTaskSourceTag {
                 );
 
                 violations.push(self.violation_with_fix(
-                    file_path,
+                    &file.path,
                     name_location.line,
                     name_location.column,
                     format!("GTask '{}' created without g_task_set_source_tag", var_name),

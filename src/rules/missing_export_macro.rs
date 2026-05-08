@@ -38,10 +38,10 @@ impl Rule for MissingExportMacro {
         ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDeclItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        if !ast_context.is_public_header(path).unwrap_or(false) {
+        if !ast_context.is_public_header(&file.path).unwrap_or(false) {
             return;
         }
 
@@ -51,7 +51,7 @@ impl Rule for MissingExportMacro {
 
         if func.export_macros.is_empty() {
             violations.push(self.violation(
-                path,
+                &file.path,
                 func.location.line,
                 func.location.column,
                 format!(
@@ -67,10 +67,10 @@ impl Rule for MissingExportMacro {
         ast_context: &AstContext,
         _config: &Config,
         gobject_type: &gobject_ast::GObjectType,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        if !ast_context.is_public_header(path).unwrap_or(false) {
+        if !ast_context.is_public_header(&file.path).unwrap_or(false) {
             return;
         }
 
@@ -80,7 +80,7 @@ impl Rule for MissingExportMacro {
 
         if gobject_type.export_macros.is_empty() {
             violations.push(self.violation(
-                path,
+                &file.path,
                 gobject_type.location.line,
                 gobject_type.location.column,
                 format!(

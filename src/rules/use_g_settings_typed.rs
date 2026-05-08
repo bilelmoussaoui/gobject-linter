@@ -27,17 +27,15 @@ impl Rule for UseGSettingsTyped {
 
     fn check_func_impl(
         &self,
-        ast_context: &AstContext,
+        _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        let source = &ast_context.project.files.get(path).unwrap().source;
-
         // Check for g_settings_set_value calls
         for call in func.find_calls(&["g_settings_set_value"]) {
-            self.check_settings_set_call(path, call, source, violations);
+            self.check_settings_set_call(file, call, violations);
         }
 
         // Check for g_variant_get_* calls
@@ -54,7 +52,7 @@ impl Rule for UseGSettingsTyped {
             "g_variant_get_double",
             "g_variant_get_strv",
         ]) {
-            self.check_variant_get_call(path, call, source, violations);
+            self.check_variant_get_call(file, call, violations);
         }
     }
 }
@@ -62,9 +60,8 @@ impl Rule for UseGSettingsTyped {
 impl UseGSettingsTyped {
     fn check_settings_set_call(
         &self,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         call: &CallExpression,
-        source: &[u8],
         violations: &mut Vec<Violation>,
     ) {
         // g_settings_set_value(settings, key, variant)
@@ -86,15 +83,15 @@ impl UseGSettingsTyped {
 
         // Extract the pattern from g_variant_new
         let Some((_format_str, typed_func, value_args)) =
-            self.extract_variant_pattern(variant_call, source)
+            self.extract_variant_pattern(variant_call, file)
         else {
             return;
         };
 
-        let Some(settings_arg) = call.get_arg_text(0, source) else {
+        let Some(settings_arg) = call.get_arg_text(0, &file.source) else {
             return;
         };
-        let Some(key_arg) = call.get_arg_text(1, source) else {
+        let Some(key_arg) = call.get_arg_text(1, &file.source) else {
             return;
         };
 
@@ -119,7 +116,7 @@ impl UseGSettingsTyped {
         );
 
         violations.push(self.violation_with_fix(
-            file_path,
+            &file.path,
             call.location.line,
             call.location.column,
             message,
@@ -129,9 +126,8 @@ impl UseGSettingsTyped {
 
     fn check_variant_get_call(
         &self,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         call: &CallExpression,
-        source: &[u8],
         violations: &mut Vec<Violation>,
     ) {
         // g_variant_get_*(variant, ...) - first arg should be g_settings_get_value call
@@ -156,10 +152,10 @@ impl UseGSettingsTyped {
             return;
         }
 
-        let Some(settings_arg) = inner_call.get_arg_text(0, source) else {
+        let Some(settings_arg) = inner_call.get_arg_text(0, &file.source) else {
             return;
         };
-        let Some(key_arg) = inner_call.get_arg_text(1, source) else {
+        let Some(key_arg) = inner_call.get_arg_text(1, &file.source) else {
             return;
         };
 
@@ -195,7 +191,7 @@ impl UseGSettingsTyped {
         );
 
         violations.push(self.violation_with_fix(
-            file_path,
+            &file.path,
             call.location.line,
             call.location.column,
             message,
@@ -208,7 +204,7 @@ impl UseGSettingsTyped {
     fn extract_variant_pattern(
         &self,
         variant_call: &CallExpression,
-        source: &[u8],
+        file: &gobject_ast::FileModel,
     ) -> Option<(String, &'static str, String)> {
         // Need at least 1 argument (the format string)
         if variant_call.arguments.is_empty() {
@@ -243,7 +239,7 @@ impl UseGSettingsTyped {
         let rest_args = if variant_call.arguments.len() > 1 {
             let rest: Vec<String> = variant_call.arguments[1..]
                 .iter()
-                .filter_map(|arg| arg.to_source_string(source))
+                .filter_map(|arg| arg.to_source_string(&file.source))
                 .collect();
             rest.join(", ")
         } else {

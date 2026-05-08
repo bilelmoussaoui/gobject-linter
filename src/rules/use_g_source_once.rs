@@ -27,25 +27,21 @@ impl Rule for UseGSourceOnce {
 
     fn check_func_impl(
         &self,
-        ast_context: &AstContext,
+        _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        let source = &ast_context.project.files.get(path).unwrap().source;
-
         // Find g_idle_add, g_timeout_add, and g_timeout_add_seconds calls
         for call in func.find_calls(&["g_idle_add", "g_timeout_add", "g_timeout_add_seconds"]) {
             // Get the callback name from the first argument
-            if let Some(callback_name) = self.extract_callback_name(call, source) {
+            if let Some(callback_name) = self.extract_callback_name(call) {
                 // Only proceed if callback is NOT used elsewhere
-                if !self.is_callback_used_elsewhere(ast_context, callback_name, path) {
+                if !self.is_callback_used_elsewhere(callback_name, file) {
                     // Find the callback function definition and check if all returns are
                     // FALSE/G_SOURCE_REMOVE
-                    if let Some(callback_fixes) =
-                        self.get_callback_fixes(ast_context, callback_name, path)
-                    {
+                    if let Some(callback_fixes) = self.get_callback_fixes(callback_name, file) {
                         let func_name = call.function_name();
                         let replacement = match func_name.as_str() {
                             "g_idle_add" => "g_idle_add_once",
@@ -68,7 +64,7 @@ impl Rule for UseGSourceOnce {
                                     let gobject_ast::Argument::Expression(expr) = arg;
                                     if let Expression::Cast(cast) = &**expr
                                         && let Some(callback_name) =
-                                            cast.operand.to_source_string(source)
+                                            cast.operand.to_source_string(&file.source)
                                     {
                                         return Some(format!(
                                             "(GSourceOnceFunc) {}",
@@ -76,7 +72,7 @@ impl Rule for UseGSourceOnce {
                                         ));
                                     }
                                 }
-                                arg.to_source_string(source)
+                                arg.to_source_string(&file.source)
                             })
                             .collect::<Vec<_>>()
                             .join(", ");
@@ -92,7 +88,7 @@ impl Rule for UseGSourceOnce {
                         fixes.extend(callback_fixes);
 
                         violations.push(self.violation_with_fixes(
-                            path,
+                            &file.path,
                             call.location.line,
                             call.location.column,
                             format!(
@@ -109,11 +105,7 @@ impl Rule for UseGSourceOnce {
 }
 
 impl UseGSourceOnce {
-    fn extract_callback_name<'a>(
-        &self,
-        call: &'a gobject_ast::CallExpression,
-        _source: &[u8],
-    ) -> Option<&'a str> {
+    fn extract_callback_name<'a>(&self, call: &'a gobject_ast::CallExpression) -> Option<&'a str> {
         // Determine which argument is the callback based on the function name
         // g_idle_add(callback, user_data) -> arg 0
         // g_timeout_add(interval, callback, user_data) -> arg 1
@@ -144,11 +136,9 @@ impl UseGSourceOnce {
 
     fn get_callback_fixes(
         &self,
-        ast_context: &AstContext,
         callback_name: &str,
-        target_file: &std::path::Path,
+        file: &gobject_ast::FileModel,
     ) -> Option<Vec<Fix>> {
-        let file = ast_context.project.files.get(target_file)?;
         let mut fixes = Vec::new();
         let mut found_definition = false;
 
@@ -170,7 +160,7 @@ impl UseGSourceOnce {
                 return None;
             }
 
-            if let Some(fix) = self.fix_definition_return_type(target_file, func, ast_context) {
+            if let Some(fix) = self.fix_definition_return_type(func) {
                 fixes.push(fix);
             }
 
@@ -186,7 +176,7 @@ impl UseGSourceOnce {
             if func.name != callback_name {
                 continue;
             }
-            if let Some(fix) = self.fix_declaration_return_type(target_file, func, ast_context) {
+            if let Some(fix) = self.fix_declaration_return_type(func) {
                 fixes.push(fix);
             }
         }
@@ -200,9 +190,7 @@ impl UseGSourceOnce {
 
     fn fix_definition_return_type(
         &self,
-        _file_path: &std::path::Path,
         func: &gobject_ast::top_level::FunctionDefItem,
-        _ast_context: &AstContext,
     ) -> Option<Fix> {
         // Check if return type is gboolean
         if func.return_type.as_basic() != Some(BasicType::Boolean) {
@@ -219,9 +207,7 @@ impl UseGSourceOnce {
 
     fn fix_declaration_return_type(
         &self,
-        _file_path: &std::path::Path,
         func: &gobject_ast::top_level::FunctionDeclItem,
-        _ast_context: &AstContext,
     ) -> Option<Fix> {
         // Check if return type is gboolean
         if func.return_type.as_basic() != Some(BasicType::Boolean) {
@@ -245,14 +231,9 @@ impl UseGSourceOnce {
 
     fn is_callback_used_elsewhere(
         &self,
-        ast_context: &AstContext,
         callback_name: &str,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
     ) -> bool {
-        let Some(file) = ast_context.project.files.get(file_path) else {
-            return false;
-        };
-
         for func in file.iter_function_definitions() {
             if self.has_non_source_add_usage(&func.body_statements, callback_name) {
                 return true;

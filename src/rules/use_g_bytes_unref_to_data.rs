@@ -27,15 +27,14 @@ impl Rule for UseGBytesUnrefToData {
 
     fn check_func_impl(
         &self,
-        ast_context: &AstContext,
+        _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        let file = ast_context.project.files.get(path).unwrap();
         Statement::walk_pairs(&func.body_statements, &mut |stmt1, stmt2| {
-            self.try_bytes_pattern(path, stmt1, stmt2, file, violations);
+            self.try_bytes_pattern(stmt1, stmt2, file, violations);
         });
     }
 }
@@ -44,7 +43,6 @@ impl UseGBytesUnrefToData {
     /// Try to match: dest = g_bytes_get_data(bytes, ...); g_bytes_unref(bytes);
     fn try_bytes_pattern(
         &self,
-        file_path: &std::path::Path,
         stmt1: &Statement,
         stmt2: &Statement,
         file: &gobject_ast::FileModel,
@@ -84,7 +82,7 @@ impl UseGBytesUnrefToData {
         ];
 
         violations.push(self.violation_with_fixes(
-            file_path,
+            &file.path,
             assignment.location.line,
             assignment.location.column,
             message,

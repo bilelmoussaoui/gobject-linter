@@ -27,15 +27,14 @@ impl Rule for UseGStringFreeAndSteal {
 
     fn check_func_impl(
         &self,
-        ast_context: &AstContext,
+        _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        let source = &ast_context.project.files.get(path).unwrap().source;
         for call in func.find_calls(&["g_string_free"]) {
-            self.check_call(path, call, source, violations);
+            self.check_call(file, call, violations);
         }
     }
 }
@@ -43,9 +42,8 @@ impl Rule for UseGStringFreeAndSteal {
 impl UseGStringFreeAndSteal {
     fn check_call(
         &self,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         call: &gobject_ast::CallExpression,
-        source: &[u8],
         violations: &mut Vec<Violation>,
     ) {
         if call.arguments.len() != 2 {
@@ -67,10 +65,10 @@ impl UseGStringFreeAndSteal {
         }
 
         // Get argument text for the fix
-        let Some(first_text) = call.get_arg_text(0, source) else {
+        let Some(first_text) = call.get_arg_text(0, &file.source) else {
             return;
         };
-        let Some(second_text) = call.get_arg_text(1, source) else {
+        let Some(second_text) = call.get_arg_text(1, &file.source) else {
             return;
         };
 
@@ -87,7 +85,7 @@ impl UseGStringFreeAndSteal {
         );
 
         violations.push(self.violation_with_fix(
-            file_path,
+            &file.path,
             call.location.line,
             call.location.column,
             message,

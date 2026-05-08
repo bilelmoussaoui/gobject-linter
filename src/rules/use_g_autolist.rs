@@ -28,10 +28,10 @@ impl Rule for UseGAutolist {
         _ast_context: &AstContext,
         _config: &Config,
         func: &FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        self.check_function(func, path, violations);
+        self.check_function(func, file, violations);
     }
 }
 
@@ -39,7 +39,7 @@ impl UseGAutolist {
     fn check_function(
         &self,
         func: &FunctionDefItem,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Find all GList*/GSList* declarations
@@ -81,7 +81,7 @@ impl UseGAutolist {
                     };
 
                     violations.push(self.violation(
-                        file_path,
+                        &file.path,
                         location.line,
                         location.column,
                         format!(

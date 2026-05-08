@@ -25,7 +25,6 @@ impl Rule for PropertyEnumCoverage {
         _config: &Config,
         enum_info: &gobject_ast::EnumInfo,
         file: &gobject_ast::FileModel,
-        path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) {
         if !enum_info.is_property_enum() {
@@ -56,7 +55,7 @@ impl Rule for PropertyEnumCoverage {
         for prop_name in property_values {
             if !installed_properties.iter().any(|p| p == prop_name) {
                 violations.push(self.violation(
-                    path,
+                    &file.path,
                     enum_info.location.line,
                     1,
                     format!(

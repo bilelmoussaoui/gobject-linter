@@ -28,13 +28,13 @@ impl Rule for GErrorInit {
         _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Walk all statements and check declarations
         for stmt in &func.body_statements {
             for decl in stmt.iter_declarations() {
-                self.check_declaration(path, decl, violations);
+                self.check_declaration(file, decl, violations);
             }
         }
     }
@@ -43,7 +43,7 @@ impl Rule for GErrorInit {
 impl GErrorInit {
     fn check_declaration(
         &self,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         decl: &gobject_ast::VariableDecl,
         violations: &mut Vec<Violation>,
     ) {
@@ -71,7 +71,7 @@ impl GErrorInit {
         let fix = Fix::new(insert_pos, insert_pos, " = NULL".to_string());
 
         violations.push(self.violation_with_fix(
-            file_path,
+            &file.path,
             decl.location.line,
             decl.location.column,
             format!("GError *{} must be initialized to NULL", decl.name),

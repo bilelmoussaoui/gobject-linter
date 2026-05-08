@@ -27,42 +27,40 @@ impl Rule for UseGClearHandleId {
 
     fn check_func_impl(
         &self,
-        ast_context: &AstContext,
+        _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        let source = &ast_context.project.files.get(path).unwrap().source;
-        self.check_statements(path, &func.body_statements, source, violations);
+        self.check_statements(file, &func.body_statements, violations);
     }
 }
 
 impl UseGClearHandleId {
     fn check_statements(
         &self,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         statements: &[Statement],
-        source: &[u8],
         violations: &mut Vec<Violation>,
     ) {
         // Check the statements themselves for cleanup pattern
-        self.check_compound_statement(file_path, statements, source, violations);
+        self.check_compound_statement(file, statements, violations);
 
         // Recurse into nested statements
         for stmt in statements {
             if let Statement::If(if_stmt) = stmt {
                 // check_if_statement returns true if it handled then_body itself
-                let handled = self.check_if_statement(file_path, if_stmt, source, violations);
+                let handled = self.check_if_statement(file, if_stmt, violations);
                 if !handled {
-                    self.check_statements(file_path, &if_stmt.then_body, source, violations);
+                    self.check_statements(file, &if_stmt.then_body, violations);
                 }
                 if let Some(else_body) = &if_stmt.else_body {
-                    self.check_statements(file_path, else_body, source, violations);
+                    self.check_statements(file, else_body, violations);
                 }
             } else {
                 stmt.for_each_child_block(|body| {
-                    self.check_statements(file_path, body, source, violations);
+                    self.check_statements(file, body, violations);
                 });
             }
         }
@@ -70,12 +68,11 @@ impl UseGClearHandleId {
 
     fn check_if_statement(
         &self,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         if_stmt: &gobject_ast::IfStatement,
-        source: &[u8],
         violations: &mut Vec<Violation>,
     ) -> bool {
-        let conversions = self.check_cleanup_then_zero(&if_stmt.then_body, source);
+        let conversions = self.check_cleanup_then_zero(file, &if_stmt.then_body);
 
         if !conversions.is_empty() {
             let stmt_count = if_stmt.then_body.len();
@@ -102,10 +99,10 @@ impl UseGClearHandleId {
                     // Find braces around the statements
                     let first_start = if_stmt.then_body[0].location().start_byte;
                     let (mut brace_start, brace_end) =
-                        SourceLocation::find_braces_around(first_start, source);
+                        SourceLocation::find_braces_around(first_start, &file.source);
 
                     // Include the newline before the brace in the replacement
-                    while brace_start > 0 && source[brace_start - 1] != b'\n' {
+                    while brace_start > 0 && file.source[brace_start - 1] != b'\n' {
                         brace_start -= 1;
                     }
                     brace_start = brace_start.saturating_sub(1);
@@ -113,7 +110,7 @@ impl UseGClearHandleId {
                     // Extract indentation from the line after the brace
                     let brace_location =
                         SourceLocation::new(0, 0, brace_start + 1, brace_start + 1);
-                    let indent = brace_location.extract_line_indentation(source);
+                    let indent = brace_location.extract_line_indentation(&file.source);
                     let formatted_replacement = format!("\n{}{}", indent, replacement);
 
                     Fix::new(brace_start, brace_end, formatted_replacement)
@@ -122,7 +119,7 @@ impl UseGClearHandleId {
                 };
 
                 violations.push(self.violation_with_fix(
-                    file_path,
+                    &file.path,
                     first_loc.line,
                     first_loc.column,
                     message,
@@ -137,13 +134,13 @@ impl UseGClearHandleId {
             && let Expression::Call(call) = expr_stmt.as_ref()
             && call.is_function("g_clear_handle_id")
         {
-            let call_text = call.location.as_str(source).unwrap_or("");
+            let call_text = call.location.as_str(&file.source).unwrap_or("");
 
             let loc = if_stmt.then_body[0].location();
             let fix = Fix::new(loc.start_byte, loc.end_byte, format!("{};", call_text));
 
             violations.push(self.violation_with_fix(
-                file_path,
+                &file.path,
                 if_stmt.location.line,
                 if_stmt.location.column,
                 "Remove unnecessary braces around single g_clear_handle_id call".to_string(),
@@ -157,13 +154,12 @@ impl UseGClearHandleId {
 
     fn check_compound_statement(
         &self,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         statements: &[Statement],
-        source: &[u8],
         violations: &mut Vec<Violation>,
     ) {
         for (var_name, cleanup_func, first_loc, second_loc) in
-            self.check_cleanup_then_zero(statements, source)
+            self.check_cleanup_then_zero(file, statements)
         {
             let replacement = format!("g_clear_handle_id (&{}, {});", var_name, cleanup_func);
             let message = format!(
@@ -173,7 +169,7 @@ impl UseGClearHandleId {
             let fix = Fix::new(first_loc.start_byte, second_loc.end_byte, replacement);
 
             violations.push(self.violation_with_fix(
-                file_path,
+                &file.path,
                 first_loc.line,
                 first_loc.column,
                 message,
@@ -184,13 +180,13 @@ impl UseGClearHandleId {
 
     fn check_cleanup_then_zero(
         &self,
+        file: &gobject_ast::FileModel,
         statements: &[Statement],
-        source: &[u8],
     ) -> Vec<(String, String, SourceLocation, SourceLocation)> {
         let mut results = Vec::new();
 
         Statement::for_each_pair(statements, |first, second| {
-            if let Some((var_name, cleanup_func)) = self.extract_handle_cleanup(first, source)
+            if let Some((var_name, cleanup_func)) = self.extract_handle_cleanup(first, file)
                 && second.is_assignment_to(&var_name, gobject_ast::Expression::is_zero)
             {
                 results.push((
@@ -205,7 +201,11 @@ impl UseGClearHandleId {
         results
     }
 
-    fn extract_handle_cleanup(&self, stmt: &Statement, source: &[u8]) -> Option<(String, String)> {
+    fn extract_handle_cleanup(
+        &self,
+        stmt: &Statement,
+        file: &gobject_ast::FileModel,
+    ) -> Option<(String, String)> {
         let call = stmt.extract_call()?;
 
         let func_name = call.function_name_str()?;
@@ -216,7 +216,7 @@ impl UseGClearHandleId {
         }
 
         let arg_expr = call.get_arg(0)?;
-        let var_name = arg_expr.location().as_str(source)?.trim().to_string();
+        let var_name = arg_expr.location().as_str(&file.source)?.trim().to_string();
 
         Some((var_name, func_name.to_string()))
     }

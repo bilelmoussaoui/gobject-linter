@@ -28,7 +28,7 @@ impl Rule for NoGAutoMacros {
         _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Check all variable declarations in the function
@@ -36,7 +36,7 @@ impl Rule for NoGAutoMacros {
             for decl in stmt.iter_declarations() {
                 if let Some(auto_macro) = &decl.type_info.auto_cleanup {
                     violations.push(self.violation(
-                        path,
+                        &file.path,
                         decl.location.line,
                         decl.location.column,
                         format!("{auto_macro} requires compiler cleanup attribute support",),

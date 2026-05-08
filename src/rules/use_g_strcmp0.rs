@@ -30,10 +30,10 @@ impl Rule for UseGStrcmp0 {
         _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        self.check_statements(&func.body_statements, path, violations);
+        self.check_statements(&func.body_statements, file, violations);
     }
 }
 
@@ -41,7 +41,7 @@ impl UseGStrcmp0 {
     fn check_statements(
         &self,
         statements: &[Statement],
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         for stmt in statements {
@@ -51,7 +51,7 @@ impl UseGStrcmp0 {
             stmt.walk_expressions(&mut |expr| {
                 // Walk this expression and all its nested expressions
                 expr.walk(&mut |e| {
-                    self.check_expression(e, file_path, violations);
+                    self.check_expression(e, file, violations);
                 });
             });
         }
@@ -60,7 +60,7 @@ impl UseGStrcmp0 {
     fn check_expression(
         &self,
         expr: &Expression,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Check for strcmp usage (suggest g_strcmp0 for NULL-safety)
@@ -76,7 +76,7 @@ impl UseGStrcmp0 {
             );
 
             violations.push(self.violation_with_fix(
-                    file_path,
+                    &file.path,
                     call.location.line,
                     call.location.column,
                     "Consider g_strcmp0 instead of strcmp if arguments can be NULL (g_strcmp0 is NULL-safe)".to_string(),

@@ -30,11 +30,11 @@ impl Rule for UseGNew {
         _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         for call in func.find_calls(&["g_malloc", "g_malloc0"]) {
-            self.check_call(path, call, violations);
+            self.check_call(file, call, violations);
         }
     }
 }
@@ -42,7 +42,8 @@ impl Rule for UseGNew {
 impl UseGNew {
     fn check_call(
         &self,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
+
         call: &gobject_ast::CallExpression,
         violations: &mut Vec<Violation>,
     ) {
@@ -84,7 +85,7 @@ impl UseGNew {
         );
 
         violations.push(self.violation_with_fix(
-            file_path,
+            &file.path,
             call.location.line,
             call.location.column,
             message,

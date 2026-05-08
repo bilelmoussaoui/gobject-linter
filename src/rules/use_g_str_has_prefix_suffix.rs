@@ -30,13 +30,13 @@ impl Rule for UseGStrHasPrefixSuffix {
         _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         for stmt in &func.body_statements {
             stmt.walk_expressions(&mut |expr| {
                 expr.walk(&mut |e| {
-                    self.check_expression(e, path, violations);
+                    self.check_expression(e, file, violations);
                 });
             });
         }
@@ -47,7 +47,7 @@ impl UseGStrHasPrefixSuffix {
     fn check_expression(
         &self,
         expr: &Expression,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         let Expression::Binary(bin) = expr else {
@@ -60,7 +60,7 @@ impl UseGStrHasPrefixSuffix {
             &bin.left,
             &bin.right,
             &bin.operator,
-            file_path,
+            file,
             &bin.location,
             violations,
         );
@@ -68,7 +68,7 @@ impl UseGStrHasPrefixSuffix {
             &bin.right,
             &bin.left,
             &bin.operator,
-            file_path,
+            file,
             &bin.location,
             violations,
         );
@@ -76,7 +76,7 @@ impl UseGStrHasPrefixSuffix {
             &bin.left,
             &bin.right,
             &bin.operator,
-            file_path,
+            file,
             &bin.location,
             violations,
         );
@@ -84,7 +84,7 @@ impl UseGStrHasPrefixSuffix {
             &bin.right,
             &bin.left,
             &bin.operator,
-            file_path,
+            file,
             &bin.location,
             violations,
         );
@@ -96,7 +96,7 @@ impl UseGStrHasPrefixSuffix {
         strncmp_side: &Expression,
         value_side: &Expression,
         operator: &BinaryOp,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         location: &gobject_ast::SourceLocation,
         violations: &mut Vec<Violation>,
     ) {
@@ -146,7 +146,7 @@ impl UseGStrHasPrefixSuffix {
         let fix = Fix::new(location.start_byte, location.end_byte, replacement);
 
         violations.push(self.violation_with_fix(
-            file_path,
+            &file.path,
             location.line,
             location.column,
             message,
@@ -161,7 +161,7 @@ impl UseGStrHasPrefixSuffix {
         strcmp_side: &Expression,
         value_side: &Expression,
         operator: &BinaryOp,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         location: &gobject_ast::SourceLocation,
         violations: &mut Vec<Violation>,
     ) {
@@ -206,7 +206,7 @@ impl UseGStrHasPrefixSuffix {
         let fix = Fix::new(location.start_byte, location.end_byte, replacement);
 
         violations.push(self.violation_with_fix(
-            file_path,
+            &file.path,
             location.line,
             location.column,
             message,

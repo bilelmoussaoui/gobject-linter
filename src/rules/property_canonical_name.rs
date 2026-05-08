@@ -33,14 +33,14 @@ impl Rule for PropertyCanonicalName {
         _ast_context: &AstContext,
         _config: &Config,
         gobject_type: &gobject_ast::GObjectType,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         for assignment in &gobject_type.properties {
             let Some(call) = assignment.param_spec_call() else {
                 continue;
             };
-            self.check_call(path, call, assignment.property(), violations);
+            self.check_call(file, call, assignment.property(), violations);
         }
     }
 }
@@ -48,7 +48,7 @@ impl Rule for PropertyCanonicalName {
 impl PropertyCanonicalName {
     fn check_call(
         &self,
-        file_path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         call: &CallExpression,
         property: &Property,
         violations: &mut Vec<Violation>,
@@ -100,7 +100,7 @@ impl PropertyCanonicalName {
         };
 
         violations.push(self.violation_with_fix(
-            file_path,
+            &file.path,
             string_lit_location.line,
             string_lit_location.column,
             message,

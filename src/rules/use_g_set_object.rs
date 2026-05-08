@@ -27,15 +27,14 @@ impl Rule for UseGSetObject {
 
     fn check_func_impl(
         &self,
-        ast_context: &AstContext,
+        _ast_context: &AstContext,
         _config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
-        path: &std::path::Path,
+        file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        let file = ast_context.project.files.get(path).unwrap();
         Statement::walk_pairs(&func.body_statements, &mut |s1, s2| {
-            self.try_clear_then_ref(s1, s2, file, path, violations);
+            self.try_clear_then_ref(s1, s2, file, violations);
         });
     }
 }
@@ -48,7 +47,6 @@ impl UseGSetObject {
         s1: &Statement,
         s2: &Statement,
         file: &gobject_ast::FileModel,
-        file_path: &std::path::Path,
         violations: &mut Vec<Violation>,
     ) -> bool {
         // First statement: g_clear_object(&var) or g_object_unref(var)
@@ -92,7 +90,7 @@ impl UseGSetObject {
         ];
 
         violations.push(self.violation_with_fixes(
-            file_path,
+            &file.path,
             s1.location().line,
             s1.location().column,
             message,
