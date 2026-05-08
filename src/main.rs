@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use gobject_linter::{
     ast_context, config, config::OutputFormat, fixer, output, reporter, rules::Category, scanner,
@@ -253,7 +253,7 @@ fn main() -> Result<()> {
         };
 
         let mut patch = PatchSet::new();
-        let _ = patch.parse(&diff_content);
+        patch.parse(&diff_content).context("Failed to parse diff")?;
 
         // Diff paths are relative to the git root, which may differ from project_root
         let git_root = {
