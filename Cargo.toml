@@ -6,7 +6,7 @@ resolver = "2"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/bilelmoussaoui/gobject-linter"
-version = "0.1.0"
+version = "0.1.1"
 
 [workspace.lints.clippy]
 use_self = "warn"
@@ -38,7 +38,7 @@ path = "src/lsp/main.rs"
 required-features = ["lsp"]
 
 [dependencies]
-gobject-ast = { version = "0.1.0", path = "gobject-ast" }
+gobject-ast = { version = "0.1.1", path = "gobject-ast" }
 tree-sitter = "0.26"
 clap = { version = "4.6", features = ["derive"] }
 rayon = "1.10"

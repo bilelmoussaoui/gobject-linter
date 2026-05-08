@@ -12,7 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 tree-sitter = "0.26"
-tree-sitter-c-gobject = { version = "0.1.0", path = "../tree-sitter-c-gobject" }
+tree-sitter-c-gobject = { version = "0.1.1", path = "../tree-sitter-c-gobject" }
 anyhow = "1.0"
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
