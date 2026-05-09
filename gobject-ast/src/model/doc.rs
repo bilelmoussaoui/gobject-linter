@@ -57,13 +57,12 @@ impl ExportMacro {
             .split("DEPRECATED_IN_")
             .nth(1)
             .or_else(|| name.split("DEPRECATED_ENUMERATOR_IN_").nth(1))
+            && let Some(ver) = Self::parse_version_suffix(suffix)
         {
-            if let Some(ver) = Self::parse_version_suffix(suffix) {
-                if let Some(replacement) = args {
-                    return Self::DeprecatedInFor(ver, replacement.to_owned());
-                }
-                return Self::DeprecatedIn(ver);
+            if let Some(replacement) = args {
+                return Self::DeprecatedInFor(ver, replacement.to_owned());
             }
+            return Self::DeprecatedIn(ver);
         }
         Self::Other(name.to_owned())
     }
