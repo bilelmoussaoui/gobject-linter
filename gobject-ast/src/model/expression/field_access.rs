@@ -1,9 +1,6 @@
 use serde::Serialize;
 
-use crate::{
-    model::{SourceLocation, expression::Expression},
-    operators::FieldAccessOp,
-};
+use crate::model::{FieldAccessOp, SourceLocation, expression::Expression};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct FieldAccessExpression {

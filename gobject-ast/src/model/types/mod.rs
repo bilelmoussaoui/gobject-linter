@@ -8,7 +8,7 @@ mod property;
 mod signal;
 pub use basic_type::BasicType;
 pub use enum_info::{EnumInfo, EnumValue};
-pub use function::Parameter;
+pub use function::{FunctionDeclItem, FunctionDefItem, Parameter};
 pub use gobject_type::{
     DeclareKind, DefineKind, GObjectType, GObjectTypeKind, InterfaceImplementation, VirtualFunction,
 };

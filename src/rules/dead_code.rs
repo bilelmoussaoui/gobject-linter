@@ -91,7 +91,7 @@ fn collect_all_refs(ast_context: &AstContext) -> AllRefs {
         for func in file.iter_function_definitions() {
             collect_type_ref(&func.return_type, &mut type_refs);
             for param in &func.parameters {
-                if let gobject_ast::model::types::Parameter::Regular { type_info, .. } = param {
+                if let gobject_ast::types::Parameter::Regular { type_info, .. } = param {
                     collect_type_ref(type_info, &mut type_refs);
                 }
             }
@@ -127,7 +127,7 @@ fn collect_all_refs(ast_context: &AstContext) -> AllRefs {
         for func in file.iter_function_declarations() {
             collect_type_ref(&func.return_type, &mut type_refs);
             for param in &func.parameters {
-                if let gobject_ast::model::types::Parameter::Regular { type_info, .. } = param {
+                if let gobject_ast::types::Parameter::Regular { type_info, .. } = param {
                     collect_type_ref(type_info, &mut type_refs);
                 }
             }

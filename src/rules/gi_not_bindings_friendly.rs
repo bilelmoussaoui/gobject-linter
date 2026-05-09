@@ -1,6 +1,6 @@
 use gobject_ast::{
-    model::{doc::FunctionAnnotation, top_level::FunctionDeclItem},
-    types::Parameter,
+    model::FunctionAnnotation,
+    types::{FunctionDeclItem, Parameter},
 };
 
 use crate::{

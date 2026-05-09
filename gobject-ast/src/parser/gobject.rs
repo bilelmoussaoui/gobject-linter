@@ -3,8 +3,7 @@ use tree_sitter::Node;
 use crate::{
     Statement,
     model::{
-        Expression,
-        doc::FunctionDoc,
+        Expression, FunctionDoc,
         types::{
             DeclareKind, DefineKind, GObjectType, GObjectTypeKind, GType, InterfaceImplementation,
             VirtualFunction,

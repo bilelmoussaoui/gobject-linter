@@ -57,7 +57,7 @@ impl UseGObjectNotifyByPspec {
         call: &gobject_ast::CallExpression,
         source: &[u8],
         property_map: &HashMap<&str, Vec<(&str, &str, &str)>>,
-        func: &gobject_ast::top_level::FunctionDefItem,
+        func: &gobject_ast::types::FunctionDefItem,
         violations: &mut Vec<Violation>,
     ) {
         // Need exactly 2 arguments: object and property name
@@ -195,7 +195,7 @@ impl UseGObjectNotifyByPspec {
         &self,
         call: &gobject_ast::CallExpression,
         source: &[u8],
-        func: &gobject_ast::top_level::FunctionDefItem,
+        func: &gobject_ast::types::FunctionDefItem,
         candidates: &'a [(&'a str, &'a str, &'a str)],
     ) -> Option<&'a (&'a str, &'a str, &'a str)> {
         // Get the object expression (first argument)
@@ -207,7 +207,7 @@ impl UseGObjectNotifyByPspec {
 
         // Find which function parameter matches this identifier
         let param_type = func.get_param_by_name(&obj_identifier).and_then(|p| {
-            if let gobject_ast::model::types::Parameter::Regular { type_info, .. } = p {
+            if let gobject_ast::types::Parameter::Regular { type_info, .. } = p {
                 Some(&type_info.base_type)
             } else {
                 None

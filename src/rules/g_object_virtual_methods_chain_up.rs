@@ -25,7 +25,7 @@ impl Rule for GObjectVirtualMethodsChainUp {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::top_level::FunctionDefItem,
+        func: &gobject_ast::types::FunctionDefItem,
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
@@ -47,7 +47,7 @@ impl Rule for GObjectVirtualMethodsChainUp {
             return;
         }
 
-        let Some(gobject_ast::model::types::Parameter::Regular {
+        let Some(gobject_ast::types::Parameter::Regular {
             type_info: first_type,
             ..
         }) = func.parameters.first()

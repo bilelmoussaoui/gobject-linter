@@ -90,7 +90,7 @@ impl UseGObjectClassInstallProperties {
     fn generate_fixes(
         &self,
         file: &gobject_ast::FileModel,
-        class_init: &gobject_ast::top_level::FunctionDefItem,
+        class_init: &gobject_ast::types::FunctionDefItem,
         install_calls: &[&gobject_ast::CallExpression],
         assignments: &[gobject_ast::ParamSpecAssignment],
         property_enum: &gobject_ast::EnumInfo,

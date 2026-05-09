@@ -29,7 +29,7 @@ impl Rule for GTaskSourceTag {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::top_level::FunctionDefItem,
+        func: &gobject_ast::types::FunctionDefItem,
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
@@ -41,7 +41,7 @@ impl GTaskSourceTag {
     fn check_statements(
         &self,
         file: &gobject_ast::FileModel,
-        func: &gobject_ast::top_level::FunctionDefItem,
+        func: &gobject_ast::types::FunctionDefItem,
         statements: &[Statement],
         source: &[u8],
         violations: &mut Vec<Violation>,

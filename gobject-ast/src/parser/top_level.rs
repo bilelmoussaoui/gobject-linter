@@ -1,12 +1,15 @@
 use tree_sitter::Node;
 
 use crate::{
+    CommentPosition, EnumInfo, EnumValue, Expression, Parameter, SourceLocation, Statement,
+    TypeInfo,
     model::{
-        doc::{EnumValueDoc, FunctionDoc, TypeDoc},
-        top_level::{ConditionalKind, StructField, *},
-        *,
+        EnumValueDoc, FunctionDoc, TypeDoc,
+        top_level::{ConditionalKind, StructField},
     },
     parser::Parser,
+    top_level::{PragmaKind, PreprocessorDirective, TopLevelItem, TypeDefItem, TypedefTarget},
+    types::{FunctionDeclItem, FunctionDefItem},
 };
 
 impl Parser {
@@ -531,7 +534,7 @@ impl Parser {
             "comment" => {
                 let text = std::str::from_utf8(&source[node.byte_range()]).ok()?;
                 let (kind, _) = self.extract_comment_text(node, source)?;
-                Some(TopLevelItem::Comment(Comment::new(
+                Some(TopLevelItem::Comment(crate::Comment::new(
                     text.to_string(),
                     self.node_location(node),
                     kind,

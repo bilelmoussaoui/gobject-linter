@@ -7,10 +7,10 @@ use crate::{
     model::{
         doc::TypeDoc,
         expression::Expression,
-        top_level::{FunctionDefItem, TopLevelItem},
-        types::EnumInfo,
+        top_level::TopLevelItem,
+        types::{EnumInfo, FunctionDeclItem, FunctionDefItem},
     },
-    top_level::{FunctionDeclItem, PreprocessorDirective, TypeDefItem, TypedefTarget},
+    top_level::{PreprocessorDirective, TypeDefItem, TypedefTarget},
 };
 
 /// The complete project model - a map of files to their content

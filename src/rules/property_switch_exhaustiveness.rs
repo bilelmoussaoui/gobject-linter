@@ -217,7 +217,7 @@ impl PropertySwitchExhaustiveness {
     /// Find function name assigned to object_class->field in class_init
     fn find_assigned_function<'a>(
         &self,
-        class_init: &'a gobject_ast::top_level::FunctionDefItem,
+        class_init: &'a gobject_ast::types::FunctionDefItem,
         field_name: &str,
     ) -> Option<&'a str> {
         class_init

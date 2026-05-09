@@ -25,7 +25,7 @@ impl Rule for GErrorLeak {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::top_level::FunctionDefItem,
+        func: &gobject_ast::types::FunctionDefItem,
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {

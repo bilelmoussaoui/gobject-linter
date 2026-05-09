@@ -1,7 +1,7 @@
 pub mod comment;
-pub mod doc;
+mod doc;
 pub mod expression;
-pub mod operators;
+mod operators;
 mod project;
 mod source_location;
 pub mod statement;
@@ -10,6 +10,11 @@ mod type_info;
 pub mod types;
 
 pub use comment::{Comment, CommentKind, CommentPosition};
+pub use doc::{
+    ArrayAnnotation, DocParam, DocReturns, EnumValueAnnotation, EnumValueDoc, FunctionAnnotation,
+    FunctionDoc, ParamAnnotation, PropertyAnnotation, PropertyDoc, ReturnAnnotation, ScopeKind,
+    SignalAnnotation, SignalDoc, TransferKind, TypeAnnotation, TypeDoc,
+};
 pub use expression::{
     Argument, Assignment, BinaryExpression, BooleanExpression, CallExpression, CastExpression,
     CharLiteralExpression, CommentExpression, ConditionalExpression, Expression,
@@ -24,7 +29,7 @@ pub use statement::{
     BreakStatement, CaseLabel, CompoundStatement, ContinueStatement, GotoStatement, IfStatement,
     LabeledStatement, ReturnStatement, Statement, SwitchCase, SwitchStatement, VariableDecl,
 };
-pub use type_info::TypeInfo;
+pub use type_info::{AutoCleanupMacro, TypeInfo};
 pub use types::{
     BasicType, DeclareKind, DefineKind, EnumInfo, EnumValue, GObjectType, GObjectTypeKind, GType,
     Include, InterfaceImplementation, ParamFlag, ParamSpecAssignment, Parameter, Property,

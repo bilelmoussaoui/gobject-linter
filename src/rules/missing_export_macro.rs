@@ -37,7 +37,7 @@ impl Rule for MissingExportMacro {
         &self,
         ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::top_level::FunctionDeclItem,
+        func: &gobject_ast::types::FunctionDeclItem,
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {

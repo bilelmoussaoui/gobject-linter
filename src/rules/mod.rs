@@ -283,7 +283,7 @@ pub trait Rule: Send + Sync {
         &self,
         ast_context: &AstContext,
         config: &Config,
-        func: &gobject_ast::top_level::FunctionDefItem,
+        func: &gobject_ast::types::FunctionDefItem,
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
@@ -297,7 +297,7 @@ pub trait Rule: Send + Sync {
         &self,
         ast_context: &AstContext,
         config: &Config,
-        func: &gobject_ast::top_level::FunctionDeclItem,
+        func: &gobject_ast::types::FunctionDeclItem,
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {

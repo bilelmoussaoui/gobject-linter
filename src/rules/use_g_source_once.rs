@@ -29,7 +29,7 @@ impl Rule for UseGSourceOnce {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::top_level::FunctionDefItem,
+        func: &gobject_ast::types::FunctionDefItem,
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
@@ -194,7 +194,7 @@ impl UseGSourceOnce {
 
     fn fix_definition_return_type(
         &self,
-        func: &gobject_ast::top_level::FunctionDefItem,
+        func: &gobject_ast::types::FunctionDefItem,
     ) -> Option<Fix> {
         // Check if return type is gboolean
         if func.return_type.as_basic() != Some(BasicType::Boolean) {
@@ -211,7 +211,7 @@ impl UseGSourceOnce {
 
     fn fix_declaration_return_type(
         &self,
-        func: &gobject_ast::top_level::FunctionDeclItem,
+        func: &gobject_ast::types::FunctionDeclItem,
     ) -> Option<Fix> {
         // Check if return type is gboolean
         if func.return_type.as_basic() != Some(BasicType::Boolean) {

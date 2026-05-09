@@ -1,7 +1,6 @@
 use gobject_ast::model::{
-    doc::{FunctionAnnotation, PropertyAnnotation},
-    top_level::FunctionDeclItem,
-    types::GObjectType,
+    FunctionAnnotation, PropertyAnnotation, TypeDoc,
+    types::{FunctionDeclItem, GObjectType},
 };
 
 use crate::{
@@ -88,7 +87,7 @@ fn find_type_since(ast_context: &AstContext, gt: &GObjectType) -> Option<String>
         let type_name = &gt.type_name;
         ast_context.iter_c_files().find_map(|(_, f)| {
             if let Some(v) = f.iter_comments().find_map(|c| {
-                let td = gobject_ast::model::doc::TypeDoc::from_comment(c)?;
+                let td = TypeDoc::from_comment(c)?;
                 if td.symbol.as_deref() == Some(type_name.as_str()) {
                     return td.since;
                 }
@@ -114,7 +113,7 @@ fn find_type_deprecated(ast_context: &AstContext, gt: &GObjectType) -> Option<St
             let type_name = &gt.type_name;
             ast_context.iter_c_files().find_map(|(_, f)| {
                 if let Some(v) = f.iter_comments().find_map(|c| {
-                    let td = gobject_ast::model::doc::TypeDoc::from_comment(c)?;
+                    let td = TypeDoc::from_comment(c)?;
                     if td.symbol.as_deref() == Some(type_name.as_str()) {
                         return extract_deprecated_version(td.deprecated.as_deref()?)
                             .map(str::to_owned);

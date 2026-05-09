@@ -637,7 +637,7 @@ impl PropertyEnumConvention {
 
         // Extract class type from parameter
         let class_type_info = func.parameters.first().and_then(|p| {
-            if let gobject_ast::model::types::Parameter::Regular { type_info, .. } = p {
+            if let gobject_ast::types::Parameter::Regular { type_info, .. } = p {
                 Some(type_info)
             } else {
                 None

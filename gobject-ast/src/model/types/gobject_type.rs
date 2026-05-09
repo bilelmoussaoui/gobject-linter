@@ -4,9 +4,10 @@ use crate::{
     SourceLocation, Statement, TypeInfo,
     model::{
         doc::{FunctionDoc, TypeDoc},
-        types::{GType, Signal, function::Parameter, property::ParamSpecAssignment},
+        types::{
+            FunctionDefItem, GType, Signal, function::Parameter, property::ParamSpecAssignment,
+        },
     },
-    top_level::FunctionDefItem,
 };
 
 #[derive(Debug, Clone, Serialize)]

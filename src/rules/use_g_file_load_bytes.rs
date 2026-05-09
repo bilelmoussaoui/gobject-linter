@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use gobject_ast::{Argument, Expression, Statement, UnaryOp, top_level::FunctionDefItem};
+use gobject_ast::{Argument, Expression, Statement, UnaryOp, types::FunctionDefItem};
 
 use crate::{
     ast_context::AstContext,

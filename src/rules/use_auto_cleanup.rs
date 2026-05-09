@@ -1,9 +1,7 @@
 use std::{collections::HashMap, sync::LazyLock};
 
 use globset::{Glob, GlobSet, GlobSetBuilder};
-use gobject_ast::{
-    Expression, Statement, TypeInfo, expression::Argument, top_level::FunctionDefItem,
-};
+use gobject_ast::{Expression, Statement, TypeInfo, expression::Argument, types::FunctionDefItem};
 
 use crate::{
     ast_context::AstContext,
