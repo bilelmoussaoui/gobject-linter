@@ -180,4 +180,35 @@ impl AstContext {
     pub fn has_public_private_info(&self) -> bool {
         self.meson_headers.is_some()
     }
+
+    /// Look up the doc for a function by name.  Checks the definition
+    /// first (where docs typically live in GTK-Doc), then declarations.
+    pub fn find_func_doc(&self, name: &str) -> Option<&gobject_ast::model::FunctionDoc> {
+        self.iter_c_files()
+            .flat_map(|(_, f)| f.iter_function_definitions())
+            .find(|f| f.name == name)
+            .and_then(|f| f.doc.as_ref())
+            .or_else(|| {
+                self.iter_all_files()
+                    .flat_map(|(_, f)| f.iter_function_declarations())
+                    .find(|f| f.name == name)
+                    .and_then(|f| f.doc.as_ref())
+            })
+    }
+
+    /// Look up the doc for a GObject type by name.  Checks the
+    /// G_DEFINE type (which gets the doc from the struct) first, then
+    /// the G_DECLARE type.
+    pub fn find_type_doc(&self, type_name: &str) -> Option<&gobject_ast::model::TypeDoc> {
+        self.iter_c_files()
+            .flat_map(|(_, f)| f.iter_all_gobject_types())
+            .find(|gt| gt.type_name == type_name)
+            .and_then(|gt| gt.doc.as_ref())
+            .or_else(|| {
+                self.iter_header_files()
+                    .flat_map(|(_, f)| f.iter_all_gobject_types())
+                    .find(|gt| gt.type_name == type_name)
+                    .and_then(|gt| gt.doc.as_ref())
+            })
+    }
 }

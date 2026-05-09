@@ -89,7 +89,7 @@ impl FunctionDefItem {
     /// Extract signal registrations from the function body.
     /// Populates `enum_value` when the signal is assigned via
     /// `signals[ENUM] = g_signal_new(...)`.
-    pub fn find_signal_registrations(&self, source: &[u8]) -> Vec<Signal> {
+    pub fn find_signal_registrations(&self, source: &[u8], type_name: &str) -> Vec<Signal> {
         let mut signals = Vec::new();
         let mut seen_names = std::collections::HashSet::new();
 
@@ -113,7 +113,7 @@ impl FunctionDefItem {
                 if i > 0
                     && let Statement::Comment(c) = &self.body_statements[i - 1]
                 {
-                    signal.doc = SignalDoc::from_comment(c);
+                    signal.doc = SignalDoc::from_comment_for(c, type_name, &signal.name);
                 }
                 seen_names.insert(signal.name.clone());
                 signals.push(signal);
@@ -136,7 +136,7 @@ impl FunctionDefItem {
                     if i > 0
                         && let Statement::Comment(c) = &self.body_statements[i - 1]
                     {
-                        signal.doc = SignalDoc::from_comment(c);
+                        signal.doc = SignalDoc::from_comment_for(c, type_name, &signal.name);
                     }
                     signals.push(signal);
                 }
@@ -328,7 +328,11 @@ impl FunctionDefItem {
     /// Handles array pattern (props[PROP_X] = ...), variable pattern
     /// (param_spec = ...), and override pattern
     /// (g_object_class_override_property(...))
-    pub(crate) fn find_param_spec_assignments(&self, source: &[u8]) -> Vec<ParamSpecAssignment> {
+    pub(crate) fn find_param_spec_assignments(
+        &self,
+        source: &[u8],
+        type_name: &str,
+    ) -> Vec<ParamSpecAssignment> {
         let mut assignments = Vec::new();
         let mut array_assignments: HashMap<&str, Vec<usize>> = HashMap::new();
         let mut variable_assignments: HashMap<&str, Vec<usize>> = HashMap::new();
@@ -355,7 +359,8 @@ impl FunctionDefItem {
                                 if i > 0
                                     && let Statement::Comment(c) = &self.body_statements[i - 1]
                                 {
-                                    property.doc = PropertyDoc::from_comment(c);
+                                    property.doc =
+                                        PropertyDoc::from_comment_for(c, type_name, &property.name);
                                 }
 
                                 // Check LHS: array subscript or variable?
@@ -404,7 +409,8 @@ impl FunctionDefItem {
                                 if i > 0
                                     && let Statement::Comment(c) = &self.body_statements[i - 1]
                                 {
-                                    property.doc = PropertyDoc::from_comment(c);
+                                    property.doc =
+                                        PropertyDoc::from_comment_for(c, type_name, &property.name);
                                 }
                                 assignments.push(ParamSpecAssignment::OverrideProperty {
                                     enum_value: enum_value.to_owned(),

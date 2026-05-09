@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::model::{
     Comment, EnumInfo, Expression, FunctionDeclItem, FunctionDefItem, GObjectType,
-    PreprocessorDirective, SourceLocation, Statement, TopLevelItem, TypeDefItem, TypeDoc, TypeInfo,
+    PreprocessorDirective, SourceLocation, Statement, TopLevelItem, TypeDefItem, TypeInfo,
     TypedefTarget, VariableDecl,
 };
 
@@ -397,8 +397,8 @@ impl FileModel {
                             _ => unreachable!(),
                         };
 
-                        let properties = func.find_param_spec_assignments(source);
-                        let signals = func.find_signal_registrations(source);
+                        let properties = func.find_param_spec_assignments(source, &type_name);
+                        let signals = func.find_signal_registrations(source, &type_name);
                         if let TopLevelItem::Preprocessor(PreprocessorDirective::GObjectType(gt)) =
                             &mut items[i]
                         {
@@ -408,10 +408,14 @@ impl FileModel {
                     }
 
                     let doc = items.iter().find_map(|item| {
-                        if let TopLevelItem::Comment(c) = item {
-                            let td = TypeDoc::from_comment(c)?;
-                            if td.symbol.as_deref() == Some(type_name.as_str()) {
-                                return Some(td);
+                        if let TopLevelItem::TypeDefinition(
+                            TypeDefItem::Struct { name, doc, .. }
+                            | TypeDefItem::Typedef { name, doc, .. },
+                        ) = item
+                        {
+                            let bare = name.trim_start_matches('_');
+                            if bare == type_name {
+                                return doc.clone();
                             }
                         }
                         None

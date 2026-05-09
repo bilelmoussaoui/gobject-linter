@@ -556,6 +556,7 @@ impl<A> RawDoc<A> {
 
                 let sym = candidate.trim_end_matches(':');
                 if !sym.is_empty()
+                    && candidate.ends_with(':')
                     && sym
                         .chars()
                         .all(|c| c.is_alphanumeric() || c == '_' || c == ':' || c == '-')
@@ -609,6 +610,14 @@ impl FunctionDoc {
         RawDoc::from_node(node, source, parse_function_annotation).map(Self::from_raw)
     }
 
+    pub fn from_node_for(node: Node<'_>, source: &[u8], expected_name: &str) -> Option<Self> {
+        let doc = Self::from_node(node, source)?;
+        match &doc.symbol {
+            Some(sym) if sym != expected_name => None,
+            _ => Some(doc),
+        }
+    }
+
     fn from_raw(raw: RawDoc<FunctionAnnotation>) -> Self {
         Self {
             symbol: raw.symbol,
@@ -658,6 +667,22 @@ impl TypeDoc {
         RawDoc::from_node(node, source, parse_type_annotation).map(Self::from_raw)
     }
 
+    pub fn from_node_for(node: Node<'_>, source: &[u8], expected_name: &str) -> Option<Self> {
+        let doc = Self::from_node(node, source)?;
+        match &doc.symbol {
+            Some(sym) => {
+                let bare_sym = sym.trim_start_matches('_');
+                let bare_name = expected_name.trim_start_matches('_');
+                if bare_sym == bare_name {
+                    Some(doc)
+                } else {
+                    None
+                }
+            }
+            None => Some(doc),
+        }
+    }
+
     pub fn from_comment(comment: &Comment) -> Option<Self> {
         RawDoc::from_comment(comment, parse_type_annotation).map(Self::from_raw)
     }
@@ -690,6 +715,20 @@ pub struct PropertyDoc {
 impl PropertyDoc {
     pub fn from_comment(comment: &Comment) -> Option<Self> {
         RawDoc::from_comment(comment, parse_property_annotation).map(Self::from_raw)
+    }
+
+    /// Attach only if the doc symbol matches `TypeName:property-name`.
+    pub fn from_comment_for(
+        comment: &Comment,
+        type_name: &str,
+        property_name: &str,
+    ) -> Option<Self> {
+        let doc = Self::from_comment(comment)?;
+        let expected = format!("{type_name}:{property_name}");
+        match &doc.symbol {
+            Some(sym) if sym != &expected => None,
+            _ => Some(doc),
+        }
     }
 
     fn from_raw(raw: RawDoc<PropertyAnnotation>) -> Self {
@@ -726,6 +765,16 @@ impl SignalDoc {
         RawDoc::from_comment(comment, parse_signal_annotation).map(Self::from_raw)
     }
 
+    /// Attach only if the doc symbol matches `TypeName::signal-name`.
+    pub fn from_comment_for(comment: &Comment, type_name: &str, signal_name: &str) -> Option<Self> {
+        let doc = Self::from_comment(comment)?;
+        let expected = format!("{type_name}::{signal_name}");
+        match &doc.symbol {
+            Some(sym) if sym != &expected => None,
+            _ => Some(doc),
+        }
+    }
+
     fn from_raw(raw: RawDoc<SignalAnnotation>) -> Self {
         Self {
             symbol: raw.symbol,
@@ -756,6 +805,14 @@ pub struct EnumValueDoc {
 impl EnumValueDoc {
     pub fn from_node(node: Node<'_>, source: &[u8]) -> Option<Self> {
         RawDoc::from_node(node, source, parse_enum_value_annotation).map(Self::from_raw)
+    }
+
+    pub fn from_node_for(node: Node<'_>, source: &[u8], expected_name: &str) -> Option<Self> {
+        let doc = Self::from_node(node, source)?;
+        match &doc.symbol {
+            Some(sym) if sym != expected_name => None,
+            _ => Some(doc),
+        }
     }
 
     fn from_raw(raw: RawDoc<EnumValueAnnotation>) -> Self {

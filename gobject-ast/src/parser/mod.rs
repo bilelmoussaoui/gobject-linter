@@ -188,6 +188,21 @@ impl Parser {
         // recurse — children are handled inside parse_top_level_item itself
         // (e.g. via parse_conditional_body for #ifdef blocks).
         if let Some(item) = self.parse_top_level_item(node, source) {
+            // Doc comments are attached via prev_named_sibling(), which means
+            // the comment was already added as a standalone Comment item on the
+            // previous iteration.  Remove it so the doc only exists in one
+            // place.
+            if item.has_doc()
+                && let Some(prev) = node.prev_named_sibling()
+                && prev.kind() == "comment"
+            {
+                let prev_byte = prev.start_byte();
+                if let Some(last) = file_model.top_level_items.last()
+                    && last.is_comment_at_byte(prev_byte)
+                {
+                    file_model.top_level_items.pop();
+                }
+            }
             file_model.top_level_items.push(item);
             return;
         }
@@ -209,10 +224,107 @@ impl Parser {
         let is_static = func_text.starts_with("static") || func_text.contains("\nstatic ");
         let is_inline = func_text.contains("inline ");
 
-        let declarator = node.child_by_field_name("declarator")?;
-        let name = self.extract_declarator_name(declarator, source)?;
+        let name = if let Some(declarator) = node.child_by_field_name("declarator") {
+            match self.extract_declarator_name(declarator, source) {
+                Some(n) if !n.is_empty() => n,
+                // Empty declarator name means tree-sitter misparsed an
+                // unknown return type (e.g. HWND)
+                _ => self.extract_name_from_macro_type_specifier(node, source)?,
+            }
+        } else {
+            self.extract_name_from_macro_type_specifier(node, source)?
+        };
 
         Some((name, is_static, is_inline))
+    }
+
+    /// Extract function name from a macro_type_specifier child node.
+    /// When tree-sitter encounters an unknown return type (e.g. HWND), it
+    /// parses the function name as the first identifier inside a
+    /// macro_type_specifier node.
+    fn extract_name_from_macro_type_specifier<'a>(
+        &self,
+        node: Node,
+        source: &'a [u8],
+    ) -> Option<&'a str> {
+        let mut cursor = node.walk();
+        let macro_spec = node
+            .children(&mut cursor)
+            .find(|c| c.kind() == "macro_type_specifier")?;
+        let id = macro_spec.child(0).filter(|c| c.kind() == "identifier")?;
+        let name = std::str::from_utf8(&source[id.byte_range()]).ok()?;
+        if name.is_empty() { None } else { Some(name) }
+    }
+
+    /// Extract parameters from a macro_type_specifier child node.
+    /// When tree-sitter misparsers a function with an unknown return type,
+    /// parameters end up as type_descriptor + ERROR(identifier) pairs inside
+    /// the macro_type_specifier.
+    fn extract_params_from_macro_type_specifier(
+        &self,
+        node: Node,
+        source: &[u8],
+    ) -> Vec<Parameter> {
+        let mut cursor = node.walk();
+        let Some(macro_spec) = node
+            .children(&mut cursor)
+            .find(|c| c.kind() == "macro_type_specifier")
+        else {
+            return Vec::new();
+        };
+
+        let mut params = Vec::new();
+        let mut child_cursor = macro_spec.walk();
+        let children: Vec<Node> = macro_spec.children(&mut child_cursor).collect();
+
+        for (i, child) in children.iter().enumerate() {
+            if child.kind() == "type_descriptor" {
+                let base_type = {
+                    let mut tc = child.walk();
+                    child
+                        .children(&mut tc)
+                        .find(|c| {
+                            matches!(
+                                c.kind(),
+                                "type_identifier" | "primitive_type" | "sized_type_specifier"
+                            )
+                        })
+                        .and_then(|c| std::str::from_utf8(&source[c.byte_range()]).ok())
+                        .unwrap_or("")
+                };
+
+                let pointer_depth = {
+                    let mut tc = child.walk();
+                    child
+                        .children(&mut tc)
+                        .filter(|c| c.kind() == "abstract_pointer_declarator")
+                        .count()
+                };
+
+                let mut full_text = base_type.to_owned();
+                for _ in 0..pointer_depth {
+                    full_text.push('*');
+                }
+
+                let name = children
+                    .get(i + 1)
+                    .filter(|c| c.kind() == "ERROR")
+                    .and_then(|err| err.child(0))
+                    .filter(|c| c.kind() == "identifier")
+                    .and_then(|c| std::str::from_utf8(&source[c.byte_range()]).ok())
+                    .map(ToOwned::to_owned);
+
+                let location = self.node_location(*child);
+                let type_info = TypeInfo::new(&full_text, location);
+                params.push(Parameter::Regular {
+                    name,
+                    type_info,
+                    location,
+                });
+            }
+        }
+
+        params
     }
 
     pub(super) fn find_function_declarator<'a>(&self, node: Node<'a>) -> Option<Node<'a>> {

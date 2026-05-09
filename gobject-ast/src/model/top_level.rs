@@ -91,6 +91,22 @@ impl TopLevelItem {
             Self::Preprocessor(_) => TopLevelItemKind::Other,
         }
     }
+
+    pub fn has_doc(&self) -> bool {
+        match self {
+            Self::FunctionDefinition(f) => f.doc.is_some(),
+            Self::FunctionDeclaration(f) => f.doc.is_some(),
+            Self::TypeDefinition(td) => match td {
+                TypeDefItem::Struct { doc, .. } | TypeDefItem::Typedef { doc, .. } => doc.is_some(),
+                TypeDefItem::Enum(e) => e.doc.is_some(),
+            },
+            _ => false,
+        }
+    }
+
+    pub(crate) fn is_comment_at_byte(&self, byte: usize) -> bool {
+        matches!(self, Self::Comment(c) if c.location.start_byte == byte)
+    }
 }
 
 impl Serialize for TopLevelItem {
