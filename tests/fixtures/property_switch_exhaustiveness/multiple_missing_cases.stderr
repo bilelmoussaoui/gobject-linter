@@ -1,0 +1,2 @@
+multiple_missing_cases.c:38:1: property_switch_exhaustiveness: 3 properties should be handled in my_object_get_property switch statement
+multiple_missing_cases.c:63:1: property_switch_exhaustiveness: 2 properties should be handled in my_object_set_property switch statement

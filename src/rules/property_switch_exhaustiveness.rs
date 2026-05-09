@@ -446,11 +446,15 @@ impl PropertySwitchExhaustiveness {
         let (case_indent, body_indent) = self.detect_indentation(switch_stmt, source);
 
         let mut replacement = String::new();
-        for prop_name in prop_names {
-            replacement.push_str(&format!(
-                "{}case {}:\n{}g_assert_not_reached ();\n{}break;\n",
-                case_indent, prop_name, body_indent, body_indent
-            ));
+        for (i, prop_name) in prop_names.iter().enumerate() {
+            if i + 1 < prop_names.len() {
+                replacement.push_str(&format!("{}case {}:\n", case_indent, prop_name));
+            } else {
+                replacement.push_str(&format!(
+                    "{}case {}:\n{}g_assert_not_reached ();\n{}break;\n",
+                    case_indent, prop_name, body_indent, body_indent
+                ));
+            }
         }
 
         Fix::new(insertion_point, insertion_point, replacement)
@@ -469,13 +473,16 @@ impl PropertySwitchExhaustiveness {
         // Find the range of the default case to replace
         let (start, end) = self.find_default_case_range(switch_stmt, source);
 
-        // Build replacement with all new cases
         let mut replacement = String::new();
-        for prop_name in prop_names {
-            replacement.push_str(&format!(
-                "{}case {}:\n{}g_assert_not_reached ();\n{}break;\n",
-                case_indent, prop_name, body_indent, body_indent
-            ));
+        for (i, prop_name) in prop_names.iter().enumerate() {
+            if i + 1 < prop_names.len() {
+                replacement.push_str(&format!("{}case {}:\n", case_indent, prop_name));
+            } else {
+                replacement.push_str(&format!(
+                    "{}case {}:\n{}g_assert_not_reached ();\n{}break;\n",
+                    case_indent, prop_name, body_indent, body_indent
+                ));
+            }
         }
 
         Fix::new(start, end, replacement)
