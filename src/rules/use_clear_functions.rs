@@ -140,27 +140,33 @@ impl ClearMapping {
     }
 }
 
+fn address_of(var_name: &str) -> String {
+    if let Some(inner) = var_name.strip_prefix('*') {
+        inner.to_string()
+    } else {
+        format!("&{var_name}")
+    }
+}
+
 fn format_replacement(mapping: &ClearMapping, var_name: &str, obj: Option<&str>) -> String {
+    let addr = address_of(var_name);
     match mapping.replacement {
-        ClearReplacement::Object => format!("g_clear_object (&{});", var_name),
+        ClearReplacement::Object => format!("g_clear_object ({addr});"),
         ClearReplacement::Pointer => {
-            format!("g_clear_pointer (&{}, {});", var_name, mapping.source_func)
+            format!("g_clear_pointer ({addr}, {});", mapping.source_func)
         }
         ClearReplacement::HandleId => {
-            format!(
-                "g_clear_handle_id (&{}, {});",
-                var_name, mapping.source_func
-            )
+            format!("g_clear_handle_id ({addr}, {});", mapping.source_func)
         }
         ClearReplacement::SignalHandler => {
             let obj = obj.unwrap_or("obj");
-            format!("g_clear_signal_handler (&{}, {});", var_name, obj)
+            format!("g_clear_signal_handler ({addr}, {obj});")
         }
         ClearReplacement::WeakPointer => {
-            format!("g_clear_weak_pointer (&{});", var_name)
+            format!("g_clear_weak_pointer ({addr});")
         }
         ClearReplacement::List { clear_func } => {
-            format!("{} (&{}, NULL);", clear_func, var_name)
+            format!("{clear_func} ({addr}, NULL);")
         }
     }
 }

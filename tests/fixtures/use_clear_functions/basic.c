@@ -14,3 +14,10 @@ my_func (GObject *obj, char *str)
     str = NULL;
   }
 }
+
+static void
+clear_string (gchar **arr_element)
+{
+  g_free (*arr_element);
+  *arr_element = NULL;
+}
