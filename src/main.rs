@@ -331,7 +331,7 @@ fn main() -> Result<()> {
         if !has_fixable_rules {
             eprintln!(
                 "Warning: --fix was specified but no enabled rules are auto-fixable.\n\
-                 Run `goblin --list-rules` to see which rules support auto-fix."
+                 Run `gobject-linter --list-rules` to see which rules support auto-fix."
             );
         } else {
             let fixed_count = fixer::apply_fixes(&violations)?;
