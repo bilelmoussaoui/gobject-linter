@@ -1,3 +1,5 @@
+use gobject_ast::model::{EnumInfo, FileModel};
+
 use crate::{
     ast_context::AstContext,
     config::Config,
@@ -27,8 +29,8 @@ impl Rule for UseGGnucFlagEnum {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        enum_info: &gobject_ast::EnumInfo,
-        file: &gobject_ast::FileModel,
+        enum_info: &EnumInfo,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         let Some(ref enum_name) = enum_info.name else {
@@ -60,12 +62,7 @@ impl Rule for UseGGnucFlagEnum {
 }
 
 impl UseGGnucFlagEnum {
-    fn generate_fix(
-        &self,
-        enum_info: &gobject_ast::types::EnumInfo,
-        source: &[u8],
-        enum_name: &str,
-    ) -> Fix {
+    fn generate_fix(&self, enum_info: &EnumInfo, source: &[u8], enum_name: &str) -> Fix {
         let typedef_text = enum_info.location.as_str(source).unwrap_or("");
 
         if let Some(closing_brace_pos) = typedef_text.rfind('}') {

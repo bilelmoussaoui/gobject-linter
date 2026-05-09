@@ -1,5 +1,6 @@
-use gobject_ast::{
-    AssignmentOp, BinaryOp, Expression, IfStatement, SourceLocation, Statement, UnaryOp,
+use gobject_ast::model::{
+    Argument, AssignmentOp, BinaryOp, Expression, FileModel, FunctionDefItem, IfStatement,
+    SourceLocation, Statement, UnaryOp,
 };
 
 use crate::{
@@ -194,8 +195,8 @@ impl Rule for UseClearFunctions {
         &self,
         _ast_context: &AstContext,
         config: &Config,
-        func: &gobject_ast::types::FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDefItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         self.check_statements(config, file, &func.body_statements, violations);
@@ -206,7 +207,7 @@ impl UseClearFunctions {
     fn check_statements(
         &self,
         config: &Config,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         statements: &[Statement],
         violations: &mut Vec<Violation>,
     ) {
@@ -302,7 +303,7 @@ impl UseClearFunctions {
         stmt1: &Statement,
         stmt2: &Statement,
         config: &Config,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) -> Option<bool> {
         let source = &file.source;
@@ -323,7 +324,7 @@ impl UseClearFunctions {
 
             let var_name = match mapping.replacement {
                 ClearReplacement::WeakPointer => {
-                    let gobject_ast::Argument::Expression(arg_expr) = call.arguments.get(1)?;
+                    let Argument::Expression(arg_expr) = call.arguments.get(1)?;
                     self.extract_weak_pointer_var(arg_expr, source)?
                 }
                 _ => call.get_arg(0)?.to_source_string(source)?,
@@ -363,7 +364,7 @@ impl UseClearFunctions {
         &self,
         if_stmt: &IfStatement,
         config: &Config,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) -> bool {
         let source = &file.source;
@@ -499,7 +500,7 @@ impl UseClearFunctions {
         &self,
         stmt: &Statement,
         config: &Config,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) -> bool {
         let Statement::If(if_stmt) = stmt else {
@@ -565,7 +566,7 @@ impl UseClearFunctions {
     fn check_handle_cleanup_then_zero<'a>(
         &self,
         config: &Config,
-        file: &'a gobject_ast::FileModel,
+        file: &'a FileModel,
         statements: &[Statement],
     ) -> Vec<(&'a str, ClearMapping, SourceLocation, SourceLocation)> {
         let mut results = Vec::new();
@@ -606,7 +607,7 @@ impl UseClearFunctions {
     fn check_unnecessary_braces(
         &self,
         if_stmt: &IfStatement,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         source: &[u8],
         violations: &mut Vec<Violation>,
     ) {
@@ -634,7 +635,7 @@ impl UseClearFunctions {
         &self,
         stmt: &Statement,
         config: &Config,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) -> bool {
         let signal_mapping = match self.find_signal_mapping(config) {
@@ -698,7 +699,7 @@ impl UseClearFunctions {
         s1: &Statement,
         s2: &Statement,
         config: &Config,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) -> bool {
         let signal_mapping = match self.find_signal_mapping(config) {
@@ -741,7 +742,7 @@ impl UseClearFunctions {
         stmt: &Statement,
         all_stmts: &[Statement],
         config: &Config,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) -> bool {
         let signal_mapping = match self.find_signal_mapping(config) {
@@ -857,8 +858,8 @@ impl UseClearFunctions {
         false
     }
 
-    fn arg_references(&self, arg: &gobject_ast::Argument, target: &str, source: &[u8]) -> bool {
-        let gobject_ast::Argument::Expression(expr) = arg;
+    fn arg_references(&self, arg: &Argument, target: &str, source: &[u8]) -> bool {
+        let Argument::Expression(expr) = arg;
 
         let mut found = false;
         expr.walk(&mut |e| match e {

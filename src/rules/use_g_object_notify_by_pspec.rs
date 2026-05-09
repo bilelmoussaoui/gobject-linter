@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use gobject_ast::Expression;
+use gobject_ast::model::{
+    CallExpression, Expression, FileModel, FunctionDefItem, ParamSpecAssignment, Parameter,
+};
 
 use crate::{
     ast_context::AstContext,
@@ -54,10 +56,10 @@ impl UseGObjectNotifyByPspec {
     fn check_call(
         &self,
         file_path: &std::path::Path,
-        call: &gobject_ast::CallExpression,
+        call: &CallExpression,
         source: &[u8],
         property_map: &HashMap<&str, Vec<(&str, &str, &str)>>,
-        func: &gobject_ast::types::FunctionDefItem,
+        func: &FunctionDefItem,
         violations: &mut Vec<Violation>,
     ) {
         // Need exactly 2 arguments: object and property name
@@ -165,13 +167,13 @@ impl UseGObjectNotifyByPspec {
     /// name in multiple classes)
     fn build_property_map<'a>(
         &self,
-        file: &'a gobject_ast::FileModel,
+        file: &'a FileModel,
     ) -> HashMap<&'a str, Vec<(&'a str, &'a str, &'a str)>> {
         let mut map: HashMap<&str, Vec<(&str, &str, &str)>> = HashMap::new();
 
         for gt in file.iter_all_gobject_types() {
             for assignment in &gt.properties {
-                if let gobject_ast::ParamSpecAssignment::ArraySubscript {
+                if let ParamSpecAssignment::ArraySubscript {
                     array_name,
                     enum_value,
                     property,
@@ -193,9 +195,9 @@ impl UseGObjectNotifyByPspec {
     /// Disambiguate by matching the object type to the class prefix
     fn disambiguate_by_type<'a>(
         &self,
-        call: &gobject_ast::CallExpression,
+        call: &CallExpression,
         source: &[u8],
-        func: &gobject_ast::types::FunctionDefItem,
+        func: &FunctionDefItem,
         candidates: &'a [(&'a str, &'a str, &'a str)],
     ) -> Option<&'a (&'a str, &'a str, &'a str)> {
         // Get the object expression (first argument)
@@ -207,7 +209,7 @@ impl UseGObjectNotifyByPspec {
 
         // Find which function parameter matches this identifier
         let param_type = func.get_param_by_name(&obj_identifier).and_then(|p| {
-            if let gobject_ast::types::Parameter::Regular { type_info, .. } = p {
+            if let Parameter::Regular { type_info, .. } = p {
                 Some(&type_info.base_type)
             } else {
                 None

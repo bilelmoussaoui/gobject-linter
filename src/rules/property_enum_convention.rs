@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
-use gobject_ast::{
-    EnumInfo, EnumValue, Expression, FileModel, PropertyType, top_level::TopLevelItem,
+use gobject_ast::model::{
+    EnumInfo, EnumValue, Expression, FileModel, ParamSpecAssignment, Parameter, PropertyType,
+    Statement, SwitchStatement, TopLevelItem, TypeInfo,
 };
 use heck::ToShoutySnakeCase;
 
@@ -16,7 +17,7 @@ pub struct PropertyEnumConvention;
 /// Context about which class owns a property enum
 #[derive(Debug)]
 struct ClassContext<'a> {
-    class_type_info: &'a gobject_ast::TypeInfo,
+    class_type_info: &'a TypeInfo,
     get_property_func: Option<&'a str>,
     set_property_func: Option<&'a str>,
 }
@@ -583,7 +584,7 @@ impl PropertyEnumConvention {
     /// Helper to add switch cast if not already present
     fn add_switch_cast_if_needed(
         &self,
-        switch_stmt: &gobject_ast::SwitchStatement,
+        switch_stmt: &SwitchStatement,
         enum_name: &str,
         fixes: &mut Vec<Fix>,
     ) {
@@ -610,10 +611,7 @@ impl PropertyEnumConvention {
     /// Derive enum name from class type base
     /// e.g., "ClutterActorClass" -> Some("ClutterActorProps")
     /// e.g., "MyObjectClass" -> Some("MyObjectProps")
-    fn derive_enum_name_from_class_type(
-        &self,
-        type_info: &gobject_ast::TypeInfo,
-    ) -> Option<String> {
+    fn derive_enum_name_from_class_type(&self, type_info: &TypeInfo) -> Option<String> {
         type_info
             .base_type
             .strip_suffix("Class")
@@ -627,7 +625,7 @@ impl PropertyEnumConvention {
         &self,
         file: &'a FileModel,
         enum_info: &EnumInfo,
-    ) -> Option<(ClassContext<'a>, &'a [gobject_ast::ParamSpecAssignment])> {
+    ) -> Option<(ClassContext<'a>, &'a [ParamSpecAssignment])> {
         let gobject_type = file.find_gobject_type_for_property_enum(enum_info)?;
 
         let class_init_name = gobject_type.class_init_function_name();
@@ -637,7 +635,7 @@ impl PropertyEnumConvention {
 
         // Extract class type from parameter
         let class_type_info = func.parameters.first().and_then(|p| {
-            if let gobject_ast::types::Parameter::Regular { type_info, .. } = p {
+            if let Parameter::Regular { type_info, .. } = p {
                 Some(type_info)
             } else {
                 None
@@ -651,10 +649,10 @@ impl PropertyEnumConvention {
         for assignment in func
             .body_statements
             .iter()
-            .flat_map(gobject_ast::Statement::iter_assignments)
+            .flat_map(Statement::iter_assignments)
         {
-            if let gobject_ast::Expression::FieldAccess(field) = &*assignment.lhs
-                && let gobject_ast::Expression::Identifier(ident) = assignment.rhs.as_ref()
+            if let Expression::FieldAccess(field) = &*assignment.lhs
+                && let Expression::Identifier(ident) = assignment.rhs.as_ref()
             {
                 if field.field == "get_property" {
                     get_property_func = Some(ident.name.as_str());
@@ -704,7 +702,7 @@ impl PropertyEnumConvention {
     /// from the given param_spec assignments
     fn build_property_override_map(
         &self,
-        assignments: &[gobject_ast::ParamSpecAssignment],
+        assignments: &[ParamSpecAssignment],
     ) -> HashMap<String, bool> {
         let mut property_map = HashMap::new();
 

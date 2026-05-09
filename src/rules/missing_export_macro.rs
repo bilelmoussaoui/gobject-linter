@@ -1,3 +1,5 @@
+use gobject_ast::model::{FileModel, FunctionDeclItem, GObjectType};
+
 use crate::{
     ast_context::AstContext,
     config::Config,
@@ -37,8 +39,8 @@ impl Rule for MissingExportMacro {
         &self,
         ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::types::FunctionDeclItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDeclItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         if !ast_context.is_public_header(&file.path).unwrap_or(false) {
@@ -66,8 +68,8 @@ impl Rule for MissingExportMacro {
         &self,
         ast_context: &AstContext,
         _config: &Config,
-        gobject_type: &gobject_ast::GObjectType,
-        file: &gobject_ast::FileModel,
+        gobject_type: &GObjectType,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         if !ast_context.is_public_header(&file.path).unwrap_or(false) {

@@ -1,4 +1,7 @@
-use gobject_ast::{Expression, Statement, model::types::BasicType};
+use gobject_ast::model::{
+    Argument, BasicType, CallExpression, Expression, FileModel, FunctionDeclItem, FunctionDefItem,
+    Statement,
+};
 
 use crate::{
     ast_context::AstContext,
@@ -29,8 +32,8 @@ impl Rule for UseGSourceOnce {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::types::FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDefItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Find g_idle_add, g_timeout_add, and g_timeout_add_seconds calls
@@ -61,7 +64,7 @@ impl Rule for UseGSourceOnce {
                             .filter_map(|(idx, arg)| {
                                 if idx == callback_arg_index {
                                     // Callback argument - replace cast type if present
-                                    let gobject_ast::Argument::Expression(expr) = arg;
+                                    let Argument::Expression(expr) = arg;
                                     if let Expression::Cast(cast) = &**expr
                                         && let Some(callback_name) =
                                             cast.operand.to_source_string(&file.source)
@@ -107,7 +110,7 @@ impl Rule for UseGSourceOnce {
 impl UseGSourceOnce {
     fn extract_callback_name<'a>(
         &self,
-        call: &'a gobject_ast::CallExpression,
+        call: &'a CallExpression,
         source: &[u8],
     ) -> Option<&'a str> {
         // Determine which argument is the callback based on the function name
@@ -138,11 +141,7 @@ impl UseGSourceOnce {
         None
     }
 
-    fn get_callback_fixes(
-        &self,
-        callback_name: &str,
-        file: &gobject_ast::FileModel,
-    ) -> Option<Vec<Fix>> {
+    fn get_callback_fixes(&self, callback_name: &str, file: &FileModel) -> Option<Vec<Fix>> {
         let mut fixes = Vec::new();
         let mut found_definition = false;
 
@@ -192,10 +191,7 @@ impl UseGSourceOnce {
         }
     }
 
-    fn fix_definition_return_type(
-        &self,
-        func: &gobject_ast::types::FunctionDefItem,
-    ) -> Option<Fix> {
+    fn fix_definition_return_type(&self, func: &FunctionDefItem) -> Option<Fix> {
         // Check if return type is gboolean
         if func.return_type.as_basic() != Some(BasicType::Boolean) {
             return None;
@@ -209,10 +205,7 @@ impl UseGSourceOnce {
         ))
     }
 
-    fn fix_declaration_return_type(
-        &self,
-        func: &gobject_ast::types::FunctionDeclItem,
-    ) -> Option<Fix> {
+    fn fix_declaration_return_type(&self, func: &FunctionDeclItem) -> Option<Fix> {
         // Check if return type is gboolean
         if func.return_type.as_basic() != Some(BasicType::Boolean) {
             return None;
@@ -236,7 +229,7 @@ impl UseGSourceOnce {
     fn is_callback_used_elsewhere(
         &self,
         callback_name: &str,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         source: &[u8],
     ) -> bool {
         for func in file.iter_function_definitions() {

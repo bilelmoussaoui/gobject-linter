@@ -1,13 +1,14 @@
 use std::path::Path;
 
 use gobject_ast::{
-    GType, Parameter, SignalFlag,
-    model::types::{DeclareKind, DefineKind, GObjectTypeKind, ParamFlag, PropertyType},
-    parser::Parser,
-    top_level::TypeDefItem,
+    Parser,
+    model::{
+        DeclareKind, DefineKind, GObjectTypeKind, GType, ParamFlag, Parameter, Project,
+        PropertyType, SignalFlag, TypeDefItem,
+    },
 };
 
-fn parse_fixture(fixture_name: &str) -> gobject_ast::model::Project {
+fn parse_fixture(fixture_name: &str) -> Project {
     let fixture_path = Path::new("tests/fixtures/gobject").join(fixture_name);
     let mut parser = Parser::new().expect("Failed to create parser");
     parser.parse_file(&fixture_path).expect("Failed to parse")

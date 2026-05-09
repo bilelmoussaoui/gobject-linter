@@ -1,4 +1,4 @@
-use gobject_ast::Expression;
+use gobject_ast::model::{CallExpression, Expression, FileModel, FunctionDefItem};
 
 use crate::{
     ast_context::AstContext,
@@ -29,8 +29,8 @@ impl Rule for UseGVariantNewTyped {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::types::FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDefItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         for call in func.find_calls(&["g_variant_new"]) {
@@ -40,12 +40,7 @@ impl Rule for UseGVariantNewTyped {
 }
 
 impl UseGVariantNewTyped {
-    fn check_call(
-        &self,
-        file: &gobject_ast::FileModel,
-        call: &gobject_ast::CallExpression,
-        violations: &mut Vec<Violation>,
-    ) {
+    fn check_call(&self, file: &FileModel, call: &CallExpression, violations: &mut Vec<Violation>) {
         // Need at least 1 argument (the format string)
         if call.arguments.is_empty() {
             return;

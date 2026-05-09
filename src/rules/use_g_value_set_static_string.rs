@@ -1,4 +1,4 @@
-use gobject_ast::Expression;
+use gobject_ast::model::{CallExpression, Expression, FileModel, FunctionDefItem};
 
 use crate::{
     ast_context::AstContext,
@@ -29,8 +29,8 @@ impl Rule for UseGValueSetStaticString {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::types::FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDefItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         for call in func.find_calls(&["g_value_set_string"]) {
@@ -40,13 +40,7 @@ impl Rule for UseGValueSetStaticString {
 }
 
 impl UseGValueSetStaticString {
-    fn check_call(
-        &self,
-        file: &gobject_ast::FileModel,
-
-        call: &gobject_ast::CallExpression,
-        violations: &mut Vec<Violation>,
-    ) {
+    fn check_call(&self, file: &FileModel, call: &CallExpression, violations: &mut Vec<Violation>) {
         // Need at least 2 arguments
         if call.arguments.len() < 2 {
             return;

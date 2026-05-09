@@ -1,9 +1,6 @@
 use serde::Serialize;
 
-use crate::{
-    VariableDecl,
-    model::{SourceLocation, expression::Expression, statement::Statement},
-};
+use crate::model::{Expression, SourceLocation, Statement, VariableDecl};
 
 /// The initializer clause of a `for` statement.
 #[derive(Debug, Clone, Serialize)]

@@ -1,6 +1,5 @@
 use gobject_ast::model::{
-    FunctionAnnotation, PropertyAnnotation, TypeDoc,
-    types::{FunctionDeclItem, GObjectType},
+    FunctionAnnotation, FunctionDeclItem, GObjectType, PropertyAnnotation, TypeDoc,
 };
 
 use crate::{

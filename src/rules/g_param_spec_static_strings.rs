@@ -1,9 +1,6 @@
 use std::sync::LazyLock;
 
-use gobject_ast::{
-    CallExpression,
-    types::{ParamFlag, Property},
-};
+use gobject_ast::model::{Argument, CallExpression, FileModel, GObjectType, ParamFlag, Property};
 
 use crate::{
     ast_context::AstContext,
@@ -48,8 +45,8 @@ impl Rule for GParamSpecStaticStrings {
         &self,
         _ast_context: &AstContext,
         config: &Config,
-        gobject_type: &gobject_ast::GObjectType,
-        file: &gobject_ast::FileModel,
+        gobject_type: &GObjectType,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         let static_flags = config
@@ -75,7 +72,7 @@ impl Rule for GParamSpecStaticStrings {
 impl GParamSpecStaticStrings {
     fn check_call(
         &self,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         call: &CallExpression,
         property: &Property,
         custom_static_flags: &[String],
@@ -121,11 +118,11 @@ impl GParamSpecStaticStrings {
         let new_flags = self.build_fixed_flags(&property.flags, &needed);
         let needed_desc = needed
             .iter()
-            .map(gobject_ast::ParamFlag::as_str)
+            .map(ParamFlag::as_str)
             .collect::<Vec<_>>()
             .join(" | ");
 
-        let gobject_ast::Argument::Expression(flags_expr) = call.arguments.last().unwrap();
+        let Argument::Expression(flags_expr) = call.arguments.last().unwrap();
         let fix = Fix::new(
             flags_expr.location().start_byte,
             flags_expr.location().end_byte,
@@ -176,7 +173,7 @@ impl GParamSpecStaticStrings {
         } else {
             new_flags
                 .iter()
-                .map(gobject_ast::ParamFlag::as_str)
+                .map(ParamFlag::as_str)
                 .collect::<Vec<_>>()
                 .join(" | ")
         }

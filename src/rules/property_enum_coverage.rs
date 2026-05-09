@@ -1,3 +1,5 @@
+use gobject_ast::model::{EnumInfo, FileModel};
+
 use crate::{
     ast_context::AstContext,
     config::Config,
@@ -23,8 +25,8 @@ impl Rule for PropertyEnumCoverage {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        enum_info: &gobject_ast::EnumInfo,
-        file: &gobject_ast::FileModel,
+        enum_info: &EnumInfo,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         if !enum_info.is_property_enum() {

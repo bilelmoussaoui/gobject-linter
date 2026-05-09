@@ -13,11 +13,10 @@ use tree_sitter::Node;
 
 use crate::{
     model::{
-        Comment, CommentPosition, CompoundStatement, Statement,
-        statement::{DoWhileStatement, ForInit, ForStatement, WhileStatement},
+        Comment, CommentPosition, CompoundStatement, DoWhileStatement, ForInit, ForStatement,
+        PreprocessorDirective, Statement, WhileStatement,
     },
     parser::Parser,
-    top_level::PreprocessorDirective,
 };
 
 impl Parser {

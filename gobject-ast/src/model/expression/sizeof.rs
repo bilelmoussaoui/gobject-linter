@@ -1,9 +1,6 @@
 use serde::Serialize;
 
-use crate::{
-    TypeInfo,
-    model::{SourceLocation, expression::Expression},
-};
+use crate::model::{SourceLocation, TypeInfo, expression::Expression};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SizeofExpression {

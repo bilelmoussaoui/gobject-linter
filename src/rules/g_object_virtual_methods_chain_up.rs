@@ -1,4 +1,4 @@
-use gobject_ast::{Expression, Statement, model::expression::Argument};
+use gobject_ast::model::{Argument, Expression, FileModel, FunctionDefItem, Parameter, Statement};
 
 use crate::{
     ast_context::AstContext,
@@ -25,8 +25,8 @@ impl Rule for GObjectVirtualMethodsChainUp {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::types::FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDefItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Check if function name ends with _dispose, _finalize, or _constructed
@@ -47,7 +47,7 @@ impl Rule for GObjectVirtualMethodsChainUp {
             return;
         }
 
-        let Some(gobject_ast::types::Parameter::Regular {
+        let Some(Parameter::Regular {
             type_info: first_type,
             ..
         }) = func.parameters.first()
@@ -99,11 +99,7 @@ impl GObjectVirtualMethodsChainUp {
         false
     }
 
-    fn check_expression_for_chainup(
-        &self,
-        expr: &gobject_ast::Expression,
-        method_type: &str,
-    ) -> bool {
+    fn check_expression_for_chainup(&self, expr: &Expression, method_type: &str) -> bool {
         // The chain-up lives inside a call: `<parent_base>->method(args)`
         // <parent_base> is either a direct identifier or a CLASS-macro call.
         let field_access = match expr {
@@ -136,7 +132,7 @@ impl GObjectVirtualMethodsChainUp {
     ///   - a plain identifier: `parent_class`, `object_class`, `klass`, …
     ///   - a CLASS-macro call: `G_OBJECT_CLASS(parent_class)`,
     ///     `FOO_CLASS(klass)`, …
-    fn looks_like_parent_class_base(&self, expr: &gobject_ast::Expression) -> bool {
+    fn looks_like_parent_class_base(&self, expr: &Expression) -> bool {
         match expr {
             Expression::Identifier(id) => self.is_parent_class_name(&id.name),
             Expression::Call(call) => {

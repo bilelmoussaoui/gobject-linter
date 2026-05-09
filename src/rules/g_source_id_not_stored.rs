@@ -1,4 +1,4 @@
-use gobject_ast::{Expression, Statement};
+use gobject_ast::model::{Expression, FileModel, FunctionDefItem, Statement};
 
 use crate::{
     ast_context::AstContext,
@@ -25,8 +25,8 @@ impl Rule for GSourceIdNotStored {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::types::FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDefItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // List of GSource functions that return a source ID

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::Path};
 
-use gobject_ast::{TypeInfo, types::Parameter};
+use gobject_ast::model::{Parameter, TypeInfo};
 
 use crate::{
     ast_context::AstContext,

@@ -1,4 +1,7 @@
-use gobject_ast::{Expression, Statement, top_level::TopLevelItem};
+use gobject_ast::model::{
+    CallExpression, EnumInfo, Expression, FileModel, FunctionDefItem, ParamSpecAssignment,
+    Statement, TopLevelItem,
+};
 
 use crate::{
     ast_context::AstContext,
@@ -29,8 +32,8 @@ impl Rule for UseGObjectClassInstallProperties {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        enum_info: &gobject_ast::EnumInfo,
-        file: &gobject_ast::FileModel,
+        enum_info: &EnumInfo,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         if !enum_info.is_property_enum() {
@@ -89,11 +92,11 @@ impl Rule for UseGObjectClassInstallProperties {
 impl UseGObjectClassInstallProperties {
     fn generate_fixes(
         &self,
-        file: &gobject_ast::FileModel,
-        class_init: &gobject_ast::types::FunctionDefItem,
-        install_calls: &[&gobject_ast::CallExpression],
-        assignments: &[gobject_ast::ParamSpecAssignment],
-        property_enum: &gobject_ast::EnumInfo,
+        file: &FileModel,
+        class_init: &FunctionDefItem,
+        install_calls: &[&CallExpression],
+        assignments: &[ParamSpecAssignment],
+        property_enum: &EnumInfo,
         source: &[u8],
     ) -> Vec<Fix> {
         let mut fixes = Vec::new();
@@ -102,7 +105,7 @@ impl UseGObjectClassInstallProperties {
         let param_spec_assignments: Vec<_> = assignments
             .iter()
             .filter_map(|a| {
-                if let gobject_ast::ParamSpecAssignment::Variable {
+                if let ParamSpecAssignment::Variable {
                     variable_name,
                     statement_location,
                     call,
@@ -309,7 +312,7 @@ impl UseGObjectClassInstallProperties {
             if let Some(decl) = class_init
                 .body_statements
                 .iter()
-                .flat_map(gobject_ast::Statement::iter_declarations)
+                .flat_map(Statement::iter_declarations)
                 .find(|decl| decl.name == var_name && decl.type_info.base_type == "GParamSpec")
             {
                 fixes.push(Fix::delete_line(&decl.location, source));
@@ -341,7 +344,7 @@ impl UseGObjectClassInstallProperties {
     }
 
     /// Determine the N_PROPS name based on enum naming convention
-    fn determine_n_props_name(&self, property_enum: &gobject_ast::EnumInfo) -> String {
+    fn determine_n_props_name(&self, property_enum: &EnumInfo) -> String {
         // Look for common prefixes in enum values
         if let Some(first_value) = property_enum.values.first() {
             let name = &first_value.name;
@@ -362,7 +365,7 @@ impl UseGObjectClassInstallProperties {
 
     /// Determine the array name, preferring "props" but using "obj_props" if
     /// "props" exists
-    fn determine_array_name(&self, file: &gobject_ast::FileModel, _source: &[u8]) -> String {
+    fn determine_array_name(&self, file: &FileModel, _source: &[u8]) -> String {
         // Check if "props" is already used as a GParamSpec array
         for item in &file.top_level_items {
             if let TopLevelItem::Declaration(decl) = item

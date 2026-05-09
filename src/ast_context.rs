@@ -5,7 +5,10 @@ use std::{
 
 use anyhow::Result;
 use globset::GlobSet;
-use gobject_ast::{FileModel, Project, parser::Parser};
+use gobject_ast::{
+    Parser,
+    model::{FileModel, Project},
+};
 use ignore::WalkBuilder;
 use indicatif::ProgressBar;
 use rayon::prelude::*;

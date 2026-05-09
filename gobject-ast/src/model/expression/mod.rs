@@ -25,7 +25,7 @@ pub use literal::{
     BooleanExpression, CharLiteralExpression, CommentExpression, GenericExpression, NullExpression,
     NumberLiteralExpression, StringLiteralExpression,
 };
-pub use offsetof::{OffsetOfExpression, StructField};
+pub use offsetof::{OffsetField, OffsetOfExpression};
 use serde::Serialize;
 pub use sizeof::{SizeofExpression, SizeofOperand};
 pub use subscript::SubscriptExpression;

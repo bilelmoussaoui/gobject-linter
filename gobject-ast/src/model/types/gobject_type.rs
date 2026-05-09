@@ -1,13 +1,8 @@
 use serde::{Serialize, Serializer, ser::SerializeMap as _};
 
-use crate::{
-    SourceLocation, Statement, TypeInfo,
-    model::{
-        doc::{FunctionDoc, TypeDoc},
-        types::{
-            FunctionDefItem, GType, Signal, function::Parameter, property::ParamSpecAssignment,
-        },
-    },
+use crate::model::{
+    FunctionDefItem, FunctionDoc, GType, ParamSpecAssignment, Parameter, Signal, SourceLocation,
+    Statement, TypeDoc, TypeInfo,
 };
 
 #[derive(Debug, Clone, Serialize)]

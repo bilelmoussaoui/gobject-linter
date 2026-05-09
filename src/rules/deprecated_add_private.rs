@@ -1,3 +1,5 @@
+use gobject_ast::model::{FileModel, FunctionDefItem};
+
 use crate::{
     ast_context::AstContext,
     config::Config,
@@ -23,8 +25,8 @@ impl Rule for DeprecatedAddPrivate {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::types::FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDefItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         for call in func.find_calls(&["g_type_class_add_private"]) {

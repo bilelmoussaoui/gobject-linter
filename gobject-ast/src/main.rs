@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use anyhow::{Result, bail};
 use clap::{Parser, Subcommand, ValueEnum};
 use gobject_ast::{
-    Parser as AstParser, Project,
-    model::top_level::{TopLevelItem, TopLevelItemKind},
+    Parser as AstParser,
+    model::{Project, TopLevelItem, TopLevelItemKind},
 };
 use serde_json::json;
 use tree_sitter::Node;

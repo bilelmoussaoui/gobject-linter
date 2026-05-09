@@ -24,8 +24,7 @@ pub use variable_decl::VariableDecl;
 pub use while_stmt::{DoWhileStatement, WhileStatement};
 
 use crate::model::{
-    Assignment, CallExpression, Comment, Expression, SourceLocation,
-    top_level::PreprocessorDirective,
+    Assignment, CallExpression, Comment, Expression, PreprocessorDirective, SourceLocation,
 };
 
 #[derive(Debug, Clone, Serialize)]

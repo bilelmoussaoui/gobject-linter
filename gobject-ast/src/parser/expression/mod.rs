@@ -12,8 +12,10 @@ use tree_sitter::Node;
 
 use crate::{
     model::{
-        expression::{Designator, InitializerItem},
-        *,
+        BooleanExpression, CharLiteralExpression, CommentExpression, Designator, Expression,
+        FieldAccessExpression, FieldAccessOp, GenericExpression, IdentifierExpression,
+        InitializerItem, InitializerListExpression, NullExpression, NumberLiteralExpression,
+        OffsetField, OffsetOfExpression, StringLiteralExpression,
     },
     parser::Parser,
 };
@@ -182,7 +184,7 @@ impl Parser {
                     .trim()
                     .to_owned();
                 Some(Expression::OffsetOf(OffsetOfExpression {
-                    struct_field: StructField { struct_type, field },
+                    struct_field: OffsetField { struct_type, field },
                     location: self.node_location(node),
                 }))
             }

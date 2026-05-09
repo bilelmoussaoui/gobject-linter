@@ -1,8 +1,7 @@
 use tree_sitter::Node;
 
 use crate::{
-    Statement,
-    model::{CaseLabel, SwitchCase, SwitchStatement},
+    model::{CaseLabel, Statement, SwitchCase, SwitchStatement},
     parser::Parser,
 };
 

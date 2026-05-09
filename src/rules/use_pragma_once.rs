@@ -1,6 +1,5 @@
-use gobject_ast::{
-    SourceLocation,
-    top_level::{ConditionalKind, PreprocessorDirective, TopLevelItem},
+use gobject_ast::model::{
+    ConditionalKind, PragmaKind, PreprocessorDirective, SourceLocation, TopLevelItem,
 };
 
 use crate::{
@@ -40,7 +39,7 @@ impl Rule for UsePragmaOnce {
                 matches!(
                     item,
                     TopLevelItem::Preprocessor(PreprocessorDirective::Pragma {
-                        kind: gobject_ast::top_level::PragmaKind::Once,
+                        kind: PragmaKind::Once,
                         ..
                     })
                 )
@@ -95,7 +94,7 @@ impl UsePragmaOnce {
     /// Returns (ifndef_location, define_location, endif_location, guard_name)
     fn find_include_guard<'a>(
         &self,
-        items: &'a [gobject_ast::top_level::TopLevelItem],
+        items: &'a [TopLevelItem],
     ) -> Option<(SourceLocation, SourceLocation, SourceLocation, &'a str)> {
         // The first non-comment item should be #ifndef (traditional include guard)
         items
@@ -139,7 +138,7 @@ impl UsePragmaOnce {
     /// content after it
     fn find_matching_define(
         &self,
-        body: &[gobject_ast::top_level::TopLevelItem],
+        body: &[TopLevelItem],
         guard_name: &str,
     ) -> Option<SourceLocation> {
         let non_comment_items: Vec<_> = body

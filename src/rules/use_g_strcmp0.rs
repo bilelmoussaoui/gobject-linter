@@ -1,4 +1,4 @@
-use gobject_ast::{Expression, Statement};
+use gobject_ast::model::{Expression, FileModel, FunctionDefItem, Statement};
 
 use crate::{
     ast_context::AstContext,
@@ -29,8 +29,8 @@ impl Rule for UseGStrcmp0 {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::types::FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDefItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         self.check_statements(&func.body_statements, file, violations);
@@ -41,7 +41,7 @@ impl UseGStrcmp0 {
     fn check_statements(
         &self,
         statements: &[Statement],
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         for stmt in statements {
@@ -60,7 +60,7 @@ impl UseGStrcmp0 {
     fn check_expression(
         &self,
         expr: &Expression,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Check for strcmp usage (suggest g_strcmp0 for NULL-safety)

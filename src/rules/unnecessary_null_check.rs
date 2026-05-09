@@ -1,4 +1,6 @@
-use gobject_ast::{Expression, Statement};
+use gobject_ast::model::{
+    Argument, Expression, FileModel, FunctionDefItem, IfStatement, Statement,
+};
 
 use crate::{
     ast_context::AstContext,
@@ -29,8 +31,8 @@ impl Rule for UnnecessaryNullCheck {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::types::FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDefItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Walk through function body looking for if statements
@@ -46,8 +48,8 @@ impl Rule for UnnecessaryNullCheck {
 impl UnnecessaryNullCheck {
     fn check_if_statement(
         &self,
-        if_stmt: &gobject_ast::IfStatement,
-        file: &gobject_ast::FileModel,
+        if_stmt: &IfStatement,
+        file: &FileModel,
         source: &[u8],
         violations: &mut Vec<Violation>,
     ) {
@@ -90,7 +92,7 @@ impl UnnecessaryNullCheck {
         let references_var = call
             .arguments
             .iter()
-            .any(|gobject_ast::Argument::Expression(e)| e.contains_identifier(checked_var));
+            .any(|Argument::Expression(e)| e.contains_identifier(checked_var));
 
         if !references_var {
             return;

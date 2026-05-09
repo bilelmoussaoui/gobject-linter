@@ -1,3 +1,5 @@
+use gobject_ast::model::{CallExpression, FileModel, FunctionDefItem};
+
 use crate::{
     ast_context::AstContext,
     config::Config,
@@ -85,8 +87,8 @@ impl Rule for UseExplicitDefaultFlags {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::types::FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDefItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Collect all function names from FLAG_REPLACEMENTS
@@ -99,12 +101,7 @@ impl Rule for UseExplicitDefaultFlags {
 }
 
 impl UseExplicitDefaultFlags {
-    fn check_call(
-        &self,
-        file: &gobject_ast::FileModel,
-        call: &gobject_ast::CallExpression,
-        violations: &mut Vec<Violation>,
-    ) {
+    fn check_call(&self, file: &FileModel, call: &CallExpression, violations: &mut Vec<Violation>) {
         // Find the matching replacement rule
         for &(target_func, arg_pos, replacement_const) in FLAG_REPLACEMENTS {
             if call.is_function(target_func) {

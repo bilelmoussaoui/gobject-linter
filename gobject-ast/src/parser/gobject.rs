@@ -1,13 +1,9 @@
 use tree_sitter::Node;
 
 use crate::{
-    Statement,
     model::{
-        Expression, FunctionDoc,
-        types::{
-            DeclareKind, DefineKind, GObjectType, GObjectTypeKind, GType, InterfaceImplementation,
-            VirtualFunction,
-        },
+        DeclareKind, DefineKind, Expression, FunctionDoc, GObjectType, GObjectTypeKind, GType,
+        InterfaceImplementation, Statement, VirtualFunction,
     },
     parser::Parser,
 };

@@ -1,8 +1,7 @@
 use tree_sitter::Node;
 
 use crate::{
-    TypeInfo,
-    model::expression::{SizeofExpression, SizeofOperand},
+    model::{SizeofExpression, SizeofOperand, TypeInfo},
     parser::Parser,
 };
 

@@ -1,4 +1,9 @@
-use gobject_ast::{Expression, ParamFlag, PropertyType, SwitchStatement};
+use std::collections::HashMap;
+
+use gobject_ast::model::{
+    Expression, FileModel, FunctionDefItem, ParamFlag, ParamSpecAssignment, Property, PropertyType,
+    Statement, SwitchStatement,
+};
 
 use crate::{
     ast_context::AstContext,
@@ -70,7 +75,7 @@ impl Rule for PropertySwitchExhaustiveness {
         let readable_flags = self.get_flag_patterns(rule_config, "readable_flags");
         let writable_flags = self.get_flag_patterns(rule_config, "writable_flags");
 
-        for (path, file) in ast_context.iter_all_files() {
+        for (_path, file) in ast_context.iter_all_files() {
             for enum_info in file.iter_property_enums() {
                 // Find the associated GObjectType
                 let Some(gobject_type) = file.find_gobject_type_for_property_enum(enum_info) else {
@@ -110,7 +115,6 @@ impl Rule for PropertySwitchExhaustiveness {
                 if let Some(func_name) = get_property_func {
                     self.check_property_function(
                         file,
-                        path,
                         func_name,
                         &property_names,
                         &property_access,
@@ -124,7 +128,6 @@ impl Rule for PropertySwitchExhaustiveness {
                 if let Some(func_name) = set_property_func {
                     self.check_property_function(
                         file,
-                        path,
                         func_name,
                         &property_names,
                         &property_access,
@@ -175,12 +178,12 @@ impl PropertySwitchExhaustiveness {
     /// type
     fn build_property_access_map<'a>(
         &self,
-        assignments: &'a [gobject_ast::ParamSpecAssignment],
+        assignments: &'a [ParamSpecAssignment],
         source: &'a [u8],
         readable_flags: &[ParamFlag],
         writable_flags: &[ParamFlag],
-    ) -> std::collections::HashMap<&'a str, Option<(bool, bool)>> {
-        let mut access_map = std::collections::HashMap::new();
+    ) -> HashMap<&'a str, Option<(bool, bool)>> {
+        let mut access_map = HashMap::new();
 
         for assignment in assignments {
             if let Some(enum_val) = assignment.get_installed_enum_value(source) {
@@ -198,7 +201,7 @@ impl PropertySwitchExhaustiveness {
     /// Some((is_readable, is_writable))
     fn get_property_access(
         &self,
-        property: &gobject_ast::Property,
+        property: &Property,
         readable_flags: &[ParamFlag],
         writable_flags: &[ParamFlag],
     ) -> Option<(bool, bool)> {
@@ -217,13 +220,13 @@ impl PropertySwitchExhaustiveness {
     /// Find function name assigned to object_class->field in class_init
     fn find_assigned_function<'a>(
         &self,
-        class_init: &'a gobject_ast::types::FunctionDefItem,
+        class_init: &'a FunctionDefItem,
         field_name: &str,
     ) -> Option<&'a str> {
         class_init
             .body_statements
             .iter()
-            .flat_map(gobject_ast::Statement::iter_assignments)
+            .flat_map(Statement::iter_assignments)
             .find_map(|assignment| {
                 if let Expression::FieldAccess(field_access) = &*assignment.lhs
                     && field_access.field == field_name
@@ -240,11 +243,10 @@ impl PropertySwitchExhaustiveness {
     #[allow(clippy::too_many_arguments)]
     fn check_property_function(
         &self,
-        file: &gobject_ast::FileModel,
-        path: &std::path::Path,
+        file: &FileModel,
         func_name: &str,
         property_names: &[&str],
-        property_access: &std::collections::HashMap<&str, Option<(bool, bool)>>,
+        property_access: &HashMap<&str, Option<(bool, bool)>>,
         is_getter: bool,
         style: &str,
         violations: &mut Vec<Violation>,
@@ -329,7 +331,7 @@ impl PropertySwitchExhaustiveness {
                                     prop_name, func_name
                                 );
                                 violations.push(self.violation(
-                                    path,
+                                    &file.path,
                                     switch_stmt.location.line,
                                     1,
                                     message,
@@ -344,7 +346,7 @@ impl PropertySwitchExhaustiveness {
                                 prop_name, func_name
                             );
                             violations.push(self.violation(
-                                path,
+                                &file.path,
                                 switch_stmt.location.line,
                                 1,
                                 message,
@@ -390,7 +392,7 @@ impl PropertySwitchExhaustiveness {
                         )
                     };
                     violations.push(self.violation_with_fixes(
-                        path,
+                        &file.path,
                         switch_stmt.location.line,
                         1,
                         message,
@@ -408,7 +410,7 @@ impl PropertySwitchExhaustiveness {
                     let (start, end) = self.find_default_case_range(switch_stmt, &file.source);
                     let fix = Fix::new(start, end, String::new());
                     violations.push(self.violation_with_fixes(
-                            path,
+                            &file.path,
                             switch_stmt.location.line,
                             1,
                             "Switch is exhaustive with enum cast; default case can be removed for compile-time checking".to_string(),

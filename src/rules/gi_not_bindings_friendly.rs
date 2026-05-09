@@ -1,7 +1,4 @@
-use gobject_ast::{
-    model::FunctionAnnotation,
-    types::{FunctionDeclItem, Parameter},
-};
+use gobject_ast::model::{FunctionAnnotation, FunctionDeclItem, Parameter};
 
 use crate::{
     ast_context::AstContext,

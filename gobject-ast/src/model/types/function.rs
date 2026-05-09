@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
-use crate::{
+use crate::model::{
     CallExpression, Expression, FunctionDoc, ParamSpecAssignment, Property, PropertyDoc, Signal,
     SignalDoc, SourceLocation, Statement, TypeInfo, VariableDecl,
 };

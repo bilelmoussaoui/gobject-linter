@@ -2,15 +2,10 @@ use std::{collections::HashMap, path::PathBuf};
 
 use serde::Serialize;
 
-use crate::{
-    Comment, GObjectType, SourceLocation, Statement, TypeInfo, VariableDecl,
-    model::{
-        doc::TypeDoc,
-        expression::Expression,
-        top_level::TopLevelItem,
-        types::{EnumInfo, FunctionDeclItem, FunctionDefItem},
-    },
-    top_level::{PreprocessorDirective, TypeDefItem, TypedefTarget},
+use crate::model::{
+    Comment, EnumInfo, Expression, FunctionDeclItem, FunctionDefItem, GObjectType,
+    PreprocessorDirective, SourceLocation, Statement, TopLevelItem, TypeDefItem, TypeDoc, TypeInfo,
+    TypedefTarget, VariableDecl,
 };
 
 /// The complete project model - a map of files to their content

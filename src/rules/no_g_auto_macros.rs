@@ -1,3 +1,5 @@
+use gobject_ast::model::{FileModel, FunctionDefItem};
+
 use crate::{
     ast_context::AstContext,
     config::Config,
@@ -27,8 +29,8 @@ impl Rule for NoGAutoMacros {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::types::FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDefItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Check all variable declarations in the function

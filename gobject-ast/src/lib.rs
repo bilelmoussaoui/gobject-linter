@@ -1,7 +1,6 @@
 pub mod model;
-pub mod parser;
+mod parser;
 
-pub use model::*;
 pub use parser::Parser;
 
 #[cfg(test)]

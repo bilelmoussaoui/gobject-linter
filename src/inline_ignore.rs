@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::Path};
 
-use gobject_ast::FileModel;
+use gobject_ast::model::FileModel;
 
 /// Parse inline ignore directives from comments
 /// Returns a map of (line_number -> set of ignored rules)

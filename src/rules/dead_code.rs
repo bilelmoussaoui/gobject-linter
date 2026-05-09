@@ -1,14 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
-use gobject_ast::{
-    SourceLocation,
-    model::{
-        AssignmentOp, TypeInfo,
-        expression::{Argument, Designator, Expression},
-        statement::{Statement, VariableDecl},
-        top_level::{PreprocessorDirective, TopLevelItem, TypeDefItem},
-        types::GObjectTypeKind,
-    },
+use gobject_ast::model::{
+    Argument, AssignmentOp, Designator, Expression, FileModel, GObjectTypeKind, Parameter,
+    PreprocessorDirective, SourceLocation, Statement, StructField, TopLevelItem, TypeDefItem,
+    TypeInfo, VariableDecl,
 };
 
 use crate::{
@@ -91,7 +86,7 @@ fn collect_all_refs(ast_context: &AstContext) -> AllRefs {
         for func in file.iter_function_definitions() {
             collect_type_ref(&func.return_type, &mut type_refs);
             for param in &func.parameters {
-                if let gobject_ast::types::Parameter::Regular { type_info, .. } = param {
+                if let Parameter::Regular { type_info, .. } = param {
                     collect_type_ref(type_info, &mut type_refs);
                 }
             }
@@ -127,7 +122,7 @@ fn collect_all_refs(ast_context: &AstContext) -> AllRefs {
         for func in file.iter_function_declarations() {
             collect_type_ref(&func.return_type, &mut type_refs);
             for param in &func.parameters {
-                if let gobject_ast::types::Parameter::Regular { type_info, .. } = param {
+                if let Parameter::Regular { type_info, .. } = param {
                     collect_type_ref(type_info, &mut type_refs);
                 }
             }
@@ -300,7 +295,7 @@ fn collect_private_defs<'a>(
 }
 
 fn collect_fields_into_defs<'a>(
-    fields: &'a [gobject_ast::model::top_level::StructField],
+    fields: &'a [StructField],
     struct_name: &'a str,
     path: &'a std::path::Path,
     defs: &mut FieldDefMap<'a>,
@@ -328,7 +323,7 @@ fn collect_fields_into_defs<'a>(
 }
 
 fn collect_gobject_implicit_refs(
-    file: &gobject_ast::FileModel,
+    file: &FileModel,
     func_refs: &mut HashSet<String>,
     type_refs: &mut HashSet<String>,
 ) {
@@ -426,10 +421,7 @@ fn collect_type_refs_from_top_level_item(item: &TopLevelItem, refs: &mut HashSet
     }
 }
 
-fn collect_type_refs_from_fields(
-    fields: &[gobject_ast::model::top_level::StructField],
-    refs: &mut HashSet<String>,
-) {
+fn collect_type_refs_from_fields(fields: &[StructField], refs: &mut HashSet<String>) {
     for field in fields {
         field.walk(&mut |f| collect_type_ref(&f.field_type, refs));
     }

@@ -1,4 +1,6 @@
-use gobject_ast::{Assignment, AssignmentOp, CallExpression, Expression, Statement};
+use gobject_ast::model::{
+    Assignment, AssignmentOp, CallExpression, Expression, FileModel, FunctionDefItem, Statement,
+};
 
 use crate::{
     ast_context::AstContext,
@@ -29,8 +31,8 @@ impl Rule for UseGBytesUnrefToData {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::types::FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDefItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         Statement::walk_pairs(&func.body_statements, &mut |stmt1, stmt2| {
@@ -45,7 +47,7 @@ impl UseGBytesUnrefToData {
         &self,
         stmt1: &Statement,
         stmt2: &Statement,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // First statement: dest = g_bytes_get_data(bytes, &size)

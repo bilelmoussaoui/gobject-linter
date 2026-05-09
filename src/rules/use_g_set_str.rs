@@ -1,4 +1,6 @@
-use gobject_ast::{AssignmentOp, Expression, Statement, UnaryOp};
+use gobject_ast::model::{
+    AssignmentOp, Expression, FileModel, FunctionDefItem, Statement, UnaryOp,
+};
 
 use crate::{
     ast_context::AstContext,
@@ -29,8 +31,8 @@ impl Rule for UseGSetStr {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::types::FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDefItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         Statement::walk_pairs(&func.body_statements, &mut |s1, s2| {
@@ -45,7 +47,7 @@ impl UseGSetStr {
         &self,
         s1: &Statement,
         s2: &Statement,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) -> bool {
         // First statement: g_free(var) or g_clear_pointer(&var, g_free)

@@ -1,9 +1,6 @@
 use std::{path::Path, sync::LazyLock};
 
-use gobject_ast::{
-    Include,
-    top_level::{PreprocessorDirective, TopLevelItem},
-};
+use gobject_ast::model::{Include, PreprocessorDirective, TopLevelItem};
 
 use crate::{
     ast_context::AstContext,
@@ -74,7 +71,7 @@ impl IncludeOrder {
     /// together
     fn check_include_groups(
         &self,
-        items: &[gobject_ast::top_level::TopLevelItem],
+        items: &[TopLevelItem],
         file_path: &Path,
         source: &[u8],
         config_header: &str,

@@ -1,4 +1,4 @@
-use gobject_ast::{CallExpression, Expression};
+use gobject_ast::model::{CallExpression, Expression, FileModel, FunctionDefItem};
 
 use crate::{
     ast_context::AstContext,
@@ -29,8 +29,8 @@ impl Rule for UseGSettingsTyped {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::types::FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDefItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Check for g_settings_set_value calls
@@ -60,7 +60,7 @@ impl Rule for UseGSettingsTyped {
 impl UseGSettingsTyped {
     fn check_settings_set_call(
         &self,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         call: &CallExpression,
         violations: &mut Vec<Violation>,
     ) {
@@ -126,7 +126,7 @@ impl UseGSettingsTyped {
 
     fn check_variant_get_call(
         &self,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         call: &CallExpression,
         violations: &mut Vec<Violation>,
     ) {
@@ -204,7 +204,7 @@ impl UseGSettingsTyped {
     fn extract_variant_pattern(
         &self,
         variant_call: &CallExpression,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
     ) -> Option<(String, &'static str, String)> {
         // Need at least 1 argument (the format string)
         if variant_call.arguments.is_empty() {

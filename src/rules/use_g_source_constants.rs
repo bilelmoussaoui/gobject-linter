@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use gobject_ast::{Expression, Statement};
+use gobject_ast::model::{CallExpression, Expression, Statement};
 
 use crate::{
     ast_context::AstContext,
@@ -69,7 +69,7 @@ impl Rule for UseGSourceConstants {
 impl UseGSourceConstants {
     fn extract_callback_name<'a>(
         &self,
-        call: &'a gobject_ast::CallExpression,
+        call: &'a CallExpression,
         _source: &[u8],
     ) -> Option<&'a str> {
         // Map of source-add function name → zero-based index of the GSourceFunc

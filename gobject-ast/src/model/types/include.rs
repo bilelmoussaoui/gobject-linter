@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::SourceLocation;
+use crate::model::SourceLocation;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Include {

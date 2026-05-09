@@ -1,4 +1,4 @@
-use gobject_ast::{Argument, Expression};
+use gobject_ast::model::{Argument, Expression, FileModel, FunctionDefItem};
 
 use crate::{
     ast_context::AstContext,
@@ -29,8 +29,8 @@ impl Rule for SignalCanonicalName {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::types::FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDefItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         const NAME_ARG_FIRST: &[&str] = &[
@@ -69,8 +69,8 @@ impl SignalCanonicalName {
     /// Check a signal name argument (should be a string literal)
     fn check_signal_name_arg(
         &self,
-        expr: &gobject_ast::Expression,
-        file: &gobject_ast::FileModel,
+        expr: &Expression,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         if let Expression::StringLiteral(string_lit) = expr {

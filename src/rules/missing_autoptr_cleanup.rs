@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 
-use gobject_ast::types::{DefineKind, GObjectTypeKind};
+use gobject_ast::model::{
+    DefineKind, GObjectTypeKind, PreprocessorDirective, SourceLocation, TopLevelItem,
+};
 
 use crate::{
     ast_context::AstContext,
@@ -38,12 +40,8 @@ impl Rule for MissingAutoptrCleanup {
         _config: &Config,
         violations: &mut Vec<Violation>,
     ) {
-        let mut types_needing_cleanup: Vec<(
-            &std::path::Path,
-            &str,
-            gobject_ast::SourceLocation,
-            &'static str,
-        )> = Vec::new();
+        let mut types_needing_cleanup: Vec<(&std::path::Path, &str, SourceLocation, &'static str)> =
+            Vec::new();
         let mut declared_types: HashSet<&str> = HashSet::new();
         let mut autoptr_cleanups: HashSet<&str> = HashSet::new();
 
@@ -75,11 +73,8 @@ impl Rule for MissingAutoptrCleanup {
             }
 
             for item in file.iter_all_items() {
-                if let gobject_ast::model::top_level::TopLevelItem::Preprocessor(directive) = item
-                    && let gobject_ast::model::top_level::PreprocessorDirective::AutoptrCleanupFunc {
-                        type_name,
-                        ..
-                    } = directive
+                if let TopLevelItem::Preprocessor(directive) = item
+                    && let PreprocessorDirective::AutoptrCleanupFunc { type_name, .. } = directive
                 {
                     autoptr_cleanups.insert(type_name);
                 }

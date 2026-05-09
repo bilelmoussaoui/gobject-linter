@@ -1,4 +1,4 @@
-use gobject_ast::{Argument, Expression, Statement};
+use gobject_ast::model::{Argument, Expression, FileModel, FunctionDefItem, Statement};
 
 use crate::{
     ast_context::AstContext,
@@ -25,8 +25,8 @@ impl Rule for UntranslatedString {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::types::FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDefItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         self.check_statements(&func.body_statements, file, violations);
@@ -37,7 +37,7 @@ impl UntranslatedString {
     fn check_statements(
         &self,
         statements: &[Statement],
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         for stmt in statements {
@@ -57,7 +57,7 @@ impl UntranslatedString {
     fn check_expression(
         &self,
         expr: &Expression,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Look for function calls
@@ -79,7 +79,7 @@ impl UntranslatedString {
         &self,
         arg: &Argument,
         func_name: &str,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Extract the expression from the argument

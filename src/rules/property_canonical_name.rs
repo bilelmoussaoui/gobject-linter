@@ -1,7 +1,4 @@
-use gobject_ast::{
-    CallExpression, Expression,
-    types::{ParamFlag, Property},
-};
+use gobject_ast::model::{CallExpression, Expression, FileModel, GObjectType, ParamFlag, Property};
 
 use crate::{
     ast_context::AstContext,
@@ -32,8 +29,8 @@ impl Rule for PropertyCanonicalName {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        gobject_type: &gobject_ast::GObjectType,
-        file: &gobject_ast::FileModel,
+        gobject_type: &GObjectType,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         for assignment in &gobject_type.properties {
@@ -48,7 +45,7 @@ impl Rule for PropertyCanonicalName {
 impl PropertyCanonicalName {
     fn check_call(
         &self,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         call: &CallExpression,
         property: &Property,
         violations: &mut Vec<Violation>,

@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::SourceLocation;
+use crate::model::SourceLocation;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]

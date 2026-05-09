@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use gobject_ast::Project;
+use gobject_ast::model::Project;
 
 /// Bidirectional mapping between typedef names and struct/union tags, plus
 /// GObject-synthesised aliases (`Foo` ↔ `_Foo`).

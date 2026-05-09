@@ -1,7 +1,4 @@
-use gobject_ast::{
-    CallExpression,
-    types::{ParamFlag, Property},
-};
+use gobject_ast::model::{Argument, CallExpression, FileModel, GObjectType, ParamFlag, Property};
 
 use crate::{
     ast_context::AstContext,
@@ -32,8 +29,8 @@ impl Rule for GParamSpecNullNickBlurb {
         &self,
         _ast_context: &AstContext,
         config: &Config,
-        gobject_type: &gobject_ast::GObjectType,
-        file: &gobject_ast::FileModel,
+        gobject_type: &GObjectType,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         let static_flags = config
@@ -59,7 +56,7 @@ impl Rule for GParamSpecNullNickBlurb {
 impl GParamSpecNullNickBlurb {
     fn check_call(
         &self,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         call: &CallExpression,
         property: &Property,
         custom_static_flags: &[String],
@@ -126,7 +123,7 @@ impl GParamSpecNullNickBlurb {
         let mut fixes = vec![string_fix];
 
         if let Some(new_flags) = self.compute_new_flags(&property.flags) {
-            let gobject_ast::Argument::Expression(flags_expr) = call.arguments.last().unwrap();
+            let Argument::Expression(flags_expr) = call.arguments.last().unwrap();
             fixes.push(Fix::new(
                 flags_expr.location().start_byte,
                 flags_expr.location().end_byte,
@@ -147,7 +144,7 @@ impl GParamSpecNullNickBlurb {
         ));
     }
 
-    fn compute_new_flags(&self, current_flags: &[gobject_ast::types::ParamFlag]) -> Option<String> {
+    fn compute_new_flags(&self, current_flags: &[ParamFlag]) -> Option<String> {
         let needs_removal = current_flags.iter().any(|f| {
             matches!(
                 f,
@@ -182,7 +179,7 @@ impl GParamSpecNullNickBlurb {
         } else {
             new_flags
                 .iter()
-                .map(gobject_ast::ParamFlag::as_str)
+                .map(ParamFlag::as_str)
                 .collect::<Vec<_>>()
                 .join(" | ")
         })

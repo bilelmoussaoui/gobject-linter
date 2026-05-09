@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use gobject_ast::{Argument, Expression, Statement, UnaryOp, types::FunctionDefItem};
+use gobject_ast::model::{Argument, Expression, FileModel, FunctionDefItem, Statement, UnaryOp};
 
 use crate::{
     ast_context::AstContext,
@@ -32,7 +32,7 @@ impl Rule for UseGFileLoadBytes {
         _ast_context: &AstContext,
         _config: &Config,
         func: &FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         self.check_function(func, file, violations);
@@ -43,7 +43,7 @@ impl UseGFileLoadBytes {
     fn check_function(
         &self,
         func: &FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Find all g_file_load_contents calls and track their output variables
@@ -85,7 +85,7 @@ impl UseGFileLoadBytes {
     fn find_bytes_new_take_violations(
         &self,
         statements: &[Statement],
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         load_contents_vars: &HashSet<&str>,
         violations: &mut Vec<Violation>,
     ) {
@@ -127,7 +127,7 @@ impl UseGFileLoadBytes {
     fn check_expr_for_bytes_new_take(
         &self,
         expr: &Expression,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         load_contents_vars: &HashSet<&str>,
         violations: &mut Vec<Violation>,
     ) {

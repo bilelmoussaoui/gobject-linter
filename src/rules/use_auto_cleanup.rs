@@ -1,7 +1,9 @@
 use std::{collections::HashMap, sync::LazyLock};
 
 use globset::{Glob, GlobSet, GlobSetBuilder};
-use gobject_ast::{Expression, Statement, TypeInfo, expression::Argument, types::FunctionDefItem};
+use gobject_ast::model::{
+    Argument, Expression, FileModel, FunctionDefItem, SourceLocation, Statement, TypeInfo,
+};
 
 use crate::{
     ast_context::AstContext,
@@ -99,7 +101,7 @@ impl UseAutoCleanup {
         violations: &mut Vec<Violation>,
         ignore_types: &GlobSet,
     ) {
-        let local_vars: HashMap<&str, (&TypeInfo, gobject_ast::SourceLocation)> = func
+        let local_vars: HashMap<&str, (&TypeInfo, SourceLocation)> = func
             .iter_local_declarations()
             .filter(|d| {
                 !d.type_info.uses_auto_cleanup()
@@ -220,7 +222,7 @@ impl UseAutoCleanup {
     fn check_goto_cleanup(
         &self,
         func: &FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         let allocated_vars = self.find_allocated_variables(&func.body_statements);
@@ -249,10 +251,10 @@ impl UseAutoCleanup {
     fn find_allocated_variables<'a>(
         &self,
         statements: &'a [Statement],
-    ) -> HashMap<&'a str, (&'a TypeInfo, gobject_ast::SourceLocation)> {
+    ) -> HashMap<&'a str, (&'a TypeInfo, SourceLocation)> {
         let mut result = HashMap::new();
 
-        let local_vars: HashMap<&str, (&TypeInfo, gobject_ast::SourceLocation)> = statements
+        let local_vars: HashMap<&str, (&TypeInfo, SourceLocation)> = statements
             .iter()
             .flat_map(Statement::iter_declarations)
             .filter(|d| {
@@ -271,8 +273,8 @@ impl UseAutoCleanup {
     fn collect_allocated_vars<'a>(
         &self,
         statements: &'a [Statement],
-        local_vars: &HashMap<&str, (&'a TypeInfo, gobject_ast::SourceLocation)>,
-        result: &mut HashMap<&'a str, (&'a TypeInfo, gobject_ast::SourceLocation)>,
+        local_vars: &HashMap<&str, (&'a TypeInfo, SourceLocation)>,
+        result: &mut HashMap<&'a str, (&'a TypeInfo, SourceLocation)>,
     ) {
         for stmt in statements {
             stmt.walk(&mut |s| match s {

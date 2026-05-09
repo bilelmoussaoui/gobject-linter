@@ -1,13 +1,6 @@
 use serde::Serialize;
 
-use crate::{
-    SourceLocation,
-    model::{
-        Expression,
-        doc::{EnumValueDoc, TypeDoc},
-        operators::BinaryOp,
-    },
-};
+use crate::model::{BinaryOp, EnumValueDoc, Expression, SourceLocation, TypeDoc};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct EnumInfo {

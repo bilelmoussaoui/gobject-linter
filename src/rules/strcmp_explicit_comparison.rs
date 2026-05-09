@@ -1,4 +1,4 @@
-use gobject_ast::{BinaryOp, Expression, UnaryOp};
+use gobject_ast::model::{BinaryOp, Expression, FileModel, FunctionDefItem, UnaryOp};
 
 use crate::{
     ast_context::AstContext,
@@ -29,8 +29,8 @@ impl Rule for StrcmpExplicitComparison {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::types::FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDefItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         for stmt in &func.body_statements {
@@ -45,7 +45,7 @@ impl StrcmpExplicitComparison {
     fn check_condition(
         &self,
         condition: &Expression,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
 
         violations: &mut Vec<Violation>,
     ) {

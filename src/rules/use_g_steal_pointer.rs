@@ -1,4 +1,6 @@
-use gobject_ast::{AssignmentOp, Expression, FileModel, Statement};
+use gobject_ast::model::{
+    AssignmentOp, Expression, FileModel, FunctionDefItem, SourceLocation, Statement,
+};
 
 use crate::{
     ast_context::AstContext,
@@ -29,8 +31,8 @@ impl Rule for UseGStealPointer {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::types::FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDefItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         self.check_function(func, file, violations);
@@ -40,7 +42,7 @@ impl Rule for UseGStealPointer {
 impl UseGStealPointer {
     fn check_function(
         &self,
-        func: &gobject_ast::types::FunctionDefItem,
+        func: &FunctionDefItem,
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
@@ -337,7 +339,7 @@ impl UseGStealPointer {
             } else if if_stmt.then_has_braces {
                 let body_start = if_stmt.then_body[0].location().start_byte;
                 let (open_brace, close_brace) =
-                    gobject_ast::SourceLocation::find_braces_around(body_start, &file.source);
+                    SourceLocation::find_braces_around(body_start, &file.source);
                 Fix::new(open_brace, close_brace, replacement)
             } else {
                 let body_start = if_stmt.then_body[0].location().start_byte;
@@ -412,7 +414,7 @@ impl UseGStealPointer {
             } else if if_stmt.then_has_braces {
                 let body_start = if_stmt.then_body[0].location().start_byte;
                 let (open_brace, close_brace) =
-                    gobject_ast::SourceLocation::find_braces_around(body_start, &file.source);
+                    SourceLocation::find_braces_around(body_start, &file.source);
                 Fix::new(open_brace, close_brace, replacement)
             } else {
                 let body_start = if_stmt.then_body[0].location().start_byte;

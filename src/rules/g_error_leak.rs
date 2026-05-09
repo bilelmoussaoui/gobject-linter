@@ -1,4 +1,4 @@
-use gobject_ast::{Expression, Statement, UnaryOp};
+use gobject_ast::model::{Argument, Expression, FileModel, FunctionDefItem, Statement, UnaryOp};
 
 use crate::{
     ast_context::AstContext,
@@ -25,8 +25,8 @@ impl Rule for GErrorLeak {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::types::FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDefItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Find all local GError* variables initialized to NULL
@@ -37,10 +37,7 @@ impl Rule for GErrorLeak {
                 // Check if it's a GError* variable initialized to NULL
                 if decl.type_info.is_base_type("GError")
                     && decl.type_info.is_pointer()
-                    && decl
-                        .initializer
-                        .as_ref()
-                        .is_some_and(gobject_ast::Expression::is_null)
+                    && decl.initializer.as_ref().is_some_and(Expression::is_null)
                 {
                     gerror_vars.push((decl.name.as_str(), decl.location));
                 }
@@ -163,7 +160,7 @@ fn is_error_propagated(statements: &[Statement], var_name: &str) -> bool {
                 {
                     // Check if the error variable is in the arguments
                     for arg in &call.arguments {
-                        let gobject_ast::expression::Argument::Expression(arg_expr) = arg;
+                        let Argument::Expression(arg_expr) = arg;
                         if arg_expr.contains_identifier(var_name) {
                             return true;
                         }
@@ -185,7 +182,7 @@ fn check_error_handled(statements: &[Statement], var_name: &str, functions: &[&s
             {
                 // Check if the error variable is in the arguments
                 for arg in &call.arguments {
-                    let gobject_ast::expression::Argument::Expression(arg_expr) = arg;
+                    let Argument::Expression(arg_expr) = arg;
                     // Could be passed as `error` or `&error`
                     if arg_expr.contains_identifier(var_name) {
                         return true;

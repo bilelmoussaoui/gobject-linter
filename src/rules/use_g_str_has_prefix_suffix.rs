@@ -1,4 +1,6 @@
-use gobject_ast::{Argument, BinaryOp, Expression};
+use gobject_ast::model::{
+    Argument, BinaryOp, Expression, FileModel, FunctionDefItem, SourceLocation,
+};
 
 use crate::{
     ast_context::AstContext,
@@ -29,8 +31,8 @@ impl Rule for UseGStrHasPrefixSuffix {
         &self,
         _ast_context: &AstContext,
         _config: &Config,
-        func: &gobject_ast::types::FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDefItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         for stmt in &func.body_statements {
@@ -47,7 +49,7 @@ impl UseGStrHasPrefixSuffix {
     fn check_expression(
         &self,
         expr: &Expression,
-        file: &gobject_ast::FileModel,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         let Expression::Binary(bin) = expr else {
@@ -96,8 +98,8 @@ impl UseGStrHasPrefixSuffix {
         strncmp_side: &Expression,
         value_side: &Expression,
         operator: &BinaryOp,
-        file: &gobject_ast::FileModel,
-        location: &gobject_ast::SourceLocation,
+        file: &FileModel,
+        location: &SourceLocation,
         violations: &mut Vec<Violation>,
     ) {
         // strncmp_side must be a call to strncmp
@@ -161,8 +163,8 @@ impl UseGStrHasPrefixSuffix {
         strcmp_side: &Expression,
         value_side: &Expression,
         operator: &BinaryOp,
-        file: &gobject_ast::FileModel,
-        location: &gobject_ast::SourceLocation,
+        file: &FileModel,
+        location: &SourceLocation,
         violations: &mut Vec<Violation>,
     ) {
         // strcmp_side must be a call to strcmp

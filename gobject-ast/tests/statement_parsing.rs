@@ -1,16 +1,14 @@
 use std::path::PathBuf;
 
 use gobject_ast::{
-    Expression, Parser, Statement,
+    Parser,
     model::{
-        statement::ForInit,
-        top_level::{TypeDefItem, TypedefTarget},
-        types::Parameter,
+        Expression, ForInit, Parameter, Project, Statement, TopLevelItem, TypeDefItem,
+        TypedefTarget,
     },
-    top_level::TopLevelItem,
 };
 
-fn parse_fixture(name: &str) -> gobject_ast::Project {
+fn parse_fixture(name: &str) -> Project {
     let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
         .join("fixtures")

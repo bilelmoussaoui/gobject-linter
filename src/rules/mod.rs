@@ -1,5 +1,8 @@
 use std::path::PathBuf;
 
+use gobject_ast::model::{
+    EnumInfo, FileModel, FunctionDeclItem, FunctionDefItem, GObjectType, SourceLocation,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -85,7 +88,7 @@ impl Fix {
 
     /// Create a fix that deletes an entire line (including indentation and
     /// newline)
-    pub fn delete_line(location: &gobject_ast::SourceLocation, source: &[u8]) -> Self {
+    pub fn delete_line(location: &SourceLocation, source: &[u8]) -> Self {
         // Find the start of the line (rewind to previous newline or start of file)
         let mut line_start = location.start_byte;
         while line_start > 0 && source[line_start - 1] != b'\n' {
@@ -283,8 +286,8 @@ pub trait Rule: Send + Sync {
         &self,
         ast_context: &AstContext,
         config: &Config,
-        func: &gobject_ast::types::FunctionDefItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDefItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Default: no-op
@@ -297,8 +300,8 @@ pub trait Rule: Send + Sync {
         &self,
         ast_context: &AstContext,
         config: &Config,
-        func: &gobject_ast::types::FunctionDeclItem,
-        file: &gobject_ast::FileModel,
+        func: &FunctionDeclItem,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Default: no-op
@@ -310,8 +313,8 @@ pub trait Rule: Send + Sync {
         &self,
         ast_context: &AstContext,
         config: &Config,
-        enum_info: &gobject_ast::EnumInfo,
-        file: &gobject_ast::FileModel,
+        enum_info: &EnumInfo,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Default: no-op
@@ -325,8 +328,8 @@ pub trait Rule: Send + Sync {
         &self,
         ast_context: &AstContext,
         config: &Config,
-        gobject_type: &gobject_ast::GObjectType,
-        file: &gobject_ast::FileModel,
+        gobject_type: &GObjectType,
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Default: no-op

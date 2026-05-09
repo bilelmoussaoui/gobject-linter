@@ -1,9 +1,7 @@
 use std::{path::Path, sync::LazyLock};
 
-use gobject_ast::{
-    TypeInfo,
-    model::top_level::{StructField, TopLevelItem, TypeDefItem, TypedefTarget},
-    types::Parameter,
+use gobject_ast::model::{
+    Parameter, StructField, TopLevelItem, TypeDefItem, TypeInfo, TypedefTarget,
 };
 
 use crate::{

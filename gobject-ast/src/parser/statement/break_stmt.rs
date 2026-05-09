@@ -1,6 +1,6 @@
 use tree_sitter::Node;
 
-use crate::{model::statement::BreakStatement, parser::Parser};
+use crate::{model::BreakStatement, parser::Parser};
 
 impl Parser {
     pub(super) fn parse_break_statement(

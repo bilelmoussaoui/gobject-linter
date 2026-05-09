@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use gobject_ast::GObjectTypeKind;
+use gobject_ast::model::GObjectTypeKind;
 
 use crate::{
     ast_context::AstContext,

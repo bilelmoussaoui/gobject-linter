@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::model::{
     doc::SignalDoc,
-    expression::{CallExpression, Expression, StructField},
+    expression::{CallExpression, Expression, OffsetField},
     types::GType,
 };
 
@@ -33,7 +33,7 @@ pub struct Signal {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub flags: Vec<SignalFlag>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub class_offset: Option<StructField>, // None when 0 (no default handler)
+    pub class_offset: Option<OffsetField>, // None when 0 (no default handler)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub accumulator: Option<String>, // function name or NULL
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -146,7 +146,7 @@ impl Signal {
                         None
                     }
                 })?;
-                Some(StructField { struct_type, field })
+                Some(OffsetField { struct_type, field })
             }
             _ => None, // 0, NULL, or any other form → no vtable slot
         });
