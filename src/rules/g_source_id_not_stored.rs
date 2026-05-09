@@ -40,6 +40,7 @@ impl Rule for GSourceIdNotStored {
             "g_idle_add",
             "g_idle_add_full",
             "g_idle_add_once",
+            "gtk_widget_add_tick_callback",
         ];
 
         // Walk all statements (including nested) and check expression statements
