@@ -28,14 +28,14 @@ impl Rule for UseGSettingsTyped {
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Check for g_settings_set_value calls
         for call in func.find_calls(&["g_settings_set_value"]) {
-            self.check_settings_set_call(file, call, violations);
+            self.check_settings_set_call(config, file, call, violations);
         }
 
         // Check for g_variant_get_* calls
@@ -52,7 +52,7 @@ impl Rule for UseGSettingsTyped {
             "g_variant_get_double",
             "g_variant_get_strv",
         ]) {
-            self.check_variant_get_call(file, call, violations);
+            self.check_variant_get_call(config, file, call, violations);
         }
     }
 }
@@ -60,6 +60,7 @@ impl Rule for UseGSettingsTyped {
 impl UseGSettingsTyped {
     fn check_settings_set_call(
         &self,
+        config: &Config,
         file: &gobject_ast::FileModel,
         call: &CallExpression,
         violations: &mut Vec<Violation>,
@@ -96,14 +97,11 @@ impl UseGSettingsTyped {
         };
 
         // Build replacement
-        let replacement = if value_args.is_empty() {
-            format!("{} ({}, {})", typed_func, settings_arg, key_arg)
-        } else {
-            format!(
-                "{} ({}, {}, {})",
-                typed_func, settings_arg, key_arg, value_args
-            )
-        };
+        let mut args: Vec<&str> = vec![settings_arg, key_arg];
+        if !value_args.is_empty() {
+            args.push(&value_args);
+        }
+        let replacement = config.format_call(typed_func, &args);
         let message = format!(
             "Use {} instead of g_settings_set_value with g_variant_new for type safety",
             replacement
@@ -126,6 +124,7 @@ impl UseGSettingsTyped {
 
     fn check_variant_get_call(
         &self,
+        config: &Config,
         file: &gobject_ast::FileModel,
         call: &CallExpression,
         violations: &mut Vec<Violation>,
@@ -179,7 +178,7 @@ impl UseGSettingsTyped {
         };
 
         // Build replacement
-        let replacement = format!("{} ({}, {})", typed_func, settings_arg, key_arg);
+        let replacement = config.format_call(typed_func, &[settings_arg, key_arg]);
         let message = format!(
             "Use {} instead of g_variant_get_* with g_settings_get_value for type safety",
             replacement

@@ -28,7 +28,7 @@ impl Rule for UseGSourceOnce {
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
@@ -54,7 +54,7 @@ impl Rule for UseGSourceOnce {
 
                         // Build arguments, replacing GSourceFunc cast with GSourceOnceFunc if
                         // present
-                        let args_str = call
+                        let args: Vec<String> = call
                             .arguments
                             .iter()
                             .enumerate()
@@ -74,14 +74,14 @@ impl Rule for UseGSourceOnce {
                                 }
                                 arg.to_source_string(&file.source).map(ToOwned::to_owned)
                             })
-                            .collect::<Vec<_>>()
-                            .join(", ");
+                            .collect();
+                        let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
 
                         // Fix 1: Replace g_idle_add → g_idle_add_once
                         let mut fixes = vec![Fix::new(
                             call.location.start_byte,
                             call.location.end_byte,
-                            format!("{} ({})", replacement, args_str),
+                            config.format_call(replacement, &arg_refs),
                         )];
 
                         // Add callback fixes (return type + return statements)

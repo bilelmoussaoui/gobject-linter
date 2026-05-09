@@ -28,13 +28,13 @@ impl Rule for UseGSetObject {
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         Statement::walk_pairs(&func.body_statements, &mut |s1, s2| {
-            self.try_clear_then_ref(s1, s2, file, violations);
+            self.try_clear_then_ref(s1, s2, config, file, violations);
         });
     }
 }
@@ -46,6 +46,7 @@ impl UseGSetObject {
         &self,
         s1: &Statement,
         s2: &Statement,
+        config: &Config,
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) -> bool {
@@ -76,9 +77,13 @@ impl UseGSetObject {
         // - If var is GObject* (needs_deref=false), use &var
         // - If var is GObject** (needs_deref=true), use var directly
         let replacement = if needs_deref {
-            format!("g_set_object ({var_name}, {new_val});")
+            format!(
+                "{};",
+                config.format_call("g_set_object", &[var_name, new_val])
+            )
         } else {
-            format!("g_set_object (&{var_name}, {new_val});")
+            let addr = format!("&{var_name}");
+            format!("{};", config.format_call("g_set_object", &[&addr, new_val]))
         };
 
         // Use two separate fixes to preserve comments between statements

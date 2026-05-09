@@ -28,13 +28,13 @@ impl Rule for UseGStringFreeAndSteal {
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         for call in func.find_calls(&["g_string_free"]) {
-            self.check_call(file, call, violations);
+            self.check_call(config, file, call, violations);
         }
     }
 }
@@ -42,6 +42,7 @@ impl Rule for UseGStringFreeAndSteal {
 impl UseGStringFreeAndSteal {
     fn check_call(
         &self,
+        config: &Config,
         file: &gobject_ast::FileModel,
         call: &gobject_ast::CallExpression,
         violations: &mut Vec<Violation>,
@@ -73,7 +74,7 @@ impl UseGStringFreeAndSteal {
         };
 
         // Build replacement
-        let replacement = format!("g_string_free_and_steal ({})", first_text);
+        let replacement = config.format_call("g_string_free_and_steal", &[first_text]);
         let message = format!(
             "Use {} instead of g_string_free({}, {}) for readability",
             replacement, first_text, second_text

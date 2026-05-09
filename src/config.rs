@@ -52,7 +52,7 @@ where
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     #[serde(default)]
     pub rules: RulesConfig,
@@ -89,6 +89,32 @@ pub struct Config {
     /// Opt-in rules always default to "ignore" regardless of this setting.
     /// Per-rule `level` settings override this.
     pub default_level: Option<RuleLevel>,
+
+    /// Whether to add a space before '(' in function call replacements.
+    /// Default is true (GLib coding style: `g_new (Type, 1)`).
+    /// Set to false for no space: `g_new(Type, 1)`.
+    #[serde(default = "default_true")]
+    pub space_before_paren: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            rules: RulesConfig::default(),
+            ignore: Vec::new(),
+            min_glib_version: None,
+            msvc_compatible: false,
+            format: None,
+            editor_url: None,
+            build_dir: None,
+            default_level: None,
+            space_before_paren: true,
+        }
+    }
 }
 
 /// Rule severity level
@@ -249,6 +275,19 @@ macro_rules! impl_rules_config {
 for_each_rule!(impl_rules_config);
 
 impl Config {
+    pub fn paren_sep(&self) -> &'static str {
+        if self.space_before_paren { " " } else { "" }
+    }
+
+    pub fn format_call(&self, func_name: &str, args: &[&str]) -> String {
+        let sep = self.paren_sep();
+        if args.is_empty() {
+            format!("{func_name}{sep}()")
+        } else {
+            format!("{func_name}{sep}({})", args.join(", "))
+        }
+    }
+
     pub fn load(path: &Path) -> Result<Self> {
         if !path.exists() {
             // Return default config if file doesn't exist

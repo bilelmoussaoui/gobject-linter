@@ -47,7 +47,7 @@ impl Rule for UseGAsciiFunctions {
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
@@ -60,18 +60,15 @@ impl Rule for UseGAsciiFunctions {
             if let Some(func_name) = call.function_name_str()
                 && let Some(replacement) = g_ascii_replacement(func_name)
             {
+                let args: Vec<_> = call
+                    .arguments
+                    .iter()
+                    .filter_map(|arg| arg.to_source_string(source))
+                    .collect();
                 let fix = Fix::new(
                     call.location.start_byte,
                     call.location.end_byte,
-                    format!(
-                        "{} ({})",
-                        replacement,
-                        call.arguments
-                            .iter()
-                            .filter_map(|arg| arg.to_source_string(source))
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    ),
+                    config.format_call(replacement, &args),
                 );
 
                 violations.push(self.violation_with_fix(

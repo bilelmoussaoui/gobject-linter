@@ -28,13 +28,13 @@ impl Rule for UseGVariantNewTyped {
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         for call in func.find_calls(&["g_variant_new"]) {
-            self.check_call(file, call, violations);
+            self.check_call(config, file, call, violations);
         }
     }
 }
@@ -42,6 +42,7 @@ impl Rule for UseGVariantNewTyped {
 impl UseGVariantNewTyped {
     fn check_call(
         &self,
+        config: &Config,
         file: &gobject_ast::FileModel,
         call: &gobject_ast::CallExpression,
         violations: &mut Vec<Violation>,
@@ -86,22 +87,13 @@ impl UseGVariantNewTyped {
         };
 
         // Collect remaining arguments (after format string)
-        let rest_args = if call.arguments.len() > 1 {
-            let rest: Vec<&str> = call.arguments[1..]
-                .iter()
-                .filter_map(|arg| arg.to_source_string(&file.source))
-                .collect();
-            rest.join(", ")
-        } else {
-            String::new()
-        };
+        let rest_args: Vec<&str> = call.arguments[1..]
+            .iter()
+            .filter_map(|arg| arg.to_source_string(&file.source))
+            .collect();
 
         // Build replacement
-        let replacement = if rest_args.is_empty() {
-            format!("{} ()", typed_func)
-        } else {
-            format!("{} ({})", typed_func, rest_args)
-        };
+        let replacement = config.format_call(typed_func, &rest_args);
 
         let message = format!(
             "Use {} instead of g_variant_new(\"{}\", ...) for type safety",

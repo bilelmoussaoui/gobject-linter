@@ -28,7 +28,7 @@ impl Rule for UseGObjectClassInstallProperties {
     fn check_enum(
         &self,
         _ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         enum_info: &gobject_ast::EnumInfo,
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
@@ -55,6 +55,7 @@ impl Rule for UseGObjectClassInstallProperties {
         }
 
         let fixes = self.generate_fixes(
+            config,
             file,
             func,
             &install_property_calls,
@@ -89,6 +90,7 @@ impl Rule for UseGObjectClassInstallProperties {
 impl UseGObjectClassInstallProperties {
     fn generate_fixes(
         &self,
+        config: &Config,
         file: &gobject_ast::FileModel,
         class_init: &gobject_ast::top_level::FunctionDefItem,
         install_calls: &[&gobject_ast::CallExpression],
@@ -217,7 +219,8 @@ impl UseGObjectClassInstallProperties {
                 // Direct call pattern: g_object_class_install_property(...,
                 // g_param_spec_xxx(...))
                 let func_name = param_spec_call.function_name(source);
-                let new_line_prefix = format!("{}[{}] = {} (", array_name, prop_id, func_name);
+                let sep = config.paren_sep();
+                let new_line_prefix = format!("{}[{}] = {}{sep}(", array_name, prop_id, func_name);
                 let target_column = indentation.len() + new_line_prefix.len();
 
                 let Some(param_spec_text) = param_spec_arg.to_source_string(source) else {
@@ -247,7 +250,9 @@ impl UseGObjectClassInstallProperties {
 
                     // Use the g_param_spec call from the assignment
                     let func_name = g_param_spec_call.function_name(source);
-                    let new_line_prefix = format!("{}[{}] = {} (", array_name, prop_id, func_name);
+                    let sep = config.paren_sep();
+                    let new_line_prefix =
+                        format!("{}[{}] = {}{sep}(", array_name, prop_id, func_name);
                     // Note: indentation is not included because it stays in place during
                     // replacement
                     let assignment_indent = statement_location.extract_indentation(source);
@@ -325,10 +330,11 @@ impl UseGObjectClassInstallProperties {
                 return fixes;
             };
 
-            let install_properties_call = format!(
-                "\n\n{}g_object_class_install_properties ({}, {}, {});",
-                indentation, object_class_var, n_props_name, array_name
+            let install_call = config.format_call(
+                "g_object_class_install_properties",
+                &[object_class_var, &n_props_name, &array_name],
             );
+            let install_properties_call = format!("\n\n{indentation}{install_call};");
             let last_stmt_end = last_stmt.location().find_semicolon_end(source);
             fixes.push(Fix::new(
                 last_stmt_end,

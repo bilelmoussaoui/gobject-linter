@@ -75,6 +75,11 @@ struct Args {
     /// to read from stdin). Useful for CI to report only on PR changes.
     #[arg(long, value_name = "FILE")]
     diff: Option<PathBuf>,
+
+    /// Remove space before '(' in generated replacements
+    /// (default has space per GLib style: "g_new (x, 1)")
+    #[arg(long)]
+    no_space_before_paren: bool,
 }
 
 /// Parse GLib version string for clap
@@ -135,6 +140,11 @@ fn main() -> Result<()> {
     // Apply --msvc-compatible if specified (overrides config)
     if args.msvc_compatible {
         config.msvc_compatible = true;
+    }
+
+    // Apply --no-space-before-paren if specified (overrides config)
+    if args.no_space_before_paren {
+        config.space_before_paren = false;
     }
 
     // Apply --only filter if specified

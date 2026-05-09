@@ -140,29 +140,29 @@ impl ClearMapping {
     }
 }
 
-fn format_replacement(mapping: &ClearMapping, var_name: &str, obj: Option<&str>) -> String {
-    match mapping.replacement {
-        ClearReplacement::Object => format!("g_clear_object (&{});", var_name),
+fn format_replacement(
+    mapping: &ClearMapping,
+    var_name: &str,
+    obj: Option<&str>,
+    config: &Config,
+) -> String {
+    let addr = format!("&{var_name}");
+    let call = match mapping.replacement {
+        ClearReplacement::Object => config.format_call("g_clear_object", &[&addr]),
         ClearReplacement::Pointer => {
-            format!("g_clear_pointer (&{}, {});", var_name, mapping.source_func)
+            config.format_call("g_clear_pointer", &[&addr, mapping.source_func])
         }
         ClearReplacement::HandleId => {
-            format!(
-                "g_clear_handle_id (&{}, {});",
-                var_name, mapping.source_func
-            )
+            config.format_call("g_clear_handle_id", &[&addr, mapping.source_func])
         }
         ClearReplacement::SignalHandler => {
             let obj = obj.unwrap_or("obj");
-            format!("g_clear_signal_handler (&{}, {});", var_name, obj)
+            config.format_call("g_clear_signal_handler", &[&addr, obj])
         }
-        ClearReplacement::WeakPointer => {
-            format!("g_clear_weak_pointer (&{});", var_name)
-        }
-        ClearReplacement::List { clear_func } => {
-            format!("{} (&{}, NULL);", clear_func, var_name)
-        }
-    }
+        ClearReplacement::WeakPointer => config.format_call("g_clear_weak_pointer", &[&addr]),
+        ClearReplacement::List { clear_func } => config.format_call(clear_func, &[&addr, "NULL"]),
+    };
+    format!("{call};")
 }
 
 pub struct UseClearFunctions;
@@ -327,7 +327,7 @@ impl UseClearFunctions {
                 continue;
             }
 
-            let replacement = format_replacement(mapping, var_name, None);
+            let replacement = format_replacement(mapping, var_name, None, config);
             let message = format!(
                 "Use {} instead of {} and NULL/zero assignment",
                 replacement.trim_end_matches(';'),
@@ -384,7 +384,7 @@ impl UseClearFunctions {
             return false;
         }
 
-        let replacement = format_replacement(&mapping, checked_var, None);
+        let replacement = format_replacement(&mapping, checked_var, None, config);
         let message = format!(
             "Use {} instead of manual NULL check, unref, and assignment",
             replacement.trim_end_matches(';')
@@ -512,7 +512,7 @@ impl UseClearFunctions {
         let cond_id = if_stmt.extract_nonzero_check_variable(source);
 
         for (var_name, mapping, first_loc, second_loc) in conversions {
-            let replacement = format_replacement(&mapping, var_name, None);
+            let replacement = format_replacement(&mapping, var_name, None, config);
             let message = format!(
                 "Use {} instead of {} and zero assignment",
                 replacement.trim_end_matches(';'),
@@ -666,7 +666,7 @@ impl UseClearFunctions {
             return false;
         }
 
-        let replacement = format_replacement(&signal_mapping, handler_id, Some(obj));
+        let replacement = format_replacement(&signal_mapping, handler_id, Some(obj), config);
         let message = format!(
             "Use {} instead of if-guarded g_signal_handler_disconnect",
             replacement.trim_end_matches(';')
@@ -708,7 +708,7 @@ impl UseClearFunctions {
             return false;
         }
 
-        let replacement = format_replacement(&signal_mapping, handler_id, Some(obj));
+        let replacement = format_replacement(&signal_mapping, handler_id, Some(obj), config);
         let message = format!(
             "Use {} instead of g_signal_handler_disconnect and zeroing the ID",
             replacement.trim_end_matches(';')
@@ -762,7 +762,7 @@ impl UseClearFunctions {
             return false;
         }
 
-        let replacement = format_replacement(&signal_mapping, handler_id, Some(obj));
+        let replacement = format_replacement(&signal_mapping, handler_id, Some(obj), config);
         let message = format!(
             "Use {} instead of g_signal_handler_disconnect (also zeroes the stored ID)",
             replacement.trim_end_matches(';')

@@ -28,13 +28,13 @@ impl Rule for UseGBytesUnrefToData {
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         Statement::walk_pairs(&func.body_statements, &mut |stmt1, stmt2| {
-            self.try_bytes_pattern(stmt1, stmt2, file, violations);
+            self.try_bytes_pattern(stmt1, stmt2, config, file, violations);
         });
     }
 }
@@ -45,6 +45,7 @@ impl UseGBytesUnrefToData {
         &self,
         stmt1: &Statement,
         stmt2: &Statement,
+        config: &Config,
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
@@ -64,14 +65,10 @@ impl UseGBytesUnrefToData {
         };
 
         // Build the replacement
-        let replacement = format!(
-            "{} = g_bytes_unref_to_data ({}, {});",
-            dest, bytes_var, size_arg
-        );
-        let message = format!(
-            "Use g_bytes_unref_to_data({}, {}) instead of g_bytes_get_data() followed by g_bytes_unref()",
-            bytes_var, size_arg
-        );
+        let call = config.format_call("g_bytes_unref_to_data", &[bytes_var, size_arg]);
+        let replacement = format!("{dest} = {call};");
+        let message =
+            format!("Use {call} instead of g_bytes_get_data() followed by g_bytes_unref()");
         // Use two separate fixes to preserve comments between statements
         let stmt1_end = stmt1.location().find_semicolon_end(&file.source);
         let fixes = vec![

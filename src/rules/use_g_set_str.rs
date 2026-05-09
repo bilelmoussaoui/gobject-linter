@@ -28,13 +28,13 @@ impl Rule for UseGSetStr {
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
         Statement::walk_pairs(&func.body_statements, &mut |s1, s2| {
-            self.try_free_then_strdup(s1, s2, file, violations);
+            self.try_free_then_strdup(s1, s2, config, file, violations);
         });
     }
 }
@@ -45,6 +45,7 @@ impl UseGSetStr {
         &self,
         s1: &Statement,
         s2: &Statement,
+        config: &Config,
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) -> bool {
@@ -62,7 +63,8 @@ impl UseGSetStr {
             return false;
         }
 
-        let replacement = format!("g_set_str (&{var_name}, {new_val});");
+        let addr = format!("&{var_name}");
+        let replacement = format!("{};", config.format_call("g_set_str", &[&addr, new_val]));
         let message = format!("Use {replacement} instead of g_free and g_strdup");
         // Use two separate fixes to preserve comments between statements
         let s2_end = s2.location().find_semicolon_end(&file.source);

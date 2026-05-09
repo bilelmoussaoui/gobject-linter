@@ -28,7 +28,7 @@ impl Rule for UseGStrHasPrefixSuffix {
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         func: &gobject_ast::top_level::FunctionDefItem,
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
@@ -36,7 +36,7 @@ impl Rule for UseGStrHasPrefixSuffix {
         for stmt in &func.body_statements {
             stmt.walk_expressions(&mut |expr| {
                 expr.walk(&mut |e| {
-                    self.check_expression(e, file, violations);
+                    self.check_expression(e, config, file, violations);
                 });
             });
         }
@@ -47,6 +47,7 @@ impl UseGStrHasPrefixSuffix {
     fn check_expression(
         &self,
         expr: &Expression,
+        config: &Config,
         file: &gobject_ast::FileModel,
         violations: &mut Vec<Violation>,
     ) {
@@ -60,6 +61,7 @@ impl UseGStrHasPrefixSuffix {
             &bin.left,
             &bin.right,
             &bin.operator,
+            config,
             file,
             &bin.location,
             violations,
@@ -68,6 +70,7 @@ impl UseGStrHasPrefixSuffix {
             &bin.right,
             &bin.left,
             &bin.operator,
+            config,
             file,
             &bin.location,
             violations,
@@ -76,6 +79,7 @@ impl UseGStrHasPrefixSuffix {
             &bin.left,
             &bin.right,
             &bin.operator,
+            config,
             file,
             &bin.location,
             violations,
@@ -84,6 +88,7 @@ impl UseGStrHasPrefixSuffix {
             &bin.right,
             &bin.left,
             &bin.operator,
+            config,
             file,
             &bin.location,
             violations,
@@ -96,6 +101,7 @@ impl UseGStrHasPrefixSuffix {
         strncmp_side: &Expression,
         value_side: &Expression,
         operator: &BinaryOp,
+        config: &Config,
         file: &gobject_ast::FileModel,
         location: &gobject_ast::SourceLocation,
         violations: &mut Vec<Violation>,
@@ -134,10 +140,12 @@ impl UseGStrHasPrefixSuffix {
             .and_then(|e| e.to_source_string(&file.source))
             .unwrap_or_default();
 
+        let prefix_arg = format!("\"{}\"", prefix_text);
+        let call = config.format_call("g_str_has_prefix", &[str_arg_text, &prefix_arg]);
         let replacement = if *operator == BinaryOp::Equal {
-            format!("g_str_has_prefix ({str_arg_text}, \"{prefix_text}\")")
+            call
         } else {
-            format!("!g_str_has_prefix ({str_arg_text}, \"{prefix_text}\")")
+            format!("!{call}")
         };
         let message = format!(
             "Use {replacement} instead of strncmp() {} 0",
@@ -161,6 +169,7 @@ impl UseGStrHasPrefixSuffix {
         strcmp_side: &Expression,
         value_side: &Expression,
         operator: &BinaryOp,
+        config: &Config,
         file: &gobject_ast::FileModel,
         location: &gobject_ast::SourceLocation,
         violations: &mut Vec<Violation>,
@@ -196,10 +205,12 @@ impl UseGStrHasPrefixSuffix {
             return;
         };
 
+        let suffix_arg = format!("\"{}\"", suffix_text);
+        let call = config.format_call("g_str_has_suffix", &[str_expr, &suffix_arg]);
         let replacement = if *operator == BinaryOp::Equal {
-            format!("g_str_has_suffix ({str_expr}, \"{suffix_text}\")")
+            call
         } else {
-            format!("!g_str_has_suffix ({str_expr}, \"{suffix_text}\")")
+            format!("!{call}")
         };
         let message = format!(
             "Use {replacement} instead of strcmp() {} 0",
