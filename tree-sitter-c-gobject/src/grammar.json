@@ -5662,6 +5662,13 @@
           }
         },
         {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "macro_modifier"
+          }
+        },
+        {
           "type": "CHOICE",
           "members": [
             {

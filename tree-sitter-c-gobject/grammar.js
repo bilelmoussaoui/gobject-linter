@@ -126,6 +126,13 @@ module.exports = grammar(C, {
       ';',
     ),
 
+    // Allow macro modifiers (GDK_AVAILABLE_ENUMERATOR_IN_4_12, etc.) on enum values.
+    enumerator: $ => seq(
+      field('name', $.identifier),
+      repeat($.macro_modifier),
+      optional(seq('=', field('value', $.expression))),
+    ),
+
     // Export / deprecation / availability macros used as declaration modifiers.
     // Simple: CLUTTER_EXPORT, G_DEPRECATED, G_UNAVAILABLE
     // Function-like: G_DEPRECATED_FOR(...), GLIB_AVAILABLE_IN_2_80(...)

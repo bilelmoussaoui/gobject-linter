@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::model::{BinaryOp, EnumValueDoc, Expression, SourceLocation, TypeDoc};
+use crate::model::{BinaryOp, EnumValueDoc, ExportMacro, Expression, SourceLocation, TypeDoc};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct EnumInfo {
@@ -119,6 +119,8 @@ pub struct EnumValue {
     /// Location of the value (if present)
     #[serde(skip)]
     pub value_location: Option<SourceLocation>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub export_macros: Vec<ExportMacro>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub doc: Option<EnumValueDoc>,
 }

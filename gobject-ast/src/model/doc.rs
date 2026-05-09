@@ -34,25 +34,44 @@ impl FromStr for Version {
 pub enum ExportMacro {
     AvailableIn(Version),
     DeprecatedIn(Version),
+    DeprecatedInFor(Version, String),
     Other(String),
 }
 
 impl ExportMacro {
     pub fn parse(name: &str) -> Self {
-        if let Some(suffix) = name.split("AVAILABLE_IN_").nth(1) {
+        let (name, args) = match name.split_once('(') {
+            Some((n, rest)) => (n.trim(), Some(rest.trim_end_matches(')').trim())),
+            None => (name, None),
+        };
+
+        if let Some(suffix) = name
+            .split("AVAILABLE_IN_")
+            .nth(1)
+            .or_else(|| name.split("AVAILABLE_ENUMERATOR_IN_").nth(1))
+        {
             if let Some(ver) = Self::parse_version_suffix(suffix) {
                 return Self::AvailableIn(ver);
             }
-        } else if let Some(suffix) = name.split("DEPRECATED_IN_").nth(1)
-            && let Some(ver) = Self::parse_version_suffix(suffix)
+        } else if let Some(suffix) = name
+            .split("DEPRECATED_IN_")
+            .nth(1)
+            .or_else(|| name.split("DEPRECATED_ENUMERATOR_IN_").nth(1))
         {
-            return Self::DeprecatedIn(ver);
+            if let Some(ver) = Self::parse_version_suffix(suffix) {
+                if let Some(replacement) = args {
+                    return Self::DeprecatedInFor(ver, replacement.to_owned());
+                }
+                return Self::DeprecatedIn(ver);
+            }
         }
         Self::Other(name.to_owned())
     }
 
     fn parse_version_suffix(suffix: &str) -> Option<Version> {
-        let (major, minor) = suffix.split_once('_')?;
+        let (major, rest) = suffix.split_once('_')?;
+        let minor_len = rest.len() - rest.trim_start_matches(|c: char| c.is_ascii_digit()).len();
+        let minor = &rest[..minor_len];
         Some(Version {
             major: major.parse().ok()?,
             minor: minor.parse().ok()?,
@@ -61,7 +80,7 @@ impl ExportMacro {
 
     pub fn version(&self) -> Option<&Version> {
         match self {
-            Self::AvailableIn(v) | Self::DeprecatedIn(v) => Some(v),
+            Self::AvailableIn(v) | Self::DeprecatedIn(v) | Self::DeprecatedInFor(v, _) => Some(v),
             Self::Other(_) => None,
         }
     }
@@ -545,15 +564,30 @@ impl<A> RawDoc<A> {
         source: &[u8],
         parse_annotation: fn(&str, Option<&str>) -> Option<A>,
     ) -> Option<Self> {
-        let prev = node.prev_named_sibling()?;
-        if prev.kind() != "comment" {
-            return None;
+        // Try prev sibling first (normal case: comment sits before the node)
+        if let Some(prev) = node.prev_named_sibling()
+            && prev.kind() == "comment"
+            && let Ok(text) = std::str::from_utf8(&source[prev.byte_range()])
+            && text.starts_with("/**")
+        {
+            return Self::from_text(text, parse_annotation);
         }
-        let text = std::str::from_utf8(&source[prev.byte_range()]).ok()?;
-        if !text.starts_with("/**") {
-            return None;
+
+        // When a macro_modifier precedes the doc comment (e.g.
+        // GSK_DEFINE_RENDER_NODE_TYPE(...) before the function), tree-sitter
+        // makes the comment a child of the function_definition instead of a
+        // preceding sibling. Scan children for a doc comment.
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() == "comment"
+                && let Ok(text) = std::str::from_utf8(&source[child.byte_range()])
+                && text.starts_with("/**")
+            {
+                return Self::from_text(text, parse_annotation);
+            }
         }
-        Self::from_text(text, parse_annotation)
+
+        None
     }
 
     fn from_comment(

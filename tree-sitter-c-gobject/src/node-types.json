@@ -1512,6 +1512,16 @@
           }
         ]
       }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "macro_modifier",
+          "named": true
+        }
+      ]
     }
   },
   {

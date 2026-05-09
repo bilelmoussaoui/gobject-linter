@@ -941,6 +941,8 @@ impl Parser {
                         (None, None, None)
                     };
 
+                let export_macros = self.find_export_macros_in_declaration(child, source);
+
                 values.push(EnumValue {
                     name,
                     value,
@@ -948,6 +950,7 @@ impl Parser {
                     location: self.node_location(child),
                     name_location: self.node_location(name_node),
                     value_location,
+                    export_macros,
                     doc: None,
                 });
             }

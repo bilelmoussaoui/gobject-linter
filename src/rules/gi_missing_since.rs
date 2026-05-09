@@ -52,7 +52,10 @@ impl GiMissingSince {
                 let type_doc = ast_context.find_type_doc(&gt.type_name);
 
                 match gt.export_macros.iter().find(|m| m.version().is_some()) {
-                    Some(ExportMacro::DeprecatedIn(macro_ver)) => {
+                    Some(
+                        ExportMacro::DeprecatedIn(macro_ver)
+                        | ExportMacro::DeprecatedInFor(macro_ver, _),
+                    ) => {
                         let dep_ver = type_doc.and_then(|d| d.deprecated.as_ref().map(|(v, _)| v));
                         match dep_ver {
                             None => {
@@ -149,7 +152,10 @@ impl GiMissingSince {
                     .iter()
                     .find(|m| m.version().is_some())
                 {
-                    Some(ExportMacro::DeprecatedIn(macro_ver)) => {
+                    Some(
+                        ExportMacro::DeprecatedIn(macro_ver)
+                        | ExportMacro::DeprecatedInFor(macro_ver, _),
+                    ) => {
                         let dep_ver = func_doc.and_then(|d| d.deprecated.as_ref().map(|(v, _)| v));
                         match dep_ver {
                             None => {
