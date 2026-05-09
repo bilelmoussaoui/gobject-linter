@@ -44,6 +44,7 @@ impl Rule for UseGSourceConstants {
                     "g_timeout_add_seconds",
                     "g_timeout_add_full",
                     "g_timeout_add_seconds_full",
+                    "gtk_widget_add_tick_callback",
                 ]) {
                     if let Some(name) = self.extract_callback_name(call, &file.source) {
                         callbacks.insert(name);
@@ -77,7 +78,7 @@ impl UseGSourceConstants {
         let func_name = call.function_name_str()?;
         let callback_arg_index: usize = match func_name {
             "g_idle_add" => 0,
-            "g_idle_add_full" | "g_timeout_add" | "g_timeout_add_seconds" => 1,
+            "g_idle_add_full" | "g_timeout_add" | "g_timeout_add_seconds" | "gtk_widget_add_tick_callback" => 1,
             "g_timeout_add_full" | "g_timeout_add_seconds_full" => 2,
             _ => return None,
         };
