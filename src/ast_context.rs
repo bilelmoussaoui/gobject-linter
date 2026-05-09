@@ -196,9 +196,6 @@ impl AstContext {
             })
     }
 
-    /// Look up the doc for a GObject type by name.  Checks the
-    /// G_DEFINE type (which gets the doc from the struct) first, then
-    /// the G_DECLARE type.
     pub fn find_type_doc(&self, type_name: &str) -> Option<&gobject_ast::model::TypeDoc> {
         self.iter_c_files()
             .flat_map(|(_, f)| f.iter_all_gobject_types())

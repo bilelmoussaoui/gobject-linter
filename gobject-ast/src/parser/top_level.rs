@@ -2,10 +2,10 @@ use tree_sitter::Node;
 
 use crate::{
     model::{
-        Comment, CommentPosition, ConditionalKind, EnumInfo, EnumValue, EnumValueDoc, Expression,
+        Comment, CommentPosition, ConditionalKind, EnumInfo, EnumValue, Expression,
         FunctionDeclItem, FunctionDefItem, FunctionDoc, Parameter, PragmaKind,
         PreprocessorDirective, SourceLocation, Statement, StructField, TopLevelItem, TypeDefItem,
-        TypeDoc, TypeInfo, TypedefTarget,
+        TypeInfo, TypedefTarget,
     },
     parser::Parser,
 };
@@ -411,13 +411,12 @@ impl Parser {
                         } else {
                             vec![]
                         };
-                        let doc = TypeDoc::from_node_for(node, source, &name);
                         return Some(TopLevelItem::TypeDefinition(TypeDefItem::Struct {
                             name,
                             fields,
                             vfuncs,
                             location: self.node_location(node),
-                            doc,
+                            doc: None,
                         }));
                     }
                 }
@@ -601,13 +600,12 @@ impl Parser {
                     vec![]
                 };
 
-                let doc = TypeDoc::from_node_for(declaration_node, source, &name);
                 return Some(TopLevelItem::TypeDefinition(TypeDefItem::Struct {
                     name,
                     fields,
                     vfuncs,
                     location: self.node_location(declaration_node),
-                    doc,
+                    doc: None,
                 }));
             }
         }
@@ -780,13 +778,12 @@ impl Parser {
             TypedefTarget::Type(target_type)
         };
 
-        let doc = TypeDoc::from_node_for(node, source, &name);
         Some(TypeDefItem::Typedef {
             name,
             target,
             struct_fields,
             location: self.node_location(node),
-            doc,
+            doc: None,
         })
     }
 
@@ -810,17 +807,13 @@ impl Parser {
                     .map(std::borrow::ToOwned::to_owned)
             });
 
-            let doc = match &name {
-                Some(n) => TypeDoc::from_node_for(node, source, n),
-                None => TypeDoc::from_node(node, source),
-            };
             return Some(EnumInfo {
                 name,
                 location: self.node_location(node),
                 values,
                 body_location: self.node_location(body),
                 attributes: Vec::new(),
-                doc,
+                doc: None,
             });
         }
 
@@ -873,17 +866,13 @@ impl Parser {
                 };
 
                 let values = self.extract_enum_values(body, source);
-                let doc = match &name {
-                    Some(n) => TypeDoc::from_node_for(node, source, n),
-                    None => TypeDoc::from_node(node, source),
-                };
                 return Some(EnumInfo {
                     name,
                     location: self.node_location(node),
                     values,
                     body_location: self.node_location(body),
                     attributes,
-                    doc,
+                    doc: None,
                 });
             }
             return None;
@@ -906,17 +895,13 @@ impl Parser {
                             .map(std::borrow::ToOwned::to_owned)
                     });
 
-                    let doc = match &name {
-                        Some(n) => TypeDoc::from_node_for(node, source, n),
-                        None => TypeDoc::from_node(node, source),
-                    };
                     return Some(EnumInfo {
                         name,
                         location: self.node_location(child),
                         values,
                         body_location: self.node_location(body),
                         attributes: Vec::new(),
-                        doc,
+                        doc: None,
                     });
                 }
             }
@@ -956,7 +941,6 @@ impl Parser {
                         (None, None, None)
                     };
 
-                let doc = EnumValueDoc::from_node_for(child, source, &name);
                 values.push(EnumValue {
                     name,
                     value,
@@ -964,7 +948,7 @@ impl Parser {
                     location: self.node_location(child),
                     name_location: self.node_location(name_node),
                     value_location,
-                    doc,
+                    doc: None,
                 });
             }
         }

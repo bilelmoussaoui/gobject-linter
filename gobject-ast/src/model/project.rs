@@ -3,8 +3,8 @@ use std::{collections::HashMap, path::PathBuf};
 use serde::Serialize;
 
 use crate::model::{
-    Comment, EnumInfo, Expression, FunctionDeclItem, FunctionDefItem, GObjectType,
-    PreprocessorDirective, SourceLocation, Statement, TopLevelItem, TypeDefItem, TypeInfo,
+    Comment, EnumInfo, EnumValueDoc, Expression, FunctionDeclItem, FunctionDefItem, GObjectType,
+    PreprocessorDirective, SourceLocation, Statement, TopLevelItem, TypeDefItem, TypeDoc, TypeInfo,
     TypedefTarget, VariableDecl,
 };
 
@@ -407,20 +407,7 @@ impl FileModel {
                         }
                     }
 
-                    let doc = items.iter().find_map(|item| {
-                        if let TopLevelItem::TypeDefinition(
-                            TypeDefItem::Struct { name, doc, .. }
-                            | TypeDefItem::Typedef { name, doc, .. },
-                        ) = item
-                        {
-                            let bare = name.trim_start_matches('_');
-                            if bare == type_name {
-                                return doc.clone();
-                            }
-                        }
-                        None
-                    });
-                    if let Some(doc) = doc
+                    if let Some(doc) = Self::find_type_doc_in_comments(items, &type_name)
                         && let TopLevelItem::Preprocessor(PreprocessorDirective::GObjectType(gt)) =
                             &mut items[i]
                     {
@@ -433,6 +420,8 @@ impl FileModel {
             }
         }
 
+        Self::resolve_type_docs(items);
+
         for item in items.iter_mut() {
             match item {
                 TopLevelItem::Preprocessor(PreprocessorDirective::Conditional { body, .. })
@@ -443,6 +432,126 @@ impl FileModel {
                     Self::resolve_items(body, source);
                 }
                 _ => {}
+            }
+        }
+    }
+
+    fn find_type_doc_in_comments(items: &[TopLevelItem], type_name: &str) -> Option<TypeDoc> {
+        items.iter().find_map(|item| {
+            if let TopLevelItem::Comment(c) = item {
+                let doc = TypeDoc::from_comment(c)?;
+                let sym = doc.symbol.as_deref()?;
+                if sym == type_name {
+                    return Some(doc);
+                }
+            }
+            None
+        })
+    }
+
+    fn resolve_type_docs(items: &mut [TopLevelItem]) {
+        for i in 0..items.len() {
+            let name = match &items[i] {
+                TopLevelItem::TypeDefinition(
+                    TypeDefItem::Struct {
+                        name, doc: None, ..
+                    }
+                    | TypeDefItem::Typedef {
+                        name, doc: None, ..
+                    },
+                ) => Some(name.trim_start_matches('_').to_owned()),
+                TopLevelItem::TypeDefinition(TypeDefItem::Enum(e)) if e.doc.is_none() => {
+                    e.name.clone()
+                }
+                _ => None,
+            };
+            if let Some(name) = name
+                && let Some(doc) = Self::find_type_doc_in_comments(items, &name)
+            {
+                match &mut items[i] {
+                    TopLevelItem::TypeDefinition(
+                        TypeDefItem::Struct { doc: d, .. } | TypeDefItem::Typedef { doc: d, .. },
+                    ) => {
+                        *d = Some(doc);
+                    }
+                    TopLevelItem::TypeDefinition(TypeDefItem::Enum(e)) => {
+                        e.doc = Some(doc);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        Self::resolve_enum_value_docs(items);
+    }
+
+    fn resolve_enum_value_docs(items: &mut [TopLevelItem]) {
+        for i in 0..items.len() {
+            let TopLevelItem::TypeDefinition(TypeDefItem::Enum(e)) = &mut items[i] else {
+                continue;
+            };
+
+            // Extract inline @VALUE: entries from the parent enum's doc comment
+            let enum_name = match &e.name {
+                Some(n) => n.clone(),
+                None => continue,
+            };
+            let inline_docs: Vec<(String, EnumValueDoc)> = items
+                .iter()
+                .find_map(|item| {
+                    if let TopLevelItem::Comment(c) = item {
+                        let doc = TypeDoc::from_comment(c)?;
+                        if doc.symbol.as_deref() == Some(&enum_name) {
+                            return Some(EnumValueDoc::extract_inline_from_comment(c));
+                        }
+                    }
+                    None
+                })
+                .unwrap_or_default();
+
+            // Re-borrow mutably after the immutable iteration
+            let TopLevelItem::TypeDefinition(TypeDefItem::Enum(e)) = &mut items[i] else {
+                continue;
+            };
+
+            for value in &mut e.values {
+                // First try inline @VALUE: from parent doc
+                if let Some((_, doc)) = inline_docs.iter().find(|(n, _)| *n == value.name) {
+                    value.doc = Some(doc.clone());
+                }
+            }
+
+            // Then for values still without docs, look for standalone comments
+            let missing: Vec<String> = e
+                .values
+                .iter()
+                .filter(|v| v.doc.is_none())
+                .map(|v| v.name.clone())
+                .collect();
+
+            let standalone_docs: Vec<(String, EnumValueDoc)> = missing
+                .iter()
+                .filter_map(|name| {
+                    let doc = items.iter().find_map(|item| {
+                        if let TopLevelItem::Comment(c) = item {
+                            let doc = EnumValueDoc::from_comment(c)?;
+                            if doc.symbol.as_deref() == Some(name.as_str()) {
+                                return Some(doc);
+                            }
+                        }
+                        None
+                    })?;
+                    Some((name.clone(), doc))
+                })
+                .collect();
+
+            let TopLevelItem::TypeDefinition(TypeDefItem::Enum(e)) = &mut items[i] else {
+                continue;
+            };
+            for (name, doc) in standalone_docs {
+                if let Some(value) = e.values.iter_mut().find(|v| v.name == name) {
+                    value.doc = Some(doc);
+                }
             }
         }
     }

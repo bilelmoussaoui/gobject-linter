@@ -579,18 +579,21 @@ impl<A> RawDoc<A> {
         let mut description = Vec::new();
         let mut since = None;
         let mut deprecated = None;
-        let mut in_description = false;
+        let mut past_symbol = false;
+        let mut in_param = false;
 
         for raw_line in text.lines() {
             let line = raw_line.trim().strip_prefix('*').unwrap_or(raw_line.trim());
             let line = line.strip_prefix(' ').unwrap_or(line);
 
             if line.is_empty() {
+                if in_param {
+                    in_param = false;
+                }
                 continue;
             }
 
-            if !in_description
-                && let Some(rest) = line.strip_prefix('@')
+            if let Some(rest) = line.strip_prefix('@')
                 && let Some((name, after_colon)) = rest.split_once(':')
             {
                 let (anns, desc) =
@@ -600,7 +603,17 @@ impl<A> RawDoc<A> {
                     annotations: anns,
                     description: desc,
                 });
+                in_param = true;
+            } else if in_param && line.starts_with(' ') {
+                // Continuation of previous param description
+                if let Some(last) = params.last_mut() {
+                    if !last.description.is_empty() {
+                        last.description.push(' ');
+                    }
+                    last.description.push_str(line.trim());
+                }
             } else if let Some(after) = line.strip_prefix("Returns:") {
+                in_param = false;
                 let (anns, desc) =
                     parse_annotations_and_desc(after.trim(), ReturnAnnotation::parse);
                 returns = Some(DocReturns {
@@ -608,8 +621,10 @@ impl<A> RawDoc<A> {
                     description: desc,
                 });
             } else if let Some(v) = line.strip_prefix("Since:") {
+                in_param = false;
                 since = v.trim().parse().ok();
             } else if let Some(v) = line.strip_prefix("Deprecated:") {
+                in_param = false;
                 let v = v.trim();
                 let ver_end = v
                     .find(|c: char| !(c.is_ascii_digit() || c == '.'))
@@ -624,7 +639,8 @@ impl<A> RawDoc<A> {
                     };
                     deprecated = Some((version, message));
                 }
-            } else if symbol.is_none() && params.is_empty() && description.is_empty() {
+            } else if !past_symbol {
+                in_param = false;
                 let symbol_end = line
                     .find(|c: char| !(c.is_alphanumeric() || c == '_' || c == ':' || c == '-'))
                     .unwrap_or(line.len());
@@ -639,15 +655,16 @@ impl<A> RawDoc<A> {
                         .all(|c| c.is_alphanumeric() || c == '_' || c == ':' || c == '-')
                 {
                     symbol = Some(sym.to_owned());
+                    past_symbol = true;
                     if !rest.is_empty() {
                         annotations = parse_symbol_annotations(rest, parse_annotation);
                     }
                 } else {
-                    in_description = true;
+                    past_symbol = true;
                     description.push(line.to_owned());
                 }
             } else {
-                in_description = true;
+                in_param = false;
                 description.push(line.to_owned());
             }
         }
@@ -880,16 +897,33 @@ pub struct EnumValueDoc {
 }
 
 impl EnumValueDoc {
-    pub fn from_node(node: Node<'_>, source: &[u8]) -> Option<Self> {
-        RawDoc::from_node(node, source, parse_enum_value_annotation).map(Self::from_raw)
+    pub fn from_comment(comment: &Comment) -> Option<Self> {
+        RawDoc::from_comment(comment, parse_enum_value_annotation).map(Self::from_raw)
     }
 
-    pub fn from_node_for(node: Node<'_>, source: &[u8], expected_name: &str) -> Option<Self> {
-        let doc = Self::from_node(node, source)?;
-        match &doc.symbol {
-            Some(sym) if sym != expected_name => None,
-            _ => Some(doc),
-        }
+    /// Extract inline `@VALUE: description` entries from a parent type doc
+    /// comment (e.g. `/** GtkAlign: @GTK_ALIGN_FILL: ... */`).
+    pub fn extract_inline_from_comment(comment: &Comment) -> Vec<(String, Self)> {
+        let Some(raw) = RawDoc::from_comment(comment, parse_type_annotation) else {
+            return Vec::new();
+        };
+        raw.params
+            .into_iter()
+            .map(|p| {
+                let doc = Self {
+                    symbol: Some(p.name.clone()),
+                    annotations: Vec::new(),
+                    description: if p.description.is_empty() {
+                        Vec::new()
+                    } else {
+                        vec![p.description]
+                    },
+                    since: None,
+                    deprecated: None,
+                };
+                (p.name, doc)
+            })
+            .collect()
     }
 
     fn from_raw(raw: RawDoc<EnumValueAnnotation>) -> Self {
