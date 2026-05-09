@@ -83,6 +83,7 @@ fn calls_noreturn_function(statements: &[Statement]) -> bool {
     let noreturn_functions = [
         "g_error",
         "g_assert",
+        "g_assert_no_error",
         "g_assert_not_reached",
         "g_return_if_fail",
         "g_return_val_if_fail",
@@ -143,6 +144,8 @@ fn is_error_propagated(statements: &[Statement], var_name: &str) -> bool {
             "g_propagate_error",
             "g_steal_pointer",
             "g_task_return_error",
+            "gdk_content_deserializer_return_error",
+            "gdk_content_serializer_return_error",
         ],
     ) {
         return true;
