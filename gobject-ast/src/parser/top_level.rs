@@ -374,10 +374,7 @@ impl Parser {
                             is_static,
                             is_inline,
                             parameters,
-                            export_macros: export_macros
-                                .into_iter()
-                                .map(std::borrow::ToOwned::to_owned)
-                                .collect(),
+                            export_macros,
                             location: self.node_location(node),
                             doc: FunctionDoc::from_node_for(node, source, name),
                         }));

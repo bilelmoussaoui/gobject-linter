@@ -11,9 +11,10 @@ mod types;
 
 pub use comment::{Comment, CommentKind, CommentPosition};
 pub use doc::{
-    ArrayAnnotation, DocParam, DocReturns, EnumValueAnnotation, EnumValueDoc, FunctionAnnotation,
-    FunctionDoc, ParamAnnotation, PropertyAnnotation, PropertyDoc, ReturnAnnotation, ScopeKind,
-    SignalAnnotation, SignalDoc, TransferKind, TypeAnnotation, TypeDoc,
+    ArrayAnnotation, DocParam, DocReturns, EnumValueAnnotation, EnumValueDoc, ExportMacro,
+    FunctionAnnotation, FunctionDoc, ParamAnnotation, PropertyAnnotation, PropertyDoc,
+    ReturnAnnotation, ScopeKind, SignalAnnotation, SignalDoc, TransferKind, TypeAnnotation,
+    TypeDoc, Version,
 };
 pub use expression::{
     Argument, Assignment, BinaryExpression, BooleanExpression, CallExpression, CastExpression,

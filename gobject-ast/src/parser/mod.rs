@@ -132,21 +132,18 @@ impl Parser {
         Ok((path.to_path_buf(), file_model))
     }
 
-    fn find_export_macros_in_declaration<'a>(
+    fn find_export_macros_in_declaration(
         &self,
         decl_node: Node,
-        source: &'a [u8],
-    ) -> Vec<&'a str> {
+        source: &[u8],
+    ) -> Vec<ExportMacro> {
         let mut result = Vec::new();
-
-        // With the fixed grammar, macro_modifier nodes are now properly parsed
-        // Just walk children and extract macro_modifier nodes
         let mut cursor = decl_node.walk();
 
         for child in decl_node.children(&mut cursor) {
             if child.kind() == "macro_modifier" {
                 let text = std::str::from_utf8(&source[child.byte_range()]).unwrap_or("");
-                result.push(text.trim());
+                result.push(ExportMacro::parse(text.trim()));
             }
         }
 
@@ -161,13 +158,12 @@ impl Parser {
         source: &[u8],
     ) -> Option<GObjectType> {
         // Collect export macros from gobject_export_macro children
-        let export_macros: Vec<String> = {
+        let export_macros: Vec<ExportMacro> = {
             let mut cursor = node.walk();
             node.children(&mut cursor)
                 .filter(|c| c.kind() == "gobject_export_macro")
                 .filter_map(|c| std::str::from_utf8(&source[c.byte_range()]).ok())
-                .map(|s| s.trim().to_owned())
-                .filter(|s| !s.is_empty())
+                .map(|s| ExportMacro::parse(s.trim()))
                 .collect()
         };
 
@@ -254,77 +250,6 @@ impl Parser {
         let id = macro_spec.child(0).filter(|c| c.kind() == "identifier")?;
         let name = std::str::from_utf8(&source[id.byte_range()]).ok()?;
         if name.is_empty() { None } else { Some(name) }
-    }
-
-    /// Extract parameters from a macro_type_specifier child node.
-    /// When tree-sitter misparsers a function with an unknown return type,
-    /// parameters end up as type_descriptor + ERROR(identifier) pairs inside
-    /// the macro_type_specifier.
-    fn extract_params_from_macro_type_specifier(
-        &self,
-        node: Node,
-        source: &[u8],
-    ) -> Vec<Parameter> {
-        let mut cursor = node.walk();
-        let Some(macro_spec) = node
-            .children(&mut cursor)
-            .find(|c| c.kind() == "macro_type_specifier")
-        else {
-            return Vec::new();
-        };
-
-        let mut params = Vec::new();
-        let mut child_cursor = macro_spec.walk();
-        let children: Vec<Node> = macro_spec.children(&mut child_cursor).collect();
-
-        for (i, child) in children.iter().enumerate() {
-            if child.kind() == "type_descriptor" {
-                let base_type = {
-                    let mut tc = child.walk();
-                    child
-                        .children(&mut tc)
-                        .find(|c| {
-                            matches!(
-                                c.kind(),
-                                "type_identifier" | "primitive_type" | "sized_type_specifier"
-                            )
-                        })
-                        .and_then(|c| std::str::from_utf8(&source[c.byte_range()]).ok())
-                        .unwrap_or("")
-                };
-
-                let pointer_depth = {
-                    let mut tc = child.walk();
-                    child
-                        .children(&mut tc)
-                        .filter(|c| c.kind() == "abstract_pointer_declarator")
-                        .count()
-                };
-
-                let mut full_text = base_type.to_owned();
-                for _ in 0..pointer_depth {
-                    full_text.push('*');
-                }
-
-                let name = children
-                    .get(i + 1)
-                    .filter(|c| c.kind() == "ERROR")
-                    .and_then(|err| err.child(0))
-                    .filter(|c| c.kind() == "identifier")
-                    .and_then(|c| std::str::from_utf8(&source[c.byte_range()]).ok())
-                    .map(ToOwned::to_owned);
-
-                let location = self.node_location(*child);
-                let type_info = TypeInfo::new(&full_text, location);
-                params.push(Parameter::Regular {
-                    name,
-                    type_info,
-                    location,
-                });
-            }
-        }
-
-        params
     }
 
     pub(super) fn find_function_declarator<'a>(&self, node: Node<'a>) -> Option<Node<'a>> {

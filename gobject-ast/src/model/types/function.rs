@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use serde::Serialize;
 
 use crate::model::{
-    CallExpression, Expression, FunctionDoc, ParamSpecAssignment, Property, PropertyDoc, Signal,
-    SignalDoc, SourceLocation, Statement, TypeInfo, VariableDecl,
+    CallExpression, ExportMacro, Expression, FunctionDoc, ParamSpecAssignment, Property,
+    PropertyDoc, Signal, SignalDoc, SourceLocation, Statement, TypeInfo, VariableDecl,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -30,7 +30,7 @@ pub struct FunctionDeclItem {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub parameters: Vec<Parameter>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub export_macros: Vec<String>,
+    pub export_macros: Vec<ExportMacro>,
     pub location: SourceLocation,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub doc: Option<FunctionDoc>,

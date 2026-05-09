@@ -1,8 +1,8 @@
 use serde::{Serialize, Serializer, ser::SerializeMap as _};
 
 use crate::model::{
-    FunctionDefItem, FunctionDoc, GType, ParamSpecAssignment, Parameter, Signal, SourceLocation,
-    Statement, TypeDoc, TypeInfo,
+    ExportMacro, FunctionDefItem, FunctionDoc, GType, ParamSpecAssignment, Parameter, Signal,
+    SourceLocation, Statement, TypeDoc, TypeInfo,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -25,7 +25,7 @@ pub struct GObjectType {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub code_block_statements: Vec<Statement>, // Statements from *_WITH_CODE macros
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub export_macros: Vec<String>, // e.g., ["CLUTTER_EXPORT"]
+    pub export_macros: Vec<ExportMacro>, // e.g., [Other("CLUTTER_EXPORT")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub doc: Option<TypeDoc>,
     #[serde(skip_serializing_if = "Vec::is_empty")]

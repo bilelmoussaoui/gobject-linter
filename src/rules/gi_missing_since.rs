@@ -1,4 +1,4 @@
-use gobject_ast::model::{FunctionAnnotation, PropertyAnnotation};
+use gobject_ast::model::{ExportMacro, FunctionAnnotation, PropertyAnnotation};
 
 use crate::{
     ast_context::AstContext,
@@ -41,44 +41,6 @@ impl Rule for GiMissingSince {
     }
 }
 
-struct MacroVersion {
-    version: String,
-    keyword: &'static str,
-}
-
-fn extract_version_from_macro(macro_name: &str) -> Option<MacroVersion> {
-    let (suffix, keyword) = if let Some(s) = macro_name.split("AVAILABLE_IN_").nth(1) {
-        (s, "AVAILABLE_IN")
-    } else {
-        let s = macro_name.split("DEPRECATED_IN_").nth(1)?;
-        (s, "DEPRECATED_IN")
-    };
-    let (major, minor) = suffix.split_once('_')?;
-    if major.chars().all(|c| c.is_ascii_digit()) && minor.chars().all(|c| c.is_ascii_digit()) {
-        Some(MacroVersion {
-            version: format!("{major}.{minor}"),
-            keyword,
-        })
-    } else {
-        None
-    }
-}
-
-fn extract_version_from_macros(macros: &[String]) -> Option<MacroVersion> {
-    macros.iter().find_map(|m| extract_version_from_macro(m))
-}
-
-fn extract_deprecated_version(deprecated: &str) -> Option<&str> {
-    let trimmed = deprecated.trim();
-    let ver = trimmed.split(':').next()?.trim();
-    let ver = ver.trim_end_matches('.');
-    if ver.contains('.') && ver.chars().all(|c| c.is_ascii_digit() || c == '.') {
-        Some(ver)
-    } else {
-        None
-    }
-}
-
 impl GiMissingSince {
     fn check_type_since(&self, ast_context: &AstContext, violations: &mut Vec<Violation>) {
         for (path, file) in ast_context.iter_header_files() {
@@ -87,69 +49,61 @@ impl GiMissingSince {
             }
 
             for gt in file.iter_all_gobject_types() {
-                let macro_ver = extract_version_from_macros(&gt.export_macros);
                 let type_doc = ast_context.find_type_doc(&gt.type_name);
 
-                match &macro_ver {
-                    Some(mv) if mv.keyword == "DEPRECATED_IN" => {
-                        let deprecated_ver = type_doc
-                            .and_then(|d| d.deprecated.as_deref())
-                            .and_then(extract_deprecated_version)
-                            .map(str::to_owned);
-                        match deprecated_ver.as_deref() {
+                match gt.export_macros.iter().find(|m| m.version().is_some()) {
+                    Some(ExportMacro::DeprecatedIn(macro_ver)) => {
+                        let dep_ver = type_doc.and_then(|d| d.deprecated.as_ref().map(|(v, _)| v));
+                        match dep_ver {
                             None => {
                                 violations.push(self.violation(
                                     path,
                                     gt.location.line,
                                     gt.location.column,
                                     format!(
-                                        "Type '{}' has DEPRECATED_IN_{} but is missing a Deprecated: annotation",
+                                        "Type '{}' has DEPRECATED_IN_{}_{} but is missing a Deprecated: annotation",
                                         gt.type_name,
-                                        mv.version.replace('.', "_"),
+                                        macro_ver.major, macro_ver.minor,
                                     ),
                                 ));
                             }
-                            Some(dep_ver) if dep_ver != mv.version => {
+                            Some(v) if v != macro_ver => {
                                 violations.push(self.violation(
                                     path,
                                     gt.location.line,
                                     gt.location.column,
                                     format!(
-                                        "Type '{}' has DEPRECATED_IN_{} but Deprecated: says {}",
-                                        gt.type_name,
-                                        mv.version.replace('.', "_"),
-                                        dep_ver,
+                                        "Type '{}' has DEPRECATED_IN_{}_{} but Deprecated: says {}",
+                                        gt.type_name, macro_ver.major, macro_ver.minor, v,
                                     ),
                                 ));
                             }
                             _ => {}
                         }
                     }
-                    Some(mv) => {
-                        let type_since = type_doc.and_then(|d| d.since.clone());
-                        match type_since.as_deref() {
+                    Some(ExportMacro::AvailableIn(macro_ver)) => {
+                        let since = type_doc.and_then(|d| d.since.as_ref());
+                        match since {
                             None => {
                                 violations.push(self.violation(
                                     path,
                                     gt.location.line,
                                     gt.location.column,
                                     format!(
-                                        "Type '{}' has AVAILABLE_IN_{} but is missing a Since: annotation",
+                                        "Type '{}' has AVAILABLE_IN_{}_{} but is missing a Since: annotation",
                                         gt.type_name,
-                                        mv.version.replace('.', "_"),
+                                        macro_ver.major, macro_ver.minor,
                                     ),
                                 ));
                             }
-                            Some(since_ver) if since_ver != mv.version => {
+                            Some(v) if v != macro_ver => {
                                 violations.push(self.violation(
                                     path,
                                     gt.location.line,
                                     gt.location.column,
                                     format!(
-                                        "Type '{}' has AVAILABLE_IN_{} but Since: says {}",
-                                        gt.type_name,
-                                        mv.version.replace('.', "_"),
-                                        since_ver,
+                                        "Type '{}' has AVAILABLE_IN_{}_{} but Since: says {}",
+                                        gt.type_name, macro_ver.major, macro_ver.minor, v,
                                     ),
                                 ));
                             }
@@ -157,8 +111,7 @@ impl GiMissingSince {
                         }
                     }
                     None if !gt.export_macros.is_empty() => {
-                        let type_since = type_doc.and_then(|d| d.since.clone());
-                        if let Some(since_ver) = type_since {
+                        if let Some(since) = type_doc.and_then(|d| d.since.as_ref()) {
                             violations.push(self.violation(
                                 path,
                                 gt.location.line,
@@ -166,7 +119,7 @@ impl GiMissingSince {
                                 format!(
                                     "Type '{}' has Since: {} but is missing a versioned export macro",
                                     gt.type_name,
-                                    since_ver,
+                                    since,
                                 ),
                             ));
                         }
@@ -189,51 +142,50 @@ impl GiMissingSince {
                     continue;
                 }
 
-                let macro_ver = extract_version_from_macros(&func_decl.export_macros);
                 let func_doc = ast_context.find_func_doc(&func_decl.name);
 
-                match &macro_ver {
-                    Some(mv) if mv.keyword == "DEPRECATED_IN" => {
-                        let deprecated_ver = func_doc
-                            .and_then(|d| d.deprecated.as_deref())
-                            .and_then(extract_deprecated_version)
-                            .map(str::to_owned);
-                        match deprecated_ver.as_deref() {
+                match func_decl
+                    .export_macros
+                    .iter()
+                    .find(|m| m.version().is_some())
+                {
+                    Some(ExportMacro::DeprecatedIn(macro_ver)) => {
+                        let dep_ver = func_doc.and_then(|d| d.deprecated.as_ref().map(|(v, _)| v));
+                        match dep_ver {
                             None => {
                                 violations.push(self.violation(
                                     path,
                                     func_decl.location.line,
                                     func_decl.location.column,
                                     format!(
-                                        "Function '{}' has DEPRECATED_IN_{} but is missing a Deprecated: annotation",
+                                        "Function '{}' has DEPRECATED_IN_{}_{} but is missing a Deprecated: annotation",
                                         func_decl.name,
-                                        mv.version.replace('.', "_"),
+                                        macro_ver.major, macro_ver.minor,
                                     ),
                                 ));
                             }
-                            Some(dep_ver) if dep_ver != mv.version => {
+                            Some(v) if v != macro_ver => {
                                 violations.push(self.violation(
                                     path,
                                     func_decl.location.line,
                                     func_decl.location.column,
                                     format!(
-                                        "Function '{}' has DEPRECATED_IN_{} but Deprecated: says {}",
+                                        "Function '{}' has DEPRECATED_IN_{}_{} but Deprecated: says {}",
                                         func_decl.name,
-                                        mv.version.replace('.', "_"),
-                                        dep_ver,
+                                        macro_ver.major, macro_ver.minor, v,
                                     ),
                                 ));
                             }
                             _ => {}
                         }
                     }
-                    Some(mv) => {
-                        let since = func_doc.and_then(|d| d.since.clone());
+                    Some(ExportMacro::AvailableIn(macro_ver)) => {
+                        let since = func_doc.and_then(|d| d.since.as_ref());
 
                         let parent_type_ver = file
                             .iter_all_gobject_types()
                             .find(|gt| func_decl.name.starts_with(&gt.function_prefix))
-                            .and_then(|gt| extract_version_from_macros(&gt.export_macros))
+                            .and_then(|gt| gt.export_macros.iter().find_map(|m| m.version()))
                             .or_else(|| {
                                 file.iter_function_declarations()
                                     .filter(|d| d.name.ends_with("_get_type"))
@@ -241,39 +193,34 @@ impl GiMissingSince {
                                         let prefix = &d.name[..d.name.len() - "_get_type".len()];
                                         func_decl.name.starts_with(prefix)
                                     })
-                                    .and_then(|d| extract_version_from_macros(&d.export_macros))
+                                    .and_then(|d| d.export_macros.iter().find_map(|m| m.version()))
                             });
 
-                        if parent_type_ver
-                            .as_ref()
-                            .is_some_and(|p| p.version == mv.version)
-                        {
+                        if parent_type_ver.is_some_and(|p| p == macro_ver) {
                             continue;
                         }
 
-                        match since.as_deref() {
+                        match since {
                             None => {
                                 violations.push(self.violation(
                                     path,
                                     func_decl.location.line,
                                     func_decl.location.column,
                                     format!(
-                                        "Function '{}' has AVAILABLE_IN_{} but is missing a Since: annotation",
+                                        "Function '{}' has AVAILABLE_IN_{}_{} but is missing a Since: annotation",
                                         func_decl.name,
-                                        mv.version.replace('.', "_"),
+                                        macro_ver.major, macro_ver.minor,
                                     ),
                                 ));
                             }
-                            Some(since_ver) if since_ver != mv.version => {
+                            Some(v) if v != macro_ver => {
                                 violations.push(self.violation(
                                     path,
                                     func_decl.location.line,
                                     func_decl.location.column,
                                     format!(
-                                        "Function '{}' has AVAILABLE_IN_{} but Since: says {}",
-                                        func_decl.name,
-                                        mv.version.replace('.', "_"),
-                                        since_ver,
+                                        "Function '{}' has AVAILABLE_IN_{}_{} but Since: says {}",
+                                        func_decl.name, macro_ver.major, macro_ver.minor, v,
                                     ),
                                 ));
                             }
@@ -281,8 +228,7 @@ impl GiMissingSince {
                         }
                     }
                     None if !func_decl.export_macros.is_empty() => {
-                        let since = func_doc.and_then(|d| d.since.clone());
-                        if let Some(since_ver) = since {
+                        if let Some(since) = func_doc.and_then(|d| d.since.as_ref()) {
                             violations.push(self.violation(
                                 path,
                                 func_decl.location.line,
@@ -290,7 +236,7 @@ impl GiMissingSince {
                                 format!(
                                     "Function '{}' has Since: {} but is missing a versioned export macro",
                                     func_decl.name,
-                                    since_ver,
+                                    since,
                                 ),
                             ));
                         }
@@ -311,7 +257,7 @@ impl GiMissingSince {
                 for prop_assignment in &gt.properties {
                     let property = prop_assignment.property();
                     let prop_name = &property.name;
-                    let prop_since = property.doc.as_ref().and_then(|d| d.since.as_deref());
+                    let prop_since = property.doc.as_ref().and_then(|d| d.since.as_ref());
 
                     let mut getter_setter_names: Vec<(String, &str)> = Vec::new();
 
@@ -363,7 +309,9 @@ impl GiMissingSince {
                     }
 
                     for (func_name, role) in &getter_setter_names {
-                        let func_since = self.find_function_since(ast_context, func_name);
+                        let func_since = ast_context
+                            .find_func_doc(func_name)
+                            .and_then(|d| d.since.as_ref());
 
                         match (prop_since, func_since) {
                             (Some(pv), None) => {
@@ -405,33 +353,5 @@ impl GiMissingSince {
                 }
             }
         }
-    }
-
-    fn find_function_since<'a>(
-        &self,
-        ast_context: &'a AstContext,
-        func_name: &str,
-    ) -> Option<&'a str> {
-        for (_, file) in ast_context.iter_header_files() {
-            for func_decl in file.iter_function_declarations() {
-                if func_decl.name == func_name
-                    && let Some(since) = func_decl.doc.as_ref().and_then(|d| d.since.as_deref())
-                {
-                    return Some(since);
-                }
-            }
-        }
-
-        for (_, file) in ast_context.iter_c_files() {
-            for func_def in file.iter_function_definitions() {
-                if func_def.name == func_name
-                    && let Some(since) = func_def.doc.as_ref().and_then(|d| d.since.as_deref())
-                {
-                    return Some(since);
-                }
-            }
-        }
-
-        None
     }
 }

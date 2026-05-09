@@ -1,7 +1,71 @@
+use std::{fmt, str::FromStr};
+
 use serde::Serialize;
 use tree_sitter::Node;
 
 use super::Comment;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Version {
+    pub major: u32,
+    pub minor: u32,
+}
+
+impl fmt::Display for Version {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}.{}", self.major, self.minor)
+    }
+}
+
+impl FromStr for Version {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (major, minor) = s.split_once('.').ok_or(())?;
+        Ok(Self {
+            major: major.parse().map_err(|_| ())?,
+            minor: minor.parse().map_err(|_| ())?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExportMacro {
+    AvailableIn(Version),
+    DeprecatedIn(Version),
+    Other(String),
+}
+
+impl ExportMacro {
+    pub fn parse(name: &str) -> Self {
+        if let Some(suffix) = name.split("AVAILABLE_IN_").nth(1) {
+            if let Some(ver) = Self::parse_version_suffix(suffix) {
+                return Self::AvailableIn(ver);
+            }
+        } else if let Some(suffix) = name.split("DEPRECATED_IN_").nth(1)
+            && let Some(ver) = Self::parse_version_suffix(suffix)
+        {
+            return Self::DeprecatedIn(ver);
+        }
+        Self::Other(name.to_owned())
+    }
+
+    fn parse_version_suffix(suffix: &str) -> Option<Version> {
+        let (major, minor) = suffix.split_once('_')?;
+        Some(Version {
+            major: major.parse().ok()?,
+            minor: minor.parse().ok()?,
+        })
+    }
+
+    pub fn version(&self) -> Option<&Version> {
+        match self {
+            Self::AvailableIn(v) | Self::DeprecatedIn(v) => Some(v),
+            Self::Other(_) => None,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -471,8 +535,8 @@ struct RawDoc<A> {
     params: Vec<DocParam>,
     returns: Option<DocReturns>,
     description: Vec<String>,
-    since: Option<String>,
-    deprecated: Option<String>,
+    since: Option<Version>,
+    deprecated: Option<(Version, Option<String>)>,
 }
 
 impl<A> RawDoc<A> {
@@ -544,9 +608,22 @@ impl<A> RawDoc<A> {
                     description: desc,
                 });
             } else if let Some(v) = line.strip_prefix("Since:") {
-                since = Some(v.trim().to_owned());
+                since = v.trim().parse().ok();
             } else if let Some(v) = line.strip_prefix("Deprecated:") {
-                deprecated = Some(v.trim().to_owned());
+                let v = v.trim();
+                let ver_end = v
+                    .find(|c: char| !(c.is_ascii_digit() || c == '.'))
+                    .unwrap_or(v.len());
+                let ver_str = v[..ver_end].trim_end_matches('.');
+                if let Ok(version) = ver_str.parse::<Version>() {
+                    let rest = v[ver_end..].trim().trim_start_matches(':').trim();
+                    let message = if rest.is_empty() {
+                        None
+                    } else {
+                        Some(rest.to_owned())
+                    };
+                    deprecated = Some((version, message));
+                }
             } else if symbol.is_none() && params.is_empty() && description.is_empty() {
                 let symbol_end = line
                     .find(|c: char| !(c.is_alphanumeric() || c == '_' || c == ':' || c == '-'))
@@ -600,9 +677,9 @@ pub struct FunctionDoc {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub description: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub since: Option<String>,
+    pub since: Option<Version>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub deprecated: Option<String>,
+    pub deprecated: Option<(Version, Option<String>)>,
 }
 
 impl FunctionDoc {
@@ -657,9 +734,9 @@ pub struct TypeDoc {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub description: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub since: Option<String>,
+    pub since: Option<Version>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub deprecated: Option<String>,
+    pub deprecated: Option<(Version, Option<String>)>,
 }
 
 impl TypeDoc {
@@ -707,9 +784,9 @@ pub struct PropertyDoc {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub description: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub since: Option<String>,
+    pub since: Option<Version>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub deprecated: Option<String>,
+    pub deprecated: Option<(Version, Option<String>)>,
 }
 
 impl PropertyDoc {
@@ -755,9 +832,9 @@ pub struct SignalDoc {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub description: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub since: Option<String>,
+    pub since: Option<Version>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub deprecated: Option<String>,
+    pub deprecated: Option<(Version, Option<String>)>,
 }
 
 impl SignalDoc {
@@ -797,9 +874,9 @@ pub struct EnumValueDoc {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub description: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub since: Option<String>,
+    pub since: Option<Version>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub deprecated: Option<String>,
+    pub deprecated: Option<(Version, Option<String>)>,
 }
 
 impl EnumValueDoc {
