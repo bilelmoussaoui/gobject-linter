@@ -34,6 +34,7 @@ function formatCategory(category) {
     pedantic: "Pedantic",
     restriction: "Restriction",
     portability: "Portability",
+    introspection: "Introspection",
   };
   return categoryMap[category] || category;
 }
