@@ -31,7 +31,7 @@ impl Rule for UseGSourceOnce {
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         func: &FunctionDefItem,
         file: &FileModel,
         violations: &mut Vec<Violation>,
@@ -81,10 +81,11 @@ impl Rule for UseGSourceOnce {
                             .join(", ");
 
                         // Fix 1: Replace g_idle_add → g_idle_add_once
+                        let arg_refs: Vec<&str> = args_str.split(", ").collect();
                         let mut fixes = vec![Fix::new(
                             call.location.start_byte,
                             call.location.end_byte,
-                            format!("{} ({})", replacement, args_str),
+                            config.style.format_call(replacement, &arg_refs),
                         )];
 
                         // Add callback fixes (return type + return statements)

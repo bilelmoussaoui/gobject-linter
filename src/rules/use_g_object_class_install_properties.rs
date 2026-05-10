@@ -31,7 +31,7 @@ impl Rule for UseGObjectClassInstallProperties {
     fn check_enum(
         &self,
         _ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         enum_info: &EnumInfo,
         file: &FileModel,
         violations: &mut Vec<Violation>,
@@ -64,6 +64,7 @@ impl Rule for UseGObjectClassInstallProperties {
             &gobject_type.properties,
             enum_info,
             &file.source,
+            &config.style,
         );
 
         let first_call = install_property_calls[0];
@@ -90,6 +91,7 @@ impl Rule for UseGObjectClassInstallProperties {
 }
 
 impl UseGObjectClassInstallProperties {
+    #[allow(clippy::too_many_arguments)]
     fn generate_fixes(
         &self,
         file: &FileModel,
@@ -98,6 +100,7 @@ impl UseGObjectClassInstallProperties {
         assignments: &[ParamSpecAssignment],
         property_enum: &EnumInfo,
         source: &[u8],
+        style: &crate::config::Style,
     ) -> Vec<Fix> {
         let mut fixes = Vec::new();
 
@@ -328,10 +331,11 @@ impl UseGObjectClassInstallProperties {
                 return fixes;
             };
 
-            let install_properties_call = format!(
-                "\n\n{}g_object_class_install_properties ({}, {}, {});",
-                indentation, object_class_var, n_props_name, array_name
+            let call = style.format_call_stmt(
+                "g_object_class_install_properties",
+                &[object_class_var, &n_props_name, &array_name],
             );
+            let install_properties_call = format!("\n\n{}{}", indentation, call);
             let last_stmt_end = last_stmt.location().find_semicolon_end(source);
             fixes.push(Fix::new(
                 last_stmt_end,

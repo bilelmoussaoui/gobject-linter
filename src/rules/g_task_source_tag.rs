@@ -28,12 +28,19 @@ impl Rule for GTaskSourceTag {
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         func: &FunctionDefItem,
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        self.check_statements(file, func, &func.body_statements, &file.source, violations);
+        self.check_statements(
+            file,
+            func,
+            &func.body_statements,
+            &file.source,
+            &config.style,
+            violations,
+        );
     }
 }
 
@@ -44,6 +51,7 @@ impl GTaskSourceTag {
         func: &FunctionDefItem,
         statements: &[Statement],
         source: &[u8],
+        style: &crate::config::Style,
         violations: &mut Vec<Violation>,
     ) {
         // Find all g_task_new calls and their variables
@@ -56,14 +64,8 @@ impl GTaskSourceTag {
                 let indentation = stmt_location.extract_indentation(source);
 
                 let stmt_end = stmt_location.find_semicolon_end(source);
-                let fix = Fix::new(
-                    stmt_end,
-                    stmt_end,
-                    format!(
-                        "\n{}g_task_set_source_tag ({}, {});",
-                        indentation, var_name, func.name
-                    ),
-                );
+                let call = style.format_call_stmt("g_task_set_source_tag", &[var_name, &func.name]);
+                let fix = Fix::new(stmt_end, stmt_end, format!("\n{}{}", indentation, call));
 
                 violations.push(self.violation_with_fix(
                     &file.path,

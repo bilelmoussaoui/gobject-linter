@@ -52,8 +52,76 @@ where
     }
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct Style {
+    #[serde(default = "default_true")]
+    pub space_before_paren: bool,
+}
+
+impl Default for Style {
+    fn default() -> Self {
+        Self {
+            space_before_paren: true,
+        }
+    }
+}
+
+impl Style {
+    pub fn format_call(&self, func: &str, args: &[&str]) -> String {
+        let sep = if self.space_before_paren { " (" } else { "(" };
+        let mut s =
+            String::with_capacity(func.len() + 2 + args.iter().map(|a| a.len() + 2).sum::<usize>());
+        s.push_str(func);
+        s.push_str(sep);
+        for (i, arg) in args.iter().enumerate() {
+            if i > 0 {
+                s.push_str(", ");
+            }
+            s.push_str(arg);
+        }
+        s.push(')');
+        s
+    }
+
+    pub fn format_call_stmt(&self, func: &str, args: &[&str]) -> String {
+        let mut s = self.format_call(func, args);
+        s.push(';');
+        s
+    }
+
+    pub fn format_addr_call(&self, func: &str, var: &str, extra_args: &[&str]) -> String {
+        let sep = if self.space_before_paren { " (" } else { "(" };
+        let mut s = String::with_capacity(
+            func.len() + 4 + var.len() + extra_args.iter().map(|a| a.len() + 2).sum::<usize>(),
+        );
+        s.push_str(func);
+        s.push_str(sep);
+        s.push('&');
+        s.push_str(var);
+        for arg in extra_args {
+            s.push_str(", ");
+            s.push_str(arg);
+        }
+        s.push(')');
+        s
+    }
+
+    pub fn format_addr_call_stmt(&self, func: &str, var: &str, extra_args: &[&str]) -> String {
+        let mut s = self.format_addr_call(func, var, extra_args);
+        s.push(';');
+        s
+    }
+}
+
+fn default_true() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct Config {
+    #[serde(default)]
+    pub style: Style,
+
     #[serde(default)]
     pub rules: RulesConfig,
 

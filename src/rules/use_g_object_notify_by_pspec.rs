@@ -32,7 +32,7 @@ impl Rule for UseGObjectNotifyByPspec {
     fn check_all(
         &self,
         ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         violations: &mut Vec<Violation>,
     ) {
         for (path, file) in ast_context.iter_all_files() {
@@ -45,7 +45,15 @@ impl Rule for UseGObjectNotifyByPspec {
             // Find all g_object_notify calls
             for func in file.iter_function_definitions() {
                 for call in func.find_calls(&["g_object_notify"]) {
-                    self.check_call(path, call, source, &property_map, func, violations);
+                    self.check_call(
+                        path,
+                        call,
+                        source,
+                        &property_map,
+                        func,
+                        &config.style,
+                        violations,
+                    );
                 }
             }
         }
@@ -53,6 +61,7 @@ impl Rule for UseGObjectNotifyByPspec {
 }
 
 impl UseGObjectNotifyByPspec {
+    #[allow(clippy::too_many_arguments)]
     fn check_call(
         &self,
         file_path: &std::path::Path,
@@ -60,6 +69,7 @@ impl UseGObjectNotifyByPspec {
         source: &[u8],
         property_map: &HashMap<&str, Vec<(&str, &str, &str)>>,
         func: &FunctionDefItem,
+        style: &crate::config::Style,
         violations: &mut Vec<Violation>,
     ) {
         // Need exactly 2 arguments: object and property name
@@ -110,10 +120,8 @@ impl UseGObjectNotifyByPspec {
                 };
 
                 // Generate fix: replace entire call
-                let replacement = format!(
-                    "g_object_notify_by_pspec ({}, {}[{}])",
-                    obj_str, array_name, enum_value
-                );
+                let pspec = format!("{}[{}]", array_name, enum_value);
+                let replacement = style.format_call("g_object_notify_by_pspec", &[obj_str, &pspec]);
 
                 violations.push(self.violation_with_fix(
                     file_path,

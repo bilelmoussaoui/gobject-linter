@@ -30,13 +30,13 @@ impl Rule for UseGBytesUnrefToData {
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         func: &FunctionDefItem,
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         Statement::walk_pairs(&func.body_statements, &mut |stmt1, stmt2| {
-            self.try_bytes_pattern(stmt1, stmt2, file, violations);
+            self.try_bytes_pattern(stmt1, stmt2, file, config, violations);
         });
     }
 }
@@ -48,6 +48,7 @@ impl UseGBytesUnrefToData {
         stmt1: &Statement,
         stmt2: &Statement,
         file: &FileModel,
+        config: &Config,
         violations: &mut Vec<Violation>,
     ) {
         // First statement: dest = g_bytes_get_data(bytes, &size)
@@ -66,10 +67,10 @@ impl UseGBytesUnrefToData {
         };
 
         // Build the replacement
-        let replacement = format!(
-            "{} = g_bytes_unref_to_data ({}, {});",
-            dest, bytes_var, size_arg
-        );
+        let call = config
+            .style
+            .format_call("g_bytes_unref_to_data", &[bytes_var, size_arg]);
+        let replacement = format!("{} = {};", dest, call);
         let message = format!(
             "Use g_bytes_unref_to_data({}, {}) instead of g_bytes_get_data() followed by g_bytes_unref()",
             bytes_var, size_arg

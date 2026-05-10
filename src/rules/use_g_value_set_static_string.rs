@@ -28,19 +28,25 @@ impl Rule for UseGValueSetStaticString {
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         func: &FunctionDefItem,
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         for call in func.find_calls(&["g_value_set_string"]) {
-            self.check_call(file, call, violations);
+            self.check_call(file, call, config, violations);
         }
     }
 }
 
 impl UseGValueSetStaticString {
-    fn check_call(&self, file: &FileModel, call: &CallExpression, violations: &mut Vec<Violation>) {
+    fn check_call(
+        &self,
+        file: &FileModel,
+        call: &CallExpression,
+        config: &Config,
+        violations: &mut Vec<Violation>,
+    ) {
         // Need at least 2 arguments
         if call.arguments.len() < 2 {
             return;
@@ -60,14 +66,12 @@ impl UseGValueSetStaticString {
         };
 
         // Build the fix - replace just the function name
-        let replacement = format!(
-            "g_value_set_static_string ({})",
-            call.arguments
-                .iter()
-                .filter_map(|arg| arg.to_source_string(&file.source))
-                .collect::<Vec<_>>()
-                .join(", ")
-        );
+        let args: Vec<&str> = call
+            .arguments
+            .iter()
+            .filter_map(|arg| arg.to_source_string(&file.source))
+            .collect();
+        let replacement = config.style.format_call("g_value_set_static_string", &args);
 
         let fix = Fix::new(
             call.location.start_byte,

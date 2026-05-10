@@ -4,7 +4,7 @@ use gobject_ast::model::{
 
 use crate::{
     ast_context::AstContext,
-    config::Config,
+    config::{Config, Style},
     rules::{Fix, Rule, Violation},
 };
 
@@ -30,38 +30,30 @@ impl Rule for UseGStealPointer {
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         func: &FunctionDefItem,
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        self.check_function(func, file, violations);
+        self.check_statements(&func.body_statements, file, &config.style, violations);
     }
 }
 
 impl UseGStealPointer {
-    fn check_function(
-        &self,
-        func: &FunctionDefItem,
-        file: &FileModel,
-        violations: &mut Vec<Violation>,
-    ) {
-        self.check_statements(&func.body_statements, file, violations);
-    }
-
     fn check_statements(
         &self,
         statements: &[Statement],
         file: &FileModel,
+        style: &Style,
         violations: &mut Vec<Violation>,
     ) {
         let mut i = 0;
         while i < statements.len() {
-            if self.try_if_else_steal(&statements[i], file, violations) {
+            if self.try_if_else_steal(&statements[i], file, style, violations) {
                 i += 1;
                 continue;
             }
-            if self.try_if_no_else_steal(&statements[i], file, violations) {
+            if self.try_if_no_else_steal(&statements[i], file, style, violations) {
                 i += 1;
                 continue;
             }
@@ -71,6 +63,7 @@ impl UseGStealPointer {
                     &statements[i + 1],
                     &statements[i + 2],
                     file,
+                    style,
                     violations,
                 )
             {
@@ -78,13 +71,13 @@ impl UseGStealPointer {
                 continue;
             }
             if i + 1 < statements.len()
-                && self.try_assign_null(&statements[i], &statements[i + 1], file, violations)
+                && self.try_assign_null(&statements[i], &statements[i + 1], file, style, violations)
             {
                 i += 2;
                 continue;
             }
             statements[i].for_each_child_block(|body| {
-                self.check_statements(body, file, violations);
+                self.check_statements(body, file, style, violations);
             });
             i += 1;
         }
@@ -97,6 +90,7 @@ impl UseGStealPointer {
         s2: &Statement,
         s3: &Statement,
         file: &FileModel,
+        style: &Style,
         violations: &mut Vec<Violation>,
     ) -> bool {
         // s1: T *tmp = ptr_expr
@@ -143,16 +137,14 @@ impl UseGStealPointer {
             return false;
         }
 
-        let replacement = format!("return g_steal_pointer (&{ptr_expr});");
+        let steal = style.format_addr_call("g_steal_pointer", ptr_expr, &[]);
+        let replacement = format!("return {steal};");
         let message =
             format!("Use {replacement} instead of copying {ptr_expr} and setting it to NULL");
 
-        // Use three separate fixes to preserve comments between statements
         let fixes = vec![
-            // Delete the first two lines
             Fix::delete_line(s1.location(), &file.source),
             Fix::delete_line(s2.location(), &file.source),
-            // Replace the third statement (return)
             Fix::new(
                 s3.location().start_byte,
                 s3.location().end_byte,
@@ -176,13 +168,13 @@ impl UseGStealPointer {
         s1: &Statement,
         s2: &Statement,
         file: &FileModel,
+        style: &Style,
         violations: &mut Vec<Violation>,
     ) -> bool {
         let Some((other_expr, ptr_expr)) = self.extract_assignment(s1, &file.source) else {
             return false;
         };
 
-        // Skip dereference expressions — g_steal_pointer (&*expr) is confusing
         if ptr_expr.starts_with('*') {
             return false;
         }
@@ -191,9 +183,9 @@ impl UseGStealPointer {
             return false;
         }
 
-        let replacement = format!("{other_expr} = g_steal_pointer (&{ptr_expr});");
-        let message =
-            format!("Use g_steal_pointer (&{ptr_expr}) instead of copying and setting to NULL");
+        let steal = style.format_addr_call("g_steal_pointer", ptr_expr, &[]);
+        let replacement = format!("{other_expr} = {steal};");
+        let message = format!("Use {steal} instead of copying and setting to NULL");
 
         // Use two separate fixes to preserve comments between statements
         let s2_end = s2.location().find_semicolon_end(&file.source);
@@ -219,6 +211,7 @@ impl UseGStealPointer {
         &self,
         stmt: &Statement,
         file: &FileModel,
+        style: &Style,
         violations: &mut Vec<Violation>,
     ) -> bool {
         let Statement::If(if_stmt) = stmt else {
@@ -267,9 +260,9 @@ impl UseGStealPointer {
             return false;
         }
 
-        let replacement = format!("{dest_expr} = g_steal_pointer (&{expr_text});");
-        let message =
-            format!("Use g_steal_pointer (&{expr_text}) instead of if/else copy-and-NULL pattern");
+        let steal = style.format_addr_call("g_steal_pointer", expr_text, &[]);
+        let replacement = format!("{dest_expr} = {steal};");
+        let message = format!("Use {steal} instead of if/else copy-and-NULL pattern");
         let fix = Fix::new(
             if_stmt.location.start_byte,
             if_stmt.location.end_byte,
@@ -292,7 +285,7 @@ impl UseGStealPointer {
         &self,
         stmt: &Statement,
         file: &FileModel,
-
+        style: &Style,
         violations: &mut Vec<Violation>,
     ) -> bool {
         let Statement::If(if_stmt) = stmt else {
@@ -324,9 +317,9 @@ impl UseGStealPointer {
                 return false;
             }
 
-            let replacement = format!("{dest_expr} = g_steal_pointer (&{ptr_expr});");
-            let message =
-                format!("Use g_steal_pointer (&{ptr_expr}) instead of copying and setting to NULL");
+            let steal = style.format_addr_call("g_steal_pointer", ptr_expr, &[]);
+            let replacement = format!("{dest_expr} = {steal};");
+            let message = format!("Use {steal} instead of copying and setting to NULL");
 
             // If condition tests the same variable being stolen, remove entire if
             // Otherwise just replace the body
@@ -400,7 +393,8 @@ impl UseGStealPointer {
                 return false;
             }
 
-            let replacement = format!("return g_steal_pointer (&{ptr_expr});");
+            let steal = style.format_addr_call("g_steal_pointer", ptr_expr, &[]);
+            let replacement = format!("return {steal};");
             let message =
                 format!("Use {replacement} instead of copying {ptr_expr} and setting it to NULL");
 

@@ -28,19 +28,25 @@ impl Rule for UseGNew {
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         func: &FunctionDefItem,
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         for call in func.find_calls(&["g_malloc", "g_malloc0"]) {
-            self.check_call(file, call, violations);
+            self.check_call(file, call, config, violations);
         }
     }
 }
 
 impl UseGNew {
-    fn check_call(&self, file: &FileModel, call: &CallExpression, violations: &mut Vec<Violation>) {
+    fn check_call(
+        &self,
+        file: &FileModel,
+        call: &CallExpression,
+        config: &Config,
+        violations: &mut Vec<Violation>,
+    ) {
         // Need exactly 1 argument
         if call.arguments.len() != 1 {
             return;
@@ -67,7 +73,7 @@ impl UseGNew {
             "g_new"
         };
 
-        let replacement = format!("{} ({}, 1)", suggested_func, type_name);
+        let replacement = config.style.format_call(suggested_func, &[type_name, "1"]);
         let message = format!(
             "Use {} instead of {}(sizeof({})) for type safety",
             replacement, func_name, type_name

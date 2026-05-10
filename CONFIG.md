@@ -26,6 +26,11 @@ ignore = [
 # Output format, one of "text", "json", "sarif", "gcc", or "gitlab-codequality"
 format = "text"
 
+# Function call style: space before parenthesis (GLib convention, default)
+# Set to false for no-space style: `g_new(Type, 1)`
+[style]
+space_before_paren = true
+
 # Configure individual rules
 [rules.use_g_strlcpy]
 level = "error"  # "error", "warn", or "ignore"

@@ -64,7 +64,7 @@ impl Rule for PropertyEnumConvention {
             .unwrap_or("typed");
 
         match style {
-            "typed" => self.check_all_typed_style(ast_context, violations),
+            "typed" => self.check_all_typed_style(ast_context, &config.style, violations),
             "legacy" => self.check_all_legacy_style(ast_context, violations),
             _ => {
                 // Invalid style, default to legacy
@@ -76,7 +76,12 @@ impl Rule for PropertyEnumConvention {
 
 impl PropertyEnumConvention {
     /// Check using modern typed enum style (PROP_FOO = 1, no PROP_0/N_PROPS)
-    fn check_all_typed_style(&self, ast_context: &AstContext, violations: &mut Vec<Violation>) {
+    fn check_all_typed_style(
+        &self,
+        ast_context: &AstContext,
+        call_style: &crate::config::Style,
+        violations: &mut Vec<Violation>,
+    ) {
         for (path, file) in ast_context.iter_all_files() {
             // Collect N_PROPS names from enums that will be transformed
             // (skip override pattern enums and already-modern enums)
@@ -280,7 +285,8 @@ impl PropertyEnumConvention {
                                         array_arg.to_source_string(&file.source)
                                     && array_names.contains(&array_name)
                                 {
-                                    let replacement = format!("G_N_ELEMENTS ({})", array_name);
+                                    let replacement =
+                                        call_style.format_call("G_N_ELEMENTS", &[array_name]);
                                     fixes.push(Fix::new(
                                         arg.location().start_byte,
                                         arg.location().end_byte,

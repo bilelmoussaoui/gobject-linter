@@ -30,7 +30,7 @@ impl Rule for UseGStrHasPrefixSuffix {
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         func: &FunctionDefItem,
         file: &FileModel,
         violations: &mut Vec<Violation>,
@@ -38,7 +38,7 @@ impl Rule for UseGStrHasPrefixSuffix {
         for stmt in &func.body_statements {
             stmt.walk_expressions(&mut |expr| {
                 expr.walk(&mut |e| {
-                    self.check_expression(e, file, violations);
+                    self.check_expression(e, file, &config.style, violations);
                 });
             });
         }
@@ -50,6 +50,7 @@ impl UseGStrHasPrefixSuffix {
         &self,
         expr: &Expression,
         file: &FileModel,
+        style: &crate::config::Style,
         violations: &mut Vec<Violation>,
     ) {
         let Expression::Binary(bin) = expr else {
@@ -63,6 +64,7 @@ impl UseGStrHasPrefixSuffix {
             &bin.right,
             &bin.operator,
             file,
+            style,
             &bin.location,
             violations,
         );
@@ -71,6 +73,7 @@ impl UseGStrHasPrefixSuffix {
             &bin.left,
             &bin.operator,
             file,
+            style,
             &bin.location,
             violations,
         );
@@ -79,6 +82,7 @@ impl UseGStrHasPrefixSuffix {
             &bin.right,
             &bin.operator,
             file,
+            style,
             &bin.location,
             violations,
         );
@@ -87,18 +91,21 @@ impl UseGStrHasPrefixSuffix {
             &bin.left,
             &bin.operator,
             file,
+            style,
             &bin.location,
             violations,
         );
     }
 
     /// Check for strncmp(str, "prefix", strlen("prefix")) == 0 pattern
+    #[allow(clippy::too_many_arguments)]
     fn check_for_prefix_pattern(
         &self,
         strncmp_side: &Expression,
         value_side: &Expression,
         operator: &BinaryOp,
         file: &FileModel,
+        style: &crate::config::Style,
         location: &SourceLocation,
         violations: &mut Vec<Violation>,
     ) {
@@ -136,10 +143,12 @@ impl UseGStrHasPrefixSuffix {
             .and_then(|e| e.to_source_string(&file.source))
             .unwrap_or_default();
 
+        let prefix_arg = format!("\"{}\"", prefix_text);
+        let call = style.format_call("g_str_has_prefix", &[str_arg_text, &prefix_arg]);
         let replacement = if *operator == BinaryOp::Equal {
-            format!("g_str_has_prefix ({str_arg_text}, \"{prefix_text}\")")
+            call
         } else {
-            format!("!g_str_has_prefix ({str_arg_text}, \"{prefix_text}\")")
+            format!("!{call}")
         };
         let message = format!(
             "Use {replacement} instead of strncmp() {} 0",
@@ -158,12 +167,14 @@ impl UseGStrHasPrefixSuffix {
 
     /// Check for strcmp(str + strlen(str) - strlen("suffix"), "suffix") == 0
     /// pattern
+    #[allow(clippy::too_many_arguments)]
     fn check_for_suffix_pattern(
         &self,
         strcmp_side: &Expression,
         value_side: &Expression,
         operator: &BinaryOp,
         file: &FileModel,
+        style: &crate::config::Style,
         location: &SourceLocation,
         violations: &mut Vec<Violation>,
     ) {
@@ -198,10 +209,12 @@ impl UseGStrHasPrefixSuffix {
             return;
         };
 
+        let suffix_arg = format!("\"{}\"", suffix_text);
+        let call = style.format_call("g_str_has_suffix", &[str_expr, &suffix_arg]);
         let replacement = if *operator == BinaryOp::Equal {
-            format!("g_str_has_suffix ({str_expr}, \"{suffix_text}\")")
+            call
         } else {
-            format!("!g_str_has_suffix ({str_expr}, \"{suffix_text}\")")
+            format!("!{call}")
         };
         let message = format!(
             "Use {replacement} instead of strcmp() {} 0",

@@ -28,14 +28,14 @@ impl Rule for UseGSettingsTyped {
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         func: &FunctionDefItem,
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
         // Check for g_settings_set_value calls
         for call in func.find_calls(&["g_settings_set_value"]) {
-            self.check_settings_set_call(file, call, violations);
+            self.check_settings_set_call(file, call, config, violations);
         }
 
         // Check for g_variant_get_* calls
@@ -52,7 +52,7 @@ impl Rule for UseGSettingsTyped {
             "g_variant_get_double",
             "g_variant_get_strv",
         ]) {
-            self.check_variant_get_call(file, call, violations);
+            self.check_variant_get_call(file, call, config, violations);
         }
     }
 }
@@ -62,6 +62,7 @@ impl UseGSettingsTyped {
         &self,
         file: &FileModel,
         call: &CallExpression,
+        config: &Config,
         violations: &mut Vec<Violation>,
     ) {
         // g_settings_set_value(settings, key, variant)
@@ -96,14 +97,9 @@ impl UseGSettingsTyped {
         };
 
         // Build replacement
-        let replacement = if value_args.is_empty() {
-            format!("{} ({}, {})", typed_func, settings_arg, key_arg)
-        } else {
-            format!(
-                "{} ({}, {}, {})",
-                typed_func, settings_arg, key_arg, value_args
-            )
-        };
+        let mut args = vec![settings_arg, key_arg];
+        args.extend_from_slice(&value_args);
+        let replacement = config.style.format_call(typed_func, &args);
         let message = format!(
             "Use {} instead of g_settings_set_value with g_variant_new for type safety",
             replacement
@@ -128,6 +124,7 @@ impl UseGSettingsTyped {
         &self,
         file: &FileModel,
         call: &CallExpression,
+        config: &Config,
         violations: &mut Vec<Violation>,
     ) {
         // g_variant_get_*(variant, ...) - first arg should be g_settings_get_value call
@@ -179,7 +176,9 @@ impl UseGSettingsTyped {
         };
 
         // Build replacement
-        let replacement = format!("{} ({}, {})", typed_func, settings_arg, key_arg);
+        let replacement = config
+            .style
+            .format_call(typed_func, &[settings_arg, key_arg]);
         let message = format!(
             "Use {} instead of g_variant_get_* with g_settings_get_value for type safety",
             replacement
@@ -201,11 +200,11 @@ impl UseGSettingsTyped {
 
     /// Extract g_variant_new pattern and return (format_string,
     /// typed_function_name, rest_of_args)
-    fn extract_variant_pattern(
+    fn extract_variant_pattern<'a>(
         &self,
-        variant_call: &CallExpression,
-        file: &FileModel,
-    ) -> Option<(String, &'static str, String)> {
+        variant_call: &'a CallExpression,
+        file: &'a FileModel,
+    ) -> Option<(String, &'static str, Vec<&'a str>)> {
         // Need at least 1 argument (the format string)
         if variant_call.arguments.is_empty() {
             return None;
@@ -236,15 +235,10 @@ impl UseGSettingsTyped {
         };
 
         // Collect remaining arguments (after format string)
-        let rest_args = if variant_call.arguments.len() > 1 {
-            let rest: Vec<&str> = variant_call.arguments[1..]
-                .iter()
-                .filter_map(|arg| arg.to_source_string(&file.source))
-                .collect();
-            rest.join(", ")
-        } else {
-            String::new()
-        };
+        let rest_args: Vec<&str> = variant_call.arguments[1..]
+            .iter()
+            .filter_map(|arg| arg.to_source_string(&file.source))
+            .collect();
 
         Some((format_str.to_string(), typed_func, rest_args))
     }

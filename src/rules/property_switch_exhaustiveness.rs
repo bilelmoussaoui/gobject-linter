@@ -120,6 +120,7 @@ impl Rule for PropertySwitchExhaustiveness {
                         &property_access,
                         true, // is_getter
                         style,
+                        &config.style,
                         violations,
                     );
                 }
@@ -133,6 +134,7 @@ impl Rule for PropertySwitchExhaustiveness {
                         &property_access,
                         false, // is_getter
                         style,
+                        &config.style,
                         violations,
                     );
                 }
@@ -249,6 +251,7 @@ impl PropertySwitchExhaustiveness {
         property_access: &HashMap<&str, Option<(bool, bool)>>,
         is_getter: bool,
         style: &str,
+        call_style: &crate::config::Style,
         violations: &mut Vec<Violation>,
     ) {
         // Find the function definition
@@ -369,6 +372,7 @@ impl PropertySwitchExhaustiveness {
                             &auto_fixable_properties,
                             switch_stmt,
                             &file.source,
+                            call_style,
                         )
                     } else {
                         // Just insert cases before default
@@ -376,6 +380,7 @@ impl PropertySwitchExhaustiveness {
                             &auto_fixable_properties,
                             switch_stmt,
                             &file.source,
+                            call_style,
                         )
                     };
 
@@ -441,9 +446,11 @@ impl PropertySwitchExhaustiveness {
         prop_names: &[&str],
         switch_stmt: &SwitchStatement,
         source: &[u8],
+        call_style: &crate::config::Style,
     ) -> Fix {
         let insertion_point = self.find_case_insertion_point(switch_stmt, source);
         let (case_indent, body_indent) = self.detect_indentation(switch_stmt, source);
+        let assert_call = call_style.format_call_stmt("g_assert_not_reached", &[]);
 
         let mut replacement = String::new();
         for (i, prop_name) in prop_names.iter().enumerate() {
@@ -451,8 +458,8 @@ impl PropertySwitchExhaustiveness {
                 replacement.push_str(&format!("{}case {}:\n", case_indent, prop_name));
             } else {
                 replacement.push_str(&format!(
-                    "{}case {}:\n{}g_assert_not_reached ();\n{}break;\n",
-                    case_indent, prop_name, body_indent, body_indent
+                    "{}case {}:\n{}{}\n{}break;\n",
+                    case_indent, prop_name, body_indent, assert_call, body_indent
                 ));
             }
         }
@@ -467,8 +474,10 @@ impl PropertySwitchExhaustiveness {
         prop_names: &[&str],
         switch_stmt: &SwitchStatement,
         source: &[u8],
+        call_style: &crate::config::Style,
     ) -> Fix {
         let (case_indent, body_indent) = self.detect_indentation(switch_stmt, source);
+        let assert_call = call_style.format_call_stmt("g_assert_not_reached", &[]);
 
         // Find the range of the default case to replace
         let (start, end) = self.find_default_case_range(switch_stmt, source);
@@ -479,8 +488,8 @@ impl PropertySwitchExhaustiveness {
                 replacement.push_str(&format!("{}case {}:\n", case_indent, prop_name));
             } else {
                 replacement.push_str(&format!(
-                    "{}case {}:\n{}g_assert_not_reached ();\n{}break;\n",
-                    case_indent, prop_name, body_indent, body_indent
+                    "{}case {}:\n{}{}\n{}break;\n",
+                    case_indent, prop_name, body_indent, assert_call, body_indent
                 ));
             }
         }
