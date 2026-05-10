@@ -117,7 +117,7 @@ ${rule.config_options.map((opt) => `${opt.name} = ${opt.example_value}`).join("\
 
     ${rule.opt_in ? `
     <div class="opt-in-notice mb-6">
-      <strong>Disabled by default.</strong> ${rule.opt_in_reason || ""}
+      <strong>Disabled by default.</strong> ${rule.opt_in_reason || ""}.
       Enable it explicitly in your config or with <code>--only ${rule.name}</code>.
     </div>` : ""}
     ${rule.requires_meson ? `
