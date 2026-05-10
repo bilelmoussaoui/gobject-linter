@@ -1,0 +1,2 @@
+detailed_signals.c:11:27: signal_canonical_name: Signal name 'item_activated' should use hyphens instead of underscores: 'item-activated'
+detailed_signals.c:14:27: signal_canonical_name: Signal name 'item_activated' should use hyphens instead of underscores: 'item-activated'

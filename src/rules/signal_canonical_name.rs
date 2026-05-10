@@ -66,7 +66,6 @@ impl Rule for SignalCanonicalName {
 }
 
 impl SignalCanonicalName {
-    /// Check a signal name argument (should be a string literal)
     fn check_signal_name_arg(
         &self,
         expr: &Expression,
@@ -74,19 +73,32 @@ impl SignalCanonicalName {
         violations: &mut Vec<Violation>,
     ) {
         if let Expression::StringLiteral(string_lit) = expr {
-            // Remove quotes and check for underscores
-            let signal_name = string_lit.value.trim_matches('"');
+            let raw = &string_lit.value;
+
+            // Find the content of the first quoted portion.
+            let Some(first_close) = raw[1..].find('"') else {
+                return;
+            };
+            let first_str_content = &raw[1..1 + first_close];
+
+            let signal_name = first_str_content
+                .split("::")
+                .next()
+                .unwrap_or(first_str_content);
 
             if signal_name.contains('_') {
-                // Generate the fixed signal name (replace _ with -)
-                let fixed_name = signal_name.replace('_', "-");
-                let replacement = format!("\"{}\"", fixed_name);
+                let fixed_signal = signal_name.replace('_', "-");
 
-                let fix = Fix::new(
-                    string_lit.location.start_byte,
-                    string_lit.location.end_byte,
-                    replacement,
+                let fixed_first_str = format!(
+                    "\"{}{}\"",
+                    fixed_signal,
+                    &first_str_content[signal_name.len()..],
                 );
+
+                let fix_start = string_lit.location.start_byte;
+                let fix_end = fix_start + 1 + first_close + 1;
+
+                let fix = Fix::new(fix_start, fix_end, fixed_first_str);
 
                 violations.push(self.violation_with_fix(
                     &file.path,
@@ -94,7 +106,7 @@ impl SignalCanonicalName {
                     string_lit.location.column,
                     format!(
                         "Signal name '{}' should use hyphens instead of underscores: '{}'",
-                        signal_name, fixed_name
+                        signal_name, fixed_signal
                     ),
                     fix,
                 ));
