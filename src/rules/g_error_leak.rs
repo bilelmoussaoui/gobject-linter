@@ -1,9 +1,11 @@
+use std::sync::LazyLock;
+
 use gobject_ast::model::{Argument, Expression, FileModel, FunctionDefItem, Statement, UnaryOp};
 
 use crate::{
     ast_context::AstContext,
     config::Config,
-    rules::{Category, Rule, Violation},
+    rules::{Category, ConfigOption, Rule, Violation},
 };
 
 pub struct GErrorLeak;
@@ -21,20 +23,43 @@ impl Rule for GErrorLeak {
         Category::Correctness
     }
 
+    fn config_options(&self) -> &'static [ConfigOption] {
+        static OPTIONS: LazyLock<Vec<ConfigOption>> = LazyLock::new(|| {
+            vec![
+                ConfigOption {
+                    name: "extra_noreturn_functions",
+                    option_type: "array<string>",
+                    default_value: "[]",
+                    example_value: "[\"my_app_abort\", \"test_fail\"]",
+                    description: "Additional function names that never return (terminate the program), suppressing leak warnings",
+                },
+                ConfigOption {
+                    name: "extra_propagation_functions",
+                    option_type: "array<string>",
+                    default_value: "[]",
+                    example_value: "[\"my_app_report_error\", \"dbus_reply_error\"]",
+                    description: "Additional function names that take ownership of the GError (propagation/transfer)",
+                },
+            ]
+        });
+        &OPTIONS
+    }
+
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         func: &FunctionDefItem,
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        // Find all local GError* variables initialized to NULL
+        let extra_noreturn = config.get_string_list(self.name(), "extra_noreturn_functions");
+        let extra_propagation = config.get_string_list(self.name(), "extra_propagation_functions");
+
         let mut gerror_vars = Vec::new();
 
         for stmt in &func.body_statements {
             for decl in stmt.iter_declarations() {
-                // Check if it's a GError* variable initialized to NULL
                 if decl.type_info.is_base_type("GError")
                     && decl.type_info.is_pointer()
                     && decl.initializer.as_ref().is_some_and(Expression::is_null)
@@ -44,22 +69,17 @@ impl Rule for GErrorLeak {
             }
         }
 
-        // For each GError* variable, check if it's properly handled
         for (var_name, loc) in gerror_vars {
-            // Check if the variable is actually used (passed to functions as &error)
             let is_used = is_error_used(&func.body_statements, var_name);
 
             if !is_used {
-                continue; // Not used, so no leak
+                continue;
             }
 
-            // Check if it's properly handled (freed or propagated)
             let is_freed = is_error_freed(&func.body_statements, var_name);
-            let is_propagated = is_error_propagated(&func.body_statements, var_name);
-
-            // If the function contains noreturn calls (g_error, g_assert, etc.),
-            // skip the leak check as the program will terminate anyway
-            let has_noreturn = calls_noreturn_function(&func.body_statements);
+            let is_propagated =
+                is_error_propagated(&func.body_statements, var_name, &extra_propagation);
+            let has_noreturn = calls_noreturn_function(&func.body_statements, &extra_noreturn);
 
             if !is_freed && !is_propagated && !has_noreturn {
                 violations.push(self.violation(
@@ -76,14 +96,12 @@ impl Rule for GErrorLeak {
     }
 }
 
-/// Check if the function calls a non-returning function (g_error, g_assert,
-/// exit, etc.) that would terminate the program, making error cleanup
-/// unnecessary
-fn calls_noreturn_function(statements: &[Statement]) -> bool {
-    let noreturn_functions = [
+fn calls_noreturn_function(statements: &[Statement], extra: &[String]) -> bool {
+    const BUILTIN: &[&str] = &[
         "g_error",
         "g_assert",
         "g_assert_not_reached",
+        "g_assert_no_error",
         "g_return_if_fail",
         "g_return_val_if_fail",
         "exit",
@@ -94,7 +112,7 @@ fn calls_noreturn_function(statements: &[Statement]) -> bool {
     for stmt in statements {
         for call in stmt.iter_calls() {
             if let Some(func_name) = call.function_name_str()
-                && noreturn_functions.contains(&func_name)
+                && (BUILTIN.contains(&func_name) || extra.iter().any(|e| e == func_name))
             {
                 return true;
             }
@@ -134,7 +152,7 @@ fn is_error_freed(statements: &[Statement], var_name: &str) -> bool {
 
 /// Check if the error variable is propagated (g_propagate_error,
 /// g_steal_pointer, g_task_return_error, etc.)
-fn is_error_propagated(statements: &[Statement], var_name: &str) -> bool {
+fn is_error_propagated(statements: &[Statement], var_name: &str, extra: &[String]) -> bool {
     // Check for known ownership-transfer functions
     if check_error_handled(
         statements,
@@ -148,22 +166,21 @@ fn is_error_propagated(statements: &[Statement], var_name: &str) -> bool {
         return true;
     }
 
-    // Check for common naming patterns that indicate ownership transfer or
-    // termination Functions like *_terminate_with_error, *_set_error, etc.
+    if !extra.is_empty() && check_error_handled_dynamic(statements, var_name, extra) {
+        return true;
+    }
+
     for stmt in statements {
         for call in stmt.iter_calls() {
-            if let Some(func_name) = call.function_name_str() {
-                // Common patterns for functions that take ownership or terminate
-                if func_name.contains("_terminate_") && func_name.contains("error")
+            if let Some(func_name) = call.function_name_str()
+                && (func_name.contains("_terminate_") && func_name.contains("error")
                     || func_name.ends_with("_set_error")
-                    || func_name.contains("_set_g_error")
-                {
-                    // Check if the error variable is in the arguments
-                    for arg in &call.arguments {
-                        let Argument::Expression(arg_expr) = arg;
-                        if arg_expr.contains_identifier(var_name) {
-                            return true;
-                        }
+                    || func_name.contains("_set_g_error"))
+            {
+                for arg in &call.arguments {
+                    let Argument::Expression(arg_expr) = arg;
+                    if arg_expr.contains_identifier(var_name) {
+                        return true;
                     }
                 }
             }
@@ -173,17 +190,36 @@ fn is_error_propagated(statements: &[Statement], var_name: &str) -> bool {
     false
 }
 
-/// Check if the error variable is handled by specific functions
 fn check_error_handled(statements: &[Statement], var_name: &str, functions: &[&str]) -> bool {
     for stmt in statements {
         for call in stmt.iter_calls() {
             if let Some(func_name) = call.function_name_str()
                 && functions.contains(&func_name)
             {
-                // Check if the error variable is in the arguments
                 for arg in &call.arguments {
                     let Argument::Expression(arg_expr) = arg;
-                    // Could be passed as `error` or `&error`
+                    if arg_expr.contains_identifier(var_name) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
+fn check_error_handled_dynamic(
+    statements: &[Statement],
+    var_name: &str,
+    functions: &[String],
+) -> bool {
+    for stmt in statements {
+        for call in stmt.iter_calls() {
+            if let Some(func_name) = call.function_name_str()
+                && functions.iter().any(|f| f == func_name)
+            {
+                for arg in &call.arguments {
+                    let Argument::Expression(arg_expr) = arg;
                     if arg_expr.contains_identifier(var_name) {
                         return true;
                     }
