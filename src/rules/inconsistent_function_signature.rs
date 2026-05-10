@@ -36,10 +36,6 @@ impl Rule for InconsistentFunctionSignature {
         crate::rules::Category::Suspicious
     }
 
-    fn fixable(&self) -> bool {
-        false
-    }
-
     fn check_all(
         &self,
         ast_context: &AstContext,

@@ -41,6 +41,16 @@ impl Rule for DeadCode {
         true
     }
 
+    fn opt_in(&self) -> bool {
+        true
+    }
+
+    fn opt_in_reason(&self) -> Option<&'static str> {
+        Some(
+            "May produce false positives due to fundamental limitations of static analysis without a preprocessor or full call graph",
+        )
+    }
+
     fn check_all(
         &self,
         ast_context: &AstContext,

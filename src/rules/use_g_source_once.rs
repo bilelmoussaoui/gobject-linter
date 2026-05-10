@@ -28,6 +28,10 @@ impl Rule for UseGSourceOnce {
         true
     }
 
+    fn min_glib_version(&self) -> Option<(u32, u32)> {
+        Some((2, 74))
+    }
+
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,

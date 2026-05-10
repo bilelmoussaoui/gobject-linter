@@ -279,6 +279,29 @@ pub trait Rule: Send + Sync {
         &[]
     }
 
+    /// Minimum GLib version required by this rule.
+    /// `None` means no version requirement (compatible with all versions).
+    fn min_glib_version(&self) -> Option<(u32, u32)> {
+        None
+    }
+
+    /// Whether this rule suggests g_auto* macros (disabled when
+    /// msvc_compatible=true)
+    fn requires_auto_cleanup(&self) -> bool {
+        false
+    }
+
+    /// Whether this rule is disabled by default (user must explicitly enable
+    /// it)
+    fn opt_in(&self) -> bool {
+        false
+    }
+
+    /// Why this rule is opt-in (only meaningful when opt_in() returns true)
+    fn opt_in_reason(&self) -> Option<&'static str> {
+        None
+    }
+
     /// Check a function implementation (from C files)
     /// Override this to check function bodies and implementations
     #[allow(unused_variables)]

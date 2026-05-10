@@ -35,6 +35,16 @@ impl Rule for MissingExportMacro {
         true
     }
 
+    fn opt_in(&self) -> bool {
+        true
+    }
+
+    fn opt_in_reason(&self) -> Option<&'static str> {
+        Some(
+            "May produce false positives as the parser can mis-identify export macros in some codebases",
+        )
+    }
+
     fn check_func_decl(
         &self,
         ast_context: &AstContext,

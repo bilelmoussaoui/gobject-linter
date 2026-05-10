@@ -29,6 +29,10 @@ impl Rule for UseGObjectNotifyByPspec {
         true
     }
 
+    fn min_glib_version(&self) -> Option<(u32, u32)> {
+        Some((2, 26))
+    }
+
     fn check_all(
         &self,
         ast_context: &AstContext,

@@ -27,6 +27,10 @@ impl Rule for UseGBytesUnrefToData {
         true
     }
 
+    fn min_glib_version(&self) -> Option<(u32, u32)> {
+        Some((2, 32))
+    }
+
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,

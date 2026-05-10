@@ -87,118 +87,110 @@ pub struct RuleEntry<'a> {
     pub rule: Box<dyn Rule>,
     pub level: RuleLevel,
     pub rule_config: &'a RuleConfig,
-    pub min_glib_version: (u32, u32),
-    pub requires_auto_cleanup: bool,
-    /// Rule is disabled by default; user must explicitly enable it in config or
-    /// via --only
-    pub opt_in: bool,
 }
 
-/// Macro to define all rules in execution order with their minimum GLib version
-/// requirements and MSVC compatibility
-/// Format: (config_field, RuleType, min_major, min_minor,
-/// requires_auto_cleanup)
-/// - requires_auto_cleanup: true if rule suggests g_auto* macros (disabled when
-///   msvc_compatible=true)
+/// Macro to define all rules in execution order.
+/// Format: (config_field, RuleType)
 #[macro_export]
 macro_rules! for_each_rule {
     ($callback:ident) => {
         $callback! {
-            // (config_field, RuleType, min_major, min_minor, requires_auto_cleanup, opt_in)
-            // opt_in = true: rule defaults to ignore, user must explicitly enable it
-            (dead_code, DeadCode, 2, 0, false, true),
-            (include_order, IncludeOrder, 2, 0, false, false),
-            (inconsistent_function_signature, InconsistentFunctionSignature, 2, 0, false, false),
-            (use_pragma_once, UsePragmaOnce, 2, 0, false, false),
-            (missing_implementation, MissingImplementation, 2, 0, false, false),
-            (missing_autoptr_cleanup, MissingAutoptrCleanup, 2, 0, false, false),
-            (missing_export_macro, MissingExportMacro, 2, 0, false, true),
-            (no_g_auto_macros, NoGAutoMacros, 2, 0, false, false),
-            (deprecated_add_private, DeprecatedAddPrivate, 2, 0, false, false),
-            (matching_declare_define, MatchingDeclareDefine, 2, 70, false, false),
-            (use_g_new, UseGNew, 2, 0, false, false),
-            (use_g_object_class_install_properties, UseGObjectClassInstallProperties, 2, 26, false, false),
-            (use_g_settings_typed, UseGSettingsTyped, 2, 26, false, false),
-            (use_g_value_set_static_string, UseGValueSetStaticString, 2, 0, false, false),
-            (use_g_variant_new_typed, UseGVariantNewTyped, 2, 24, false, false),
-            (strcmp_explicit_comparison, StrcmpExplicitComparison, 2, 0, false, false),
-            (type_style, TypeStyle, 2, 0, false, false),
-            (use_g_strcmp0, UseGStrcmp0, 2, 16, false, false),
-            (use_clear_functions, UseClearFunctions, 2, 0, false, false),
-            (use_explicit_default_flags, UseExplicitDefaultFlags, 2, 0, false, false),
-            (g_param_spec_null_nick_blurb, GParamSpecNullNickBlurb, 2, 0, false, false),
-            (g_param_spec_static_strings, GParamSpecStaticStrings, 2, 0, false, false),
-            (property_canonical_name, PropertyCanonicalName, 2, 0, false, false),
-            (g_error_init, GErrorInit, 2, 0, false, false),
-            (g_error_leak, GErrorLeak, 2, 0, false, false),
-            (g_source_id_not_stored, GSourceIdNotStored, 2, 0, false, false),
-            (property_enum_convention, PropertyEnumConvention, 2, 0, false, false),
-            (property_enum_coverage, PropertyEnumCoverage, 2, 0, false, false),
-            (property_switch_exhaustiveness, PropertySwitchExhaustiveness, 2, 0, false, false),
-            (signal_canonical_name, SignalCanonicalName, 2, 0, false, false),
-            (signal_enum_coverage, SignalEnumCoverage, 2, 0, false, false),
-            (g_object_virtual_methods_chain_up, GObjectVirtualMethodsChainUp, 2, 0, false, false),
-            (g_task_source_tag, GTaskSourceTag, 2, 36, false, false),
-            (unnecessary_null_check, UnnecessaryNullCheck, 2, 0, false, false),
-            (use_g_set_object, UseGSetObject, 2, 44, false, false),
-            (use_g_set_str, UseGSetStr, 2, 76, false, false),
-            (use_auto_cleanup, UseAutoCleanup, 2, 44, true, false),
-            (use_g_bytes_unref_to_data, UseGBytesUnrefToData, 2, 32, false, false),
-            (use_g_file_load_bytes, UseGFileLoadBytes, 2, 56, false, false),
-            (use_g_gnuc_flag_enum, UseGGnucFlagEnum, 2, 87, false, false),
-            (use_g_object_new_with_properties, UseGObjectNewWithProperties, 2, 0, false, false),
-            (use_g_object_notify_by_pspec, UseGObjectNotifyByPspec, 2, 26, false, false),
-            (use_g_string_free_and_steal, UseGStringFreeAndSteal, 2, 76, false, false),
-            (use_g_source_once, UseGSourceOnce, 2, 74, false, false),
-            (use_g_source_constants, UseGSourceConstants, 2, 0, false, false),
-            (use_g_steal_pointer, UseGStealPointer, 2, 0, false, false),
-            (use_g_str_has_prefix_suffix, UseGStrHasPrefixSuffix, 2, 0, false, false),
-            (use_g_ascii_functions, UseGAsciiFunctions, 2, 0, false, false),
-            (use_g_strlcpy, UseGStrlcpy, 2, 0, false, false),
-            (untranslated_string, UntranslatedString, 2, 0, false, false),
-            (gi_missing_since, GiMissingSince, 2, 0, false, true),
-            (gi_not_bindings_friendly, GiNotBindingsFriendly, 2, 0, false, true),
+            (dead_code, DeadCode),
+            (include_order, IncludeOrder),
+            (inconsistent_function_signature, InconsistentFunctionSignature),
+            (use_pragma_once, UsePragmaOnce),
+            (missing_implementation, MissingImplementation),
+            (missing_autoptr_cleanup, MissingAutoptrCleanup),
+            (missing_export_macro, MissingExportMacro),
+            (no_g_auto_macros, NoGAutoMacros),
+            (deprecated_add_private, DeprecatedAddPrivate),
+            (matching_declare_define, MatchingDeclareDefine),
+            (use_g_new, UseGNew),
+            (use_g_object_class_install_properties, UseGObjectClassInstallProperties),
+            (use_g_settings_typed, UseGSettingsTyped),
+            (use_g_value_set_static_string, UseGValueSetStaticString),
+            (use_g_variant_new_typed, UseGVariantNewTyped),
+            (strcmp_explicit_comparison, StrcmpExplicitComparison),
+            (type_style, TypeStyle),
+            (use_g_strcmp0, UseGStrcmp0),
+            (use_clear_functions, UseClearFunctions),
+            (use_explicit_default_flags, UseExplicitDefaultFlags),
+            (g_param_spec_null_nick_blurb, GParamSpecNullNickBlurb),
+            (g_param_spec_static_strings, GParamSpecStaticStrings),
+            (property_canonical_name, PropertyCanonicalName),
+            (g_error_init, GErrorInit),
+            (g_error_leak, GErrorLeak),
+            (g_source_id_not_stored, GSourceIdNotStored),
+            (property_enum_convention, PropertyEnumConvention),
+            (property_enum_coverage, PropertyEnumCoverage),
+            (property_switch_exhaustiveness, PropertySwitchExhaustiveness),
+            (signal_canonical_name, SignalCanonicalName),
+            (signal_enum_coverage, SignalEnumCoverage),
+            (g_object_virtual_methods_chain_up, GObjectVirtualMethodsChainUp),
+            (g_task_source_tag, GTaskSourceTag),
+            (unnecessary_null_check, UnnecessaryNullCheck),
+            (use_g_set_object, UseGSetObject),
+            (use_g_set_str, UseGSetStr),
+            (use_auto_cleanup, UseAutoCleanup),
+            (use_g_bytes_unref_to_data, UseGBytesUnrefToData),
+            (use_g_file_load_bytes, UseGFileLoadBytes),
+            (use_g_gnuc_flag_enum, UseGGnucFlagEnum),
+            (use_g_object_new_with_properties, UseGObjectNewWithProperties),
+            (use_g_object_notify_by_pspec, UseGObjectNotifyByPspec),
+            (use_g_string_free_and_steal, UseGStringFreeAndSteal),
+            (use_g_source_once, UseGSourceOnce),
+            (use_g_source_constants, UseGSourceConstants),
+            (use_g_steal_pointer, UseGStealPointer),
+            (use_g_str_has_prefix_suffix, UseGStrHasPrefixSuffix),
+            (use_g_ascii_functions, UseGAsciiFunctions),
+            (use_g_strlcpy, UseGStrlcpy),
+            (untranslated_string, UntranslatedString),
+            (gi_missing_since, GiMissingSince),
+            (gi_not_bindings_friendly, GiNotBindingsFriendly),
         }
     };
 }
 
 macro_rules! impl_create_all_rules {
-    ($(($config_field:ident, $rule_type:ident, $major:literal, $minor:literal, $requires_auto_cleanup:literal, $opt_in:literal)),* $(,)?) => {
+    ($(($config_field:ident, $rule_type:ident)),* $(,)?) => {
         /// Create all rule instances in execution order
         pub fn create_all_rules<'a>(config: &'a Config) -> Vec<RuleEntry<'a>> {
             vec![
-                $(
-                    RuleEntry {
-                        rule: Box::new($rule_type),
-                        level: if is_rule_compatible(config, $major, $minor) {
-                            let default_level = if $opt_in {
-                                RuleLevel::Ignore
-                            } else {
-                                config.default_level.unwrap_or(RuleLevel::Warn)
-                            };
-                            let configured = config.rules.$config_field.level.unwrap_or(default_level);
-                            apply_msvc_compatibility(config, stringify!($config_field), $requires_auto_cleanup, configured)
-                        } else {
+                $({
+                    let rule = $rule_type;
+                    let min_ver = rule.min_glib_version();
+                    let opt_in = rule.opt_in();
+                    let requires_auto_cleanup = rule.requires_auto_cleanup();
+                    let level = if is_rule_compatible(config, min_ver) {
+                        let default_level = if opt_in {
                             RuleLevel::Ignore
-                        },
+                        } else {
+                            config.default_level.unwrap_or(RuleLevel::Warn)
+                        };
+                        let configured = config.rules.$config_field.level.unwrap_or(default_level);
+                        apply_msvc_compatibility(config, stringify!($config_field), requires_auto_cleanup, configured)
+                    } else {
+                        RuleLevel::Ignore
+                    };
+                    RuleEntry {
+                        rule: Box::new(rule),
+                        level,
                         rule_config: &config.rules.$config_field,
-                        min_glib_version: ($major, $minor),
-                        requires_auto_cleanup: $requires_auto_cleanup,
-                        opt_in: $opt_in,
-                    },
-                )*
+                    }
+                },)*
             ]
         }
     };
 }
 
 /// Check if a rule is compatible with the configured minimum GLib version
-fn is_rule_compatible(config: &Config, required_major: u32, required_minor: u32) -> bool {
+fn is_rule_compatible(config: &Config, required: Option<(u32, u32)>) -> bool {
+    let Some((req_major, req_minor)) = required else {
+        return true;
+    };
     if let Some((major, minor)) = config.min_glib_version {
-        // Compare versions: config version must be >= required version
-        (major > required_major) || (major == required_major && minor >= required_minor)
+        major > req_major || (major == req_major && minor >= req_minor)
     } else {
-        // No minimum version set, all rules are compatible
         true
     }
 }
@@ -418,17 +410,18 @@ pub fn list_all_rules(config: &Config) {
         if entry.rule.fixable() {
             tags.push("[auto-fix]".yellow().to_string());
         }
-        if entry.opt_in {
+        if entry.rule.opt_in() {
             tags.push("[opt-in]".blue().to_string());
         }
         if entry.rule.requires_meson() {
             tags.push("[meson]".blue().to_string());
         }
-        if entry.requires_auto_cleanup {
+        if entry.rule.requires_auto_cleanup() {
             tags.push("[no-msvc]".blue().to_string());
         }
-        let (major, minor) = entry.min_glib_version;
-        if major > 2 || (major == 2 && minor > 0) {
+        if let Some((major, minor)) = entry.rule.min_glib_version()
+            && (major > 2 || (major == 2 && minor > 0))
+        {
             tags.push(format!("[glib>={major}.{minor}]").dimmed().to_string());
         }
         let tags_str = if tags.is_empty() {
@@ -451,6 +444,8 @@ pub fn list_all_rules_json(config: &Config) -> String {
         category: String,
         fixable: bool,
         opt_in: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        opt_in_reason: Option<String>,
         requires_meson: bool,
         min_glib_version: String,
         requires_auto_cleanup: bool,
@@ -471,7 +466,7 @@ pub fn list_all_rules_json(config: &Config) -> String {
         .iter()
         .map(|entry| {
             // Prepend standard config options to rule-specific ones
-            let level_default = if entry.opt_in {
+            let level_default = if entry.rule.opt_in() {
                 "\"ignore\""
             } else {
                 "\"warn\""
@@ -503,13 +498,14 @@ pub fn list_all_rules_json(config: &Config) -> String {
                     .map(std::string::ToString::to_string),
                 category: entry.rule.category().as_str().to_string(),
                 fixable: entry.rule.fixable(),
-                opt_in: entry.opt_in,
+                opt_in: entry.rule.opt_in(),
+                opt_in_reason: entry.rule.opt_in_reason().map(String::from),
                 requires_meson: entry.rule.requires_meson(),
-                min_glib_version: format!(
-                    "{}.{}",
-                    entry.min_glib_version.0, entry.min_glib_version.1
-                ),
-                requires_auto_cleanup: entry.requires_auto_cleanup,
+                min_glib_version: entry
+                    .rule
+                    .min_glib_version()
+                    .map_or_else(|| "2.0".to_string(), |(maj, min)| format!("{maj}.{min}")),
+                requires_auto_cleanup: entry.rule.requires_auto_cleanup(),
                 config_options: all_options,
             }
         })

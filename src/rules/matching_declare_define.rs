@@ -23,6 +23,10 @@ impl Rule for MatchingDeclareDefine {
         crate::rules::Category::Pedantic
     }
 
+    fn min_glib_version(&self) -> Option<(u32, u32)> {
+        Some((2, 70))
+    }
+
     fn check_all(
         &self,
         ast_context: &AstContext,

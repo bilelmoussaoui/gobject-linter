@@ -25,6 +25,10 @@ impl Rule for UseGGnucFlagEnum {
         true
     }
 
+    fn min_glib_version(&self) -> Option<(u32, u32)> {
+        Some((2, 87))
+    }
+
     fn check_enum(
         &self,
         _ast_context: &AstContext,

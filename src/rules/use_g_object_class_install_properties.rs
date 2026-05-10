@@ -28,6 +28,10 @@ impl Rule for UseGObjectClassInstallProperties {
         true
     }
 
+    fn min_glib_version(&self) -> Option<(u32, u32)> {
+        Some((2, 26))
+    }
+
     fn check_enum(
         &self,
         _ast_context: &AstContext,

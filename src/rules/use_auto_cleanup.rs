@@ -59,6 +59,14 @@ impl Rule for UseAutoCleanup {
         &OPTIONS
     }
 
+    fn min_glib_version(&self) -> Option<(u32, u32)> {
+        Some((2, 44))
+    }
+
+    fn requires_auto_cleanup(&self) -> bool {
+        true
+    }
+
     fn check_all(
         &self,
         ast_context: &AstContext,

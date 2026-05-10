@@ -21,10 +21,6 @@ impl Rule for UseGStrlcpy {
         crate::rules::Category::Correctness
     }
 
-    fn fixable(&self) -> bool {
-        false
-    }
-
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,

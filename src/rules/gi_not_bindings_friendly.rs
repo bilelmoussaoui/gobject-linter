@@ -34,6 +34,14 @@ impl Rule for GiNotBindingsFriendly {
         true
     }
 
+    fn opt_in(&self) -> bool {
+        true
+    }
+
+    fn opt_in_reason(&self) -> Option<&'static str> {
+        Some("Only relevant to libraries maintaining GObject Introspection bindings")
+    }
+
     fn check_all(
         &self,
         ast_context: &AstContext,

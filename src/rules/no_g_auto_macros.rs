@@ -21,10 +21,6 @@ impl Rule for NoGAutoMacros {
         crate::rules::Category::Portability
     }
 
-    fn fixable(&self) -> bool {
-        false
-    }
-
     fn check_func_impl(
         &self,
         _ast_context: &AstContext,

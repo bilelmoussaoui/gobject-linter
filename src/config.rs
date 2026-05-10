@@ -303,7 +303,7 @@ impl<'de> Deserialize<'de> for RuleConfig {
 }
 
 macro_rules! impl_rules_config {
-    ($(($config_field:ident, $rule_type:ident, $major:literal, $minor:literal, $requires_auto_cleanup:literal, $opt_in:literal)),* $(,)?) => {
+    ($(($config_field:ident, $rule_type:ident)),* $(,)?) => {
         #[derive(Debug, Clone, Deserialize, Default)]
         pub struct RulesConfig {
             $(
@@ -369,7 +369,7 @@ impl Config {
     /// Get reference to a rule config by field name
     pub fn get_rule_config(&self, field_name: &str) -> Option<&RuleConfig> {
         macro_rules! impl_get_rule_config {
-            ($(($config_field:ident, $rule_type:ident, $major:literal, $minor:literal, $requires_auto_cleanup:literal, $opt_in:literal)),* $(,)?) => {
+            ($(($config_field:ident, $rule_type:ident)),* $(,)?) => {
                 match field_name {
                     $(
                         stringify!($config_field) => Some(&self.rules.$config_field),
@@ -385,7 +385,7 @@ impl Config {
     /// Get mutable reference to a rule config by field name
     pub fn get_rule_config_mut(&mut self, field_name: &str) -> Option<&mut RuleConfig> {
         macro_rules! impl_get_rule_config_mut {
-            ($(($config_field:ident, $rule_type:ident, $major:literal, $minor:literal, $requires_auto_cleanup:literal, $opt_in:literal)),* $(,)?) => {
+            ($(($config_field:ident, $rule_type:ident)),* $(,)?) => {
                 match field_name {
                     $(
                         stringify!($config_field) => Some(&mut self.rules.$config_field),
@@ -415,7 +415,7 @@ impl Config {
         // First, validate that all provided rule names exist
         let valid_rules: Vec<&str> = {
             macro_rules! collect_rule_names {
-                ($(($config_field:ident, $rule_type:ident, $major:literal, $minor:literal, $requires_auto_cleanup:literal, $opt_in:literal)),* $(,)?) => {
+                ($(($config_field:ident, $rule_type:ident)),* $(,)?) => {
                     vec![$(stringify!($config_field)),*]
                 };
             }
@@ -430,7 +430,7 @@ impl Config {
 
         // Now enable only the specified rules
         macro_rules! impl_enable_only_rules {
-            ($(($config_field:ident, $rule_type:ident, $major:literal, $minor:literal, $requires_auto_cleanup:literal, $opt_in:literal)),* $(,)?) => {
+            ($(($config_field:ident, $rule_type:ident)),* $(,)?) => {
                 {
                     $(
                         self.rules.$config_field.level = Some(if rule_names.iter().any(|r| r == stringify!($config_field)) {
@@ -452,7 +452,7 @@ impl Config {
         // First, validate that all provided rule names exist
         let valid_rules: Vec<&str> = {
             macro_rules! collect_rule_names {
-                ($(($config_field:ident, $rule_type:ident, $major:literal, $minor:literal, $requires_auto_cleanup:literal, $opt_in:literal)),* $(,)?) => {
+                ($(($config_field:ident, $rule_type:ident)),* $(,)?) => {
                     vec![$(stringify!($config_field)),*]
                 };
             }
@@ -467,7 +467,7 @@ impl Config {
 
         // Now disable the specified rules
         macro_rules! impl_disable_rules {
-            ($(($config_field:ident, $rule_type:ident, $major:literal, $minor:literal, $requires_auto_cleanup:literal, $opt_in:literal)),* $(,)?) => {
+            ($(($config_field:ident, $rule_type:ident)),* $(,)?) => {
                 {
                     $(
                         if rule_names.iter().any(|r| r == stringify!($config_field)) {
@@ -485,7 +485,7 @@ impl Config {
     /// Filter rules by category, disabling all others
     pub fn filter_by_category(&mut self, category: Category) -> Result<()> {
         macro_rules! impl_filter_by_category {
-            ($(($config_field:ident, $rule_type:ident, $major:literal, $minor:literal, $requires_auto_cleanup:literal, $opt_in:literal)),* $(,)?) => {
+            ($(($config_field:ident, $rule_type:ident)),* $(,)?) => {
                 {
                     $(
                         self.rules.$config_field.level = Some(if $rule_type.category() == category {
