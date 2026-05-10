@@ -1,0 +1,2 @@
+separate_assignment.c:13:10: use_g_new: Use g_new (MyBitmask, 1) instead of g_malloc(sizeof(MyBitmask)) for type safety
+separate_assignment.c:25:10: use_g_new: Use g_new0 (MyBitmask, 1) instead of g_malloc0(sizeof(MyBitmask)) for type safety
