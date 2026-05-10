@@ -263,86 +263,65 @@ impl PropertySwitchExhaustiveness {
             None => return,
         };
 
-        // Find switch statements in the function
+        // Find top-level switch statements in the function body.
+        // Only direct children — nested switches (e.g. inside delegation
+        // `if` blocks) must not be checked for exhaustiveness.
         for stmt in &func.body_statements {
-            for switch_stmt in stmt.iter_switches() {
-                // Check if this switch is on prop_id or similar
-                if !self.is_property_switch(&switch_stmt.condition) {
+            let switch_stmt = match stmt {
+                Statement::Switch(sw) => sw,
+                _ => continue,
+            };
+
+            // Check if this switch is on prop_id or similar
+            if !self.is_property_switch(&switch_stmt.condition) {
+                continue;
+            }
+
+            let handled_cases = switch_stmt.case_identifiers();
+
+            let mut missing_properties = Vec::new();
+
+            for prop_name in property_names {
+                if handled_cases.contains(prop_name) {
                     continue;
                 }
 
-                // Extract handled case identifiers
-                let handled_cases = switch_stmt.case_identifiers();
-
-                let mut missing_properties = Vec::new();
-
-                // Check which properties are missing
-                for prop_name in property_names {
-                    if handled_cases.contains(prop_name) {
-                        continue; // Property is handled
-                    }
-
-                    // In legacy mode, skip properties that don't belong in this function
-                    // In typed mode, all properties should be in all functions
-                    if style == "legacy" {
-                        let access = property_access.get(*prop_name).copied().flatten();
-                        if let Some((is_readable, is_writable)) = access {
-                            // Skip write-only in getter, skip read-only in setter
-                            if is_getter && !is_readable && is_writable {
-                                continue; // Write-only property in getter - skip
-                            }
-                            if !is_getter && is_readable && !is_writable {
-                                continue; // Read-only property in setter - skip
-                            }
+                if style == "legacy" {
+                    let access = property_access.get(*prop_name).copied().flatten();
+                    if let Some((is_readable, is_writable)) = access {
+                        if is_getter && !is_readable && is_writable {
+                            continue;
+                        }
+                        if !is_getter && is_readable && !is_writable {
+                            continue;
                         }
                     }
-
-                    missing_properties.push(*prop_name);
                 }
 
-                // Collect auto-fixable properties
-                let mut auto_fixable_properties = Vec::new();
-                let mut has_non_fixable = false;
+                missing_properties.push(*prop_name);
+            }
 
-                for prop_name in &missing_properties {
-                    let access = property_access.get(*prop_name).copied().flatten();
+            let mut auto_fixable_properties = Vec::new();
+            let mut has_non_fixable = false;
 
-                    match access {
-                        Some((is_readable, is_writable)) => {
-                            // In typed mode, can auto-fix properties that shouldn't be in this
-                            // function In legacy mode, all missing
-                            // properties need implementation (no auto-fix)
-                            let should_use_assert = if style == "typed" {
-                                if is_getter {
-                                    // In get_property: only auto-fix write-only properties
-                                    !is_readable && is_writable
-                                } else {
-                                    // In set_property: only auto-fix read-only properties
-                                    is_readable && !is_writable
-                                }
+            for prop_name in &missing_properties {
+                let access = property_access.get(*prop_name).copied().flatten();
+
+                match access {
+                    Some((is_readable, is_writable)) => {
+                        let should_use_assert = if style == "typed" {
+                            if is_getter {
+                                !is_readable && is_writable
                             } else {
-                                false // Legacy mode: no auto-fix for incompatible properties
-                            };
-
-                            if should_use_assert {
-                                auto_fixable_properties.push(*prop_name);
-                            } else {
-                                // Property needs implementation - no auto-fix
-                                has_non_fixable = true;
-                                let message = format!(
-                                    "Property '{}' should be handled in {} switch statement",
-                                    prop_name, func_name
-                                );
-                                violations.push(self.violation(
-                                    &file.path,
-                                    switch_stmt.location.line,
-                                    1,
-                                    message,
-                                ));
+                                is_readable && !is_writable
                             }
-                        }
-                        None => {
-                            // Override property - unknown access type, always report (no auto-fix)
+                        } else {
+                            false
+                        };
+
+                        if should_use_assert {
+                            auto_fixable_properties.push(*prop_name);
+                        } else {
                             has_non_fixable = true;
                             let message = format!(
                                 "Property '{}' should be handled in {} switch statement",
@@ -356,72 +335,79 @@ impl PropertySwitchExhaustiveness {
                             ));
                         }
                     }
-                }
-
-                // Generate fix for auto-fixable properties
-                if !auto_fixable_properties.is_empty() {
-                    // Only remove default case in typed mode with enum cast
-                    let can_remove_default = style == "typed"
-                        && matches!(switch_stmt.condition, Expression::Cast(_))
-                        && switch_stmt.has_default_case()
-                        && !has_non_fixable;
-
-                    let fix = if can_remove_default {
-                        // Replace default with new cases
-                        self.generate_replace_default_with_cases_fix(
-                            &auto_fixable_properties,
-                            switch_stmt,
-                            &file.source,
-                            call_style,
-                        )
-                    } else {
-                        // Just insert cases before default
-                        self.generate_insert_cases_fix(
-                            &auto_fixable_properties,
-                            switch_stmt,
-                            &file.source,
-                            call_style,
-                        )
-                    };
-
-                    let message = if auto_fixable_properties.len() == 1 {
-                        format!(
+                    None => {
+                        has_non_fixable = true;
+                        let message = format!(
                             "Property '{}' should be handled in {} switch statement",
-                            auto_fixable_properties[0], func_name
-                        )
-                    } else {
-                        format!(
-                            "{} properties should be handled in {} switch statement",
-                            auto_fixable_properties.len(),
-                            func_name
-                        )
-                    };
-                    violations.push(self.violation_with_fixes(
-                        &file.path,
-                        switch_stmt.location.line,
-                        1,
-                        message,
-                        vec![fix],
-                    ));
-                }
-
-                // Check if we can remove the default case when all properties are already
-                // handled (only in typed mode)
-                if style == "typed"
-                    && missing_properties.is_empty()
-                    && matches!(switch_stmt.condition, Expression::Cast(_))
-                    && switch_stmt.has_default_case()
-                {
-                    let (start, end) = self.find_default_case_range(switch_stmt, &file.source);
-                    let fix = Fix::new(start, end, String::new());
-                    violations.push(self.violation_with_fixes(
+                            prop_name, func_name
+                        );
+                        violations.push(self.violation(
                             &file.path,
                             switch_stmt.location.line,
                             1,
-                            "Switch is exhaustive with enum cast; default case can be removed for compile-time checking".to_string(),
-                            vec![fix],
+                            message,
                         ));
+                    }
                 }
+            }
+
+            if !auto_fixable_properties.is_empty() {
+                let can_remove_default = style == "typed"
+                    && matches!(switch_stmt.condition, Expression::Cast(_))
+                    && switch_stmt.has_default_case()
+                    && !has_non_fixable;
+
+                let fix = if can_remove_default {
+                    self.generate_replace_default_with_cases_fix(
+                        &auto_fixable_properties,
+                        switch_stmt,
+                        &file.source,
+                        call_style,
+                    )
+                } else {
+                    self.generate_insert_cases_fix(
+                        &auto_fixable_properties,
+                        switch_stmt,
+                        &file.source,
+                        call_style,
+                    )
+                };
+
+                let message = if auto_fixable_properties.len() == 1 {
+                    format!(
+                        "Property '{}' should be handled in {} switch statement",
+                        auto_fixable_properties[0], func_name
+                    )
+                } else {
+                    format!(
+                        "{} properties should be handled in {} switch statement",
+                        auto_fixable_properties.len(),
+                        func_name
+                    )
+                };
+                violations.push(self.violation_with_fixes(
+                    &file.path,
+                    switch_stmt.location.line,
+                    1,
+                    message,
+                    vec![fix],
+                ));
+            }
+
+            if style == "typed"
+                && missing_properties.is_empty()
+                && matches!(switch_stmt.condition, Expression::Cast(_))
+                && switch_stmt.has_default_case()
+            {
+                let (start, end) = self.find_default_case_range(switch_stmt, &file.source);
+                let fix = Fix::new(start, end, String::new());
+                violations.push(self.violation_with_fixes(
+                    &file.path,
+                    switch_stmt.location.line,
+                    1,
+                    "Switch is exhaustive with enum cast; default case can be removed for compile-time checking".to_string(),
+                    vec![fix],
+                ));
             }
         }
     }

@@ -159,6 +159,8 @@ impl EnumValue {
             || (self.name.starts_with("N_") && self.name.ends_with("_PROPS"))
             || (self.name.starts_with("N_") && self.name.ends_with("_PROPERTIES"))
             || (self.name.starts_with("NUM_") && self.name.ends_with("_PROPS"))
+            || self.name == "LAST_ARG"
+            || self.name.ends_with("_LAST_ARG")
     }
 
     /// Check if this is a signal count sentinel (N_SIGNALS, LAST_SIGNAL,
