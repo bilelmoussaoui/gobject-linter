@@ -58,7 +58,7 @@ function renderStats() {
   ruleStats.innerHTML = `
     <span class="stat-item" title="Total rules"><span class="stat-num">${countLabel}</span> rules</span>
     <span class="stat-item stat-fixable" title="Auto-fixable rules"><span class="stat-dot dot-fixable"></span><span class="stat-num">${fixable}</span> fixable</span>
-    ${optIn > 0 ? `<span class="stat-item stat-optin" title="Opt-in rules"><span class="stat-dot dot-optin"></span><span class="stat-num">${optIn}</span> opt-in</span>` : ""}
+    ${optIn > 0 ? `<span class="stat-item stat-opt-in" title="Opt-in rules"><span class="stat-dot dot-opt-in"></span><span class="stat-num">${optIn}</span> opt-in</span>` : ""}
   `;
 }
 
