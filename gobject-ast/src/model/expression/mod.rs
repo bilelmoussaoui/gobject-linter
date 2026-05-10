@@ -188,6 +188,7 @@ impl Expression {
     pub fn extract_string_value(&self) -> Option<String> {
         match self {
             Self::StringLiteral(lit) => Some(lit.value.trim_matches('"').to_string()),
+            Self::Call(call) => call.get_arg(0)?.extract_string_value(),
             _ => None,
         }
     }

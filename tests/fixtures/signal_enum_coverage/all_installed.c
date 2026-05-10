@@ -13,6 +13,7 @@ G_DEFINE_TYPE (MyButton, my_button, G_TYPE_OBJECT)
 enum {
   SIGNAL_CLICKED,
   SIGNAL_ACTIVATED,
+  SIGNAL_ACTIVATE,
   N_SIGNALS
 };
 
@@ -36,6 +37,13 @@ my_button_class_init (MyButtonClass *klass)
                                              0,
                                              NULL, NULL, NULL,
                                              G_TYPE_NONE, 0);
+
+  signals[SIGNAL_ACTIVATE] = g_signal_new (I_ ("activate"),
+                                            G_TYPE_FROM_CLASS (klass),
+                                            G_SIGNAL_RUN_FIRST | G_SIGNAL_ACTION,
+                                            0,
+                                            NULL, NULL, NULL,
+                                            G_TYPE_NONE, 0);
 }
 
 static void
