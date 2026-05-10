@@ -1,4 +1,4 @@
-use gobject_ast::model::{FileModel, FunctionDefItem, VariableDecl};
+use gobject_ast::model::{FileModel, FunctionDefItem, Statement, VariableDecl};
 
 use crate::{
     ast_context::AstContext,
@@ -33,32 +33,36 @@ impl Rule for GErrorInit {
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        // Walk all statements and check declarations
-        for stmt in &func.body_statements {
-            for decl in stmt.iter_declarations() {
-                self.check_declaration(file, decl, violations);
-            }
-        }
+        self.check_block(&func.body_statements, file, violations);
     }
 }
 
 impl GErrorInit {
+    fn check_block(&self, stmts: &[Statement], file: &FileModel, violations: &mut Vec<Violation>) {
+        for (i, stmt) in stmts.iter().enumerate() {
+            if let Statement::Declaration(decl) = stmt {
+                self.check_declaration(decl, &stmts[i + 1..], file, violations);
+            }
+            stmt.for_each_child_block(|block| {
+                self.check_block(block, file, violations);
+            });
+        }
+    }
+
     fn check_declaration(
         &self,
-        file: &FileModel,
         decl: &VariableDecl,
+        following: &[Statement],
+        file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        // Check if this is a GError* declaration
         if !decl.type_info.is_base_type("GError") || !decl.type_info.is_pointer() {
             return;
         }
 
-        // Check if it's initialized to NULL
         let is_initialized_to_null = match &decl.initializer {
             None => false,
             Some(expr) if expr.is_null() || expr.is_zero() => true,
-            // Skip it - the fix would insert `= NULL` producing invalid code
             Some(_) => return,
         };
 
@@ -66,8 +70,10 @@ impl GErrorInit {
             return;
         }
 
-        // Need to add = NULL before the semicolon
-        // The end_byte is after the semicolon, so insert at end_byte - 1
+        if self.first_use_is_assignment(&decl.name, following, &file.source) {
+            return;
+        }
+
         let insert_pos = decl.location.end_byte - 1;
 
         let fix = Fix::new(insert_pos, insert_pos, " = NULL".to_string());
@@ -79,5 +85,21 @@ impl GErrorInit {
             format!("GError *{} must be initialized to NULL", decl.name),
             fix,
         ));
+    }
+
+    fn first_use_is_assignment(&self, var: &str, stmts: &[Statement], source: &[u8]) -> bool {
+        for stmt in stmts {
+            let mut references_var = false;
+            stmt.visit_expressions(&mut |expr| {
+                if expr.contains_identifier(var) {
+                    references_var = true;
+                }
+            });
+            if !references_var {
+                continue;
+            }
+            return stmt.is_assignment_to(var, |_| true, source);
+        }
+        true
     }
 }

@@ -25,3 +25,27 @@ my_func2 (MyData *d)
 
   do_something (&error);
 }
+
+/* First use is a direct assignment  */
+
+static void
+direct_assignment (void)
+{
+  GError *error;
+
+  error = g_error_new (G_IO_ERROR, G_IO_ERROR_FAILED, "oops");
+  do_something (&error);
+}
+
+/* Same but with other declarations between. */
+
+static void
+assignment_after_other_decls (void)
+{
+  GError *error;
+  int ret;
+  char *name;
+
+  error = g_error_new_literal (G_IO_ERROR, G_IO_ERROR_FAILED, "oops");
+  do_something (&error);
+}
