@@ -41,7 +41,7 @@ impl Rule for MissingExportMacro {
 
     fn opt_in_reason(&self) -> Option<&'static str> {
         Some(
-            "May produce false positives as the parser can mis-identify export macros in some codebases",
+            "May produce false positives as the parser can misidentify export macros in some codebases",
         )
     }
 
