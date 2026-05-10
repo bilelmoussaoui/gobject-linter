@@ -79,15 +79,9 @@ impl UseAutoCleanup {
     fn build_ignore_types_matcher(&self, config: &Config) -> GlobSet {
         let mut builder = GlobSetBuilder::new();
 
-        if let Some(rule_config) = config.get_rule_config(self.name())
-            && let Some(toml::Value::Array(patterns)) = rule_config.options.get("ignore_types")
-        {
-            for pattern in patterns {
-                if let toml::Value::String(s) = pattern
-                    && let Ok(glob) = Glob::new(s)
-                {
-                    builder.add(glob);
-                }
+        for s in config.get_string_list(self.name(), "ignore_types") {
+            if let Ok(glob) = Glob::new(&s) {
+                builder.add(glob);
             }
         }
 

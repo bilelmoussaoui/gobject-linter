@@ -330,6 +330,18 @@ impl Config {
         for_each_rule!(impl_get_rule_config_mut)
     }
 
+    pub fn get_string_list(&self, rule_name: &str, key: &str) -> Vec<String> {
+        self.get_rule_config(rule_name)
+            .and_then(|rc| rc.options.get(key))
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     /// Enable only specific rules, disabling all others
     pub fn enable_only_rules(&mut self, rule_names: &[String]) -> Result<()> {
         // First, validate that all provided rule names exist

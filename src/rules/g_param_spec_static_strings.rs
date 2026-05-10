@@ -49,16 +49,7 @@ impl Rule for GParamSpecStaticStrings {
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        let static_flags = config
-            .get_rule_config(self.name())
-            .and_then(|rc| rc.options.get("static_flags"))
-            .and_then(|v| v.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_str().map(std::string::ToString::to_string))
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
+        let static_flags = config.get_string_list(self.name(), "static_flags");
 
         for assignment in &gobject_type.properties {
             let Some(call) = assignment.param_spec_call() else {
