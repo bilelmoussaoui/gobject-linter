@@ -91,6 +91,35 @@ body {
   }
 }
 
+/* Rule stats bar */
+.rule-stats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+
+.stat-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.stat-num {
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.stat-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
 /* Rule title word breaking */
 .rule-title {
   word-break: break-word;
@@ -387,6 +416,21 @@ body {
   .divider {
     border-color: #d1d5db;
   }
+  .stat-item {
+    color: #6b7280;
+  }
+  .stat-fixable {
+    color: #059669;
+  }
+  .dot-fixable {
+    background-color: #10b981;
+  }
+  .stat-optin {
+    color: #b45309;
+  }
+  .dot-optin {
+    background-color: #f59e0b;
+  }
   .github-icon {
     color: #374151;
   }
@@ -503,6 +547,21 @@ body {
   }
   .divider {
     border-color: #1f2937;
+  }
+  .stat-item {
+    color: #9ca3af;
+  }
+  .stat-fixable {
+    color: #6ee7b7;
+  }
+  .dot-fixable {
+    background-color: #34d399;
+  }
+  .stat-optin {
+    color: #fcd34d;
+  }
+  .dot-optin {
+    background-color: #fbbf24;
   }
   .github-icon {
     color: #d1d5db;

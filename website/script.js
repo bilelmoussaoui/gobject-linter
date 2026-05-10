@@ -1,5 +1,6 @@
 const ruleList = document.getElementById("ruleList");
 const ruleDetail = document.getElementById("ruleDetail");
+const ruleStats = document.getElementById("ruleStats");
 const searchInput = document.getElementById("search");
 const categoryFilter = document.getElementById("categoryFilter");
 const mobileMenuBtn = document.getElementById("mobileMenuBtn");
@@ -47,7 +48,23 @@ function formatType(type) {
   return type.replace(/</g, "[").replace(/>/g, "]");
 }
 
+function renderStats() {
+  const total = filteredRules.length;
+  const fixable = filteredRules.filter((r) => r.fixable).length;
+  const optIn = filteredRules.filter((r) => r.opt_in).length;
+  const isFiltered = filteredRules.length !== rules.length;
+  const countLabel = isFiltered ? `${total}/${rules.length}` : `${total}`;
+
+  ruleStats.innerHTML = `
+    <span class="stat-item" title="Total rules"><span class="stat-num">${countLabel}</span> rules</span>
+    <span class="stat-item stat-fixable" title="Auto-fixable rules"><span class="stat-dot dot-fixable"></span><span class="stat-num">${fixable}</span> fixable</span>
+    ${optIn > 0 ? `<span class="stat-item stat-optin" title="Opt-in rules"><span class="stat-dot dot-optin"></span><span class="stat-num">${optIn}</span> opt-in</span>` : ""}
+  `;
+}
+
 function renderList() {
+  renderStats();
+
   // Sort rules alphabetically by name
   const sortedRules = [...filteredRules].sort((a, b) =>
     a.name.localeCompare(b.name),
