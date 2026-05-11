@@ -73,7 +73,9 @@ impl GObjectType {
             GObjectTypeKind::Declare {
                 kind: DeclareKind::Final,
                 ..
-            } => None,
+            }
+            | GObjectTypeKind::DefineEnum { .. }
+            | GObjectTypeKind::DefineFlags { .. } => None,
             GObjectTypeKind::Declare {
                 kind: DeclareKind::Interface,
                 ..
@@ -114,6 +116,12 @@ pub struct VirtualFunction {
     pub parameters: Vec<Parameter>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub doc: Option<FunctionDoc>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct EnumValueDef {
+    pub name: String,
+    pub nick: String,
 }
 
 /// Which G_DECLARE_* variant was used
@@ -167,6 +175,10 @@ pub enum GObjectTypeKind {
         quark_name: String,
         func_prefix: String,
     },
+    /// G_DEFINE_ENUM_TYPE(TypeName, func_prefix, G_DEFINE_ENUM_VALUE(…), …)
+    DefineEnum { values: Vec<EnumValueDef> },
+    /// G_DEFINE_FLAGS_TYPE(TypeName, func_prefix, G_DEFINE_ENUM_VALUE(…), …)
+    DefineFlags { values: Vec<EnumValueDef> },
 }
 
 impl Serialize for GObjectTypeKind {
@@ -204,6 +216,12 @@ impl Serialize for GObjectTypeKind {
                 m.serialize_entry("func_prefix", func_prefix)?;
                 m.end()
             }
+            Self::DefineEnum { values } | Self::DefineFlags { values } => {
+                let mut m = s.serialize_map(Some(2))?;
+                m.serialize_entry("macro", self.macro_name())?;
+                m.serialize_entry("values", values)?;
+                m.end()
+            }
         }
     }
 }
@@ -234,6 +252,8 @@ impl GObjectTypeKind {
             },
             Self::DefineBoxed { .. } => "G_DEFINE_BOXED_TYPE",
             Self::DefineQuark { .. } => "G_DEFINE_QUARK",
+            Self::DefineEnum { .. } => "G_DEFINE_ENUM_TYPE",
+            Self::DefineFlags { .. } => "G_DEFINE_FLAGS_TYPE",
         }
     }
 
@@ -246,7 +266,11 @@ impl GObjectTypeKind {
     pub fn is_define(&self) -> bool {
         matches!(
             self,
-            Self::Define(_) | Self::DefineBoxed { .. } | Self::DefineQuark { .. }
+            Self::Define(_)
+                | Self::DefineBoxed { .. }
+                | Self::DefineQuark { .. }
+                | Self::DefineEnum { .. }
+                | Self::DefineFlags { .. }
         )
     }
 

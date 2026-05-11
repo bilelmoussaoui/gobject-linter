@@ -557,6 +557,47 @@ fn test_define_quark() {
 }
 
 #[test]
+fn test_define_enum_type() {
+    let project = parse_fixture("define_enum.c");
+    let file = project.files.values().next().expect("No files parsed");
+    let types = file.iter_all_gobject_types().collect::<Vec<_>>();
+
+    assert_eq!(types.len(), 2);
+
+    // G_DEFINE_ENUM_TYPE
+    let enum_type = &types[0];
+    assert_eq!(enum_type.type_name, "GtkOrientation");
+    assert_eq!(enum_type.function_prefix, "gtk_orientation");
+    assert!(enum_type.parent_type.is_none());
+    assert!(enum_type.class_struct_name().is_none());
+
+    let GObjectTypeKind::DefineEnum { values } = &enum_type.kind else {
+        panic!("Expected DefineEnum kind, got {:?}", enum_type.kind);
+    };
+    assert_eq!(values.len(), 2);
+    assert_eq!(values[0].name, "GTK_ORIENTATION_HORIZONTAL");
+    assert_eq!(values[0].nick, "horizontal");
+    assert_eq!(values[1].name, "GTK_ORIENTATION_VERTICAL");
+    assert_eq!(values[1].nick, "vertical");
+
+    // G_DEFINE_FLAGS_TYPE
+    let flags_type = &types[1];
+    assert_eq!(flags_type.type_name, "GSettingsBindFlags");
+    assert_eq!(flags_type.function_prefix, "g_settings_bind_flags");
+    assert!(flags_type.parent_type.is_none());
+    assert!(flags_type.class_struct_name().is_none());
+
+    let GObjectTypeKind::DefineFlags { values } = &flags_type.kind else {
+        panic!("Expected DefineFlags kind, got {:?}", flags_type.kind);
+    };
+    assert_eq!(values.len(), 6);
+    assert_eq!(values[0].name, "G_SETTINGS_BIND_DEFAULT");
+    assert_eq!(values[0].nick, "default");
+    assert_eq!(values[5].name, "G_SETTINGS_BIND_INVERT_BOOLEAN");
+    assert_eq!(values[5].nick, "invert-boolean");
+}
+
+#[test]
 fn test_gtk_doc_comments() {
     let project = parse_fixture("annotations.h");
     let file = project.files.values().next().expect("No files parsed");

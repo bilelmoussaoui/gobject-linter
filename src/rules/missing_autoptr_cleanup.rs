@@ -68,7 +68,9 @@ impl Rule for MissingAutoptrCleanup {
                     GObjectTypeKind::Declare { .. } => {
                         declared_types.insert(&gobject_type.type_name);
                     }
-                    GObjectTypeKind::DefineQuark { .. } => {}
+                    GObjectTypeKind::DefineQuark { .. }
+                    | GObjectTypeKind::DefineEnum { .. }
+                    | GObjectTypeKind::DefineFlags { .. } => {}
                 }
             }
 

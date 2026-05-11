@@ -340,7 +340,12 @@ fn collect_gobject_implicit_refs(
     for gt in file.iter_all_gobject_types() {
         if gt.is_interface() {
             func_refs.insert(gt.default_init_function_name());
-        } else {
+        } else if !matches!(
+            gt.kind,
+            GObjectTypeKind::DefineEnum { .. }
+                | GObjectTypeKind::DefineFlags { .. }
+                | GObjectTypeKind::DefineQuark { .. }
+        ) {
             func_refs.insert(gt.class_init_function_name());
             func_refs.insert(gt.init_function_name());
         }
@@ -372,7 +377,13 @@ fn collect_gobject_implicit_refs(
         type_refs.insert(format!("_{tn}"));
         if gt.is_interface() {
             type_refs.insert(format!("_{tn}Interface"));
-        } else if !matches!(gt.kind, GObjectTypeKind::DefineBoxed { .. }) {
+        } else if !matches!(
+            gt.kind,
+            GObjectTypeKind::DefineBoxed { .. }
+                | GObjectTypeKind::DefineEnum { .. }
+                | GObjectTypeKind::DefineFlags { .. }
+                | GObjectTypeKind::DefineQuark { .. }
+        ) {
             type_refs.insert(format!("_{tn}Class"));
         }
 

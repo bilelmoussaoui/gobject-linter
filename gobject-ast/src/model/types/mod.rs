@@ -11,7 +11,8 @@ pub use basic_type::BasicType;
 pub use enum_info::{EnumInfo, EnumValue};
 pub use function::{FunctionDeclItem, FunctionDefItem, Parameter};
 pub use gobject_type::{
-    DeclareKind, DefineKind, GObjectType, GObjectTypeKind, InterfaceImplementation, VirtualFunction,
+    DeclareKind, DefineKind, EnumValueDef, GObjectType, GObjectTypeKind, InterfaceImplementation,
+    VirtualFunction,
 };
 pub use gtype::GType;
 pub use include::Include;

@@ -2,8 +2,8 @@ use tree_sitter::Node;
 
 use crate::{
     model::{
-        DeclareKind, DefineKind, Expression, FunctionDoc, GObjectType, GObjectTypeKind, GType,
-        InterfaceImplementation, Statement, VirtualFunction,
+        DeclareKind, DefineKind, EnumValueDef, Expression, FunctionDoc, GObjectType,
+        GObjectTypeKind, GType, InterfaceImplementation, Statement, VirtualFunction,
     },
     parser::Parser,
 };
@@ -179,6 +179,40 @@ impl Parser {
                     quark_name,
                     func_prefix,
                 },
+                interfaces: Vec::new(),
+                has_private: false,
+                code_block_statements: Vec::new(),
+                export_macros: Vec::new(),
+                doc: None,
+                properties: Vec::new(),
+                signals: Vec::new(),
+                location: self.node_location(parent),
+            });
+        }
+
+        // G_DEFINE_ENUM_TYPE / G_DEFINE_FLAGS_TYPE: TypeName, func_prefix,
+        // followed by G_DEFINE_ENUM_VALUE(CONSTANT, "nick") entries.
+        if (macro_name == "G_DEFINE_ENUM_TYPE" || macro_name == "G_DEFINE_FLAGS_TYPE")
+            && arg_values.len() >= 2
+        {
+            let type_name = arg_values[0];
+            let function_prefix = arg_values[1];
+
+            let values = self.extract_enum_value_defs(parent, source);
+
+            let kind = if macro_name == "G_DEFINE_ENUM_TYPE" {
+                GObjectTypeKind::DefineEnum { values }
+            } else {
+                GObjectTypeKind::DefineFlags { values }
+            };
+
+            return Some(GObjectType {
+                type_name: type_name.to_owned(),
+                type_macro: None,
+                function_prefix: function_prefix.to_owned(),
+                parent_type: None,
+                flags: None,
+                kind,
                 interfaces: Vec::new(),
                 has_private: false,
                 code_block_statements: Vec::new(),
@@ -403,6 +437,58 @@ impl Parser {
         }
 
         (interfaces, has_private, code_statements)
+    }
+
+    fn extract_enum_value_defs(&self, parent: Node, source: &[u8]) -> Vec<EnumValueDef> {
+        let mut values = Vec::new();
+
+        let arg_list = {
+            let mut cursor = parent.walk();
+            parent
+                .children(&mut cursor)
+                .find(|c| c.kind() == "argument_list")
+        };
+
+        let Some(arg_list) = arg_list else {
+            return values;
+        };
+
+        let mut cursor = arg_list.walk();
+        for child in arg_list.children(&mut cursor) {
+            if child.kind() != "call_expression" {
+                continue;
+            }
+            let func_node = child.child_by_field_name("function");
+            let func_name = func_node
+                .and_then(|n| std::str::from_utf8(&source[n.byte_range()]).ok())
+                .unwrap_or("");
+            if func_name != "G_DEFINE_ENUM_VALUE" {
+                continue;
+            }
+            let Some(args) = child.child_by_field_name("arguments") else {
+                continue;
+            };
+            let mut name = None;
+            let mut nick = None;
+            let mut args_cursor = args.walk();
+            for arg in args.children(&mut args_cursor) {
+                if (arg.kind() == "identifier" || arg.kind() == "type_identifier") && name.is_none()
+                {
+                    name = std::str::from_utf8(&source[arg.byte_range()]).ok();
+                } else if arg.kind() == "string_literal" && nick.is_none() {
+                    let raw = std::str::from_utf8(&source[arg.byte_range()]).unwrap_or("");
+                    nick = Some(raw.trim_matches('"'));
+                }
+            }
+            if let (Some(n), Some(k)) = (name, nick) {
+                values.push(EnumValueDef {
+                    name: n.to_owned(),
+                    nick: k.to_owned(),
+                });
+            }
+        }
+
+        values
     }
 
     pub(super) fn collect_identifiers<'a>(
