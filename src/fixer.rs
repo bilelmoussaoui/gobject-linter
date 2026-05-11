@@ -10,23 +10,25 @@ pub fn apply_fixes(violations: &[Violation]) -> Result<usize> {
     // Count violations with fixes (not individual fixes)
     let total_violations_with_fixes = violations.iter().filter(|v| !v.fixes.is_empty()).count();
 
-    // Collect all fixes from all violations, grouped by file
-    let mut by_file: HashMap<&Path, Vec<&Fix>> = HashMap::new();
+    // Collect fix groups per file
+    let mut by_file: HashMap<&Path, Vec<&[Fix]>> = HashMap::new();
     for violation in violations {
         if !violation.fixes.is_empty() {
-            for fix in &violation.fixes {
-                by_file
-                    .entry(violation.file.as_path())
-                    .or_default()
-                    .push(fix);
-            }
+            by_file
+                .entry(violation.file.as_path())
+                .or_default()
+                .push(&violation.fixes);
         }
     }
 
-    for (file_path, mut fixes) in by_file {
-        // Sort by start_byte descending - apply fixes from bottom to top
-        // This way earlier fixes don't invalidate byte positions of later fixes
-        fixes.sort_by_key(|b| std::cmp::Reverse(b.start_byte));
+    for (file_path, fix_groups) in by_file {
+        // Flatten into (fix, group_index) pairs sorted by start_byte descending
+        let mut tagged_fixes: Vec<(&Fix, usize)> = fix_groups
+            .iter()
+            .enumerate()
+            .flat_map(|(group_idx, fixes)| fixes.iter().map(move |fix| (fix, group_idx)))
+            .collect();
+        tagged_fixes.sort_by_key(|(fix, _)| std::cmp::Reverse(fix.start_byte));
 
         // Read file content as bytes
         let content = fs::read(file_path)
@@ -34,14 +36,14 @@ pub fn apply_fixes(violations: &[Violation]) -> Result<usize> {
 
         let mut modified_content = content;
 
-        // Track the lowest byte offset touched so far (we apply top-down in
-        // the reversed list, i.e. from high offsets to low). Any fix whose
-        // range overlaps into the already-modified region is skipped.
-        let mut protected_boundary: Option<usize> = None;
+        // Track the lowest byte offset touched so far (we apply from high
+        // offsets to low). When a fix from a *different* group overlaps into
+        // the already-modified region it is skipped.
+        let mut protected_boundary: Option<(usize, usize)> = None; // (byte, group_index)
 
-        // Apply each fix
-        for fix in fixes {
-            if let Some(boundary) = protected_boundary
+        for (fix, group_idx) in tagged_fixes {
+            if let Some((boundary, boundary_group)) = protected_boundary
+                && group_idx != boundary_group
                 && fix.end_byte > boundary
             {
                 eprintln!(
@@ -55,7 +57,7 @@ pub fn apply_fixes(violations: &[Violation]) -> Result<usize> {
                 continue;
             }
 
-            protected_boundary = Some(fix.start_byte);
+            protected_boundary = Some((fix.start_byte, group_idx));
 
             // Replace the range [start_byte, end_byte) with replacement
             let mut new_content = Vec::new();
