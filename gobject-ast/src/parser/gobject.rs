@@ -323,6 +323,34 @@ impl Parser {
             });
         }
 
+        // Fallback for project-specific *_DEFINE_*_TYPE macros
+        // (e.g. GDK_DEFINE_EVENT_TYPE, GSK_DEFINE_RENDER_NODE_TYPE).
+        // These are GTypeInstance children, not GObjects — just extract
+        // type_name and function_prefix so _get_type is registered.
+        if arg_values.len() >= 2 {
+            let type_name = arg_values[0];
+            let function_prefix = arg_values[1];
+
+            return Some(GObjectType {
+                type_name: type_name.to_owned(),
+                type_macro: None,
+                function_prefix: function_prefix.to_owned(),
+                parent_type: None,
+                flags: None,
+                kind: GObjectTypeKind::DefineCustom {
+                    macro_name: macro_name.to_owned(),
+                },
+                interfaces: Vec::new(),
+                has_private: false,
+                code_block_statements: Vec::new(),
+                export_macros: Vec::new(),
+                doc: None,
+                properties: Vec::new(),
+                signals: Vec::new(),
+                location: self.node_location(parent),
+            });
+        }
+
         None
     }
 

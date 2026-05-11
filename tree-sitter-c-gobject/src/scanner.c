@@ -67,6 +67,16 @@ static bool followed_by_arrow(TSLexer *lexer) {
  * Call mark_end() BEFORE calling this so the token boundary is already saved.
  * Returns true if followed by a GObject macro, false otherwise.
  * Advances the lexer (caller relies on mark_end for the correct token end). */
+/* Check whether buf matches the *_DEFINE_*_TYPE pattern (project-specific
+ * type-definition macros such as GDK_DEFINE_EVENT_TYPE, GSK_DEFINE_RENDER_NODE_TYPE).
+ * Returns 1 for _TYPE_WITH_CODE, 2 for _TYPE, 0 for no match. */
+static int custom_define_type_match(const char *buf, int len) {
+    if (strstr(buf, "_DEFINE_") == NULL) return 0;
+    if (len >= 15 && strcmp(buf + len - 15, "_TYPE_WITH_CODE") == 0) return 1;
+    if (len >= 5  && strcmp(buf + len - 5,  "_TYPE") == 0) return 2;
+    return 0;
+}
+
 static bool followed_by_gobject_macro(TSLexer *lexer) {
     lookahead_skip_whitespace(lexer);
 
@@ -82,7 +92,8 @@ static bool followed_by_gobject_macro(TSLexer *lexer) {
     buf[len] = '\0';
 
     return (len >= 10 && strncmp(buf, "G_DECLARE_", 10) == 0) ||
-           (len >= 9  && strncmp(buf, "G_DEFINE_",   9) == 0);
+           (len >= 9  && strncmp(buf, "G_DEFINE_",   9) == 0) ||
+           custom_define_type_match(buf, len) > 0;
 }
 
 bool tree_sitter_c_gobject_external_scanner_scan(
@@ -153,6 +164,21 @@ bool tree_sitter_c_gobject_external_scanner_scan(
          (len >= 9  && strncmp(buf, "G_DEFINE_",   9) == 0))) {
         lexer->result_symbol = GOBJECT_MACRO_NAME;
         return true;
+    }
+
+    /* Project-specific *_DEFINE_*_TYPE / *_DEFINE_*_TYPE_WITH_CODE macros
+     * (e.g. GDK_DEFINE_EVENT_TYPE, GSK_DEFINE_RENDER_NODE_TYPE,
+     * GTK_DEFINE_BUILTIN_MODULE_TYPE_WITH_CODE). */
+    {
+        int m = custom_define_type_match(buf, len);
+        if (m == 1 && valid_symbols[GOBJECT_MACRO_NAME_WITH_CODE]) {
+            lexer->result_symbol = GOBJECT_MACRO_NAME_WITH_CODE;
+            return true;
+        }
+        if (m == 2 && valid_symbols[GOBJECT_MACRO_NAME]) {
+            lexer->result_symbol = GOBJECT_MACRO_NAME;
+            return true;
+        }
     }
 
     if (valid_symbols[GOBJECT_BEGIN_DECLS] && strcmp(buf, "G_BEGIN_DECLS") == 0) {

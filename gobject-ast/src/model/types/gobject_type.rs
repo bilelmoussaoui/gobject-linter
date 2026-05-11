@@ -75,7 +75,8 @@ impl GObjectType {
                 ..
             }
             | GObjectTypeKind::DefineEnum { .. }
-            | GObjectTypeKind::DefineFlags { .. } => None,
+            | GObjectTypeKind::DefineFlags { .. }
+            | GObjectTypeKind::DefineCustom { .. } => None,
             GObjectTypeKind::Declare {
                 kind: DeclareKind::Interface,
                 ..
@@ -179,6 +180,8 @@ pub enum GObjectTypeKind {
     DefineEnum { values: Vec<EnumValueDef> },
     /// G_DEFINE_FLAGS_TYPE(TypeName, func_prefix, G_DEFINE_ENUM_VALUE(…), …)
     DefineFlags { values: Vec<EnumValueDef> },
+    /// Project-specific *_DEFINE_*_TYPE macros (e.g. GDK_DEFINE_EVENT_TYPE)
+    DefineCustom { macro_name: String },
 }
 
 impl Serialize for GObjectTypeKind {
@@ -222,13 +225,14 @@ impl Serialize for GObjectTypeKind {
                 m.serialize_entry("values", values)?;
                 m.end()
             }
+            Self::DefineCustom { macro_name } => s.serialize_str(macro_name),
         }
     }
 }
 
 impl GObjectTypeKind {
     /// Returns the macro name for this type declaration/definition
-    pub fn macro_name(&self) -> &'static str {
+    pub fn macro_name(&self) -> &str {
         match self {
             Self::Declare { kind, .. } => match kind {
                 DeclareKind::Final => "G_DECLARE_FINAL_TYPE",
@@ -254,6 +258,7 @@ impl GObjectTypeKind {
             Self::DefineQuark { .. } => "G_DEFINE_QUARK",
             Self::DefineEnum { .. } => "G_DEFINE_ENUM_TYPE",
             Self::DefineFlags { .. } => "G_DEFINE_FLAGS_TYPE",
+            Self::DefineCustom { macro_name } => macro_name.as_str(),
         }
     }
 
@@ -271,6 +276,7 @@ impl GObjectTypeKind {
                 | Self::DefineQuark { .. }
                 | Self::DefineEnum { .. }
                 | Self::DefineFlags { .. }
+                | Self::DefineCustom { .. }
         )
     }
 

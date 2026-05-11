@@ -345,6 +345,7 @@ fn collect_gobject_implicit_refs(
             GObjectTypeKind::DefineEnum { .. }
                 | GObjectTypeKind::DefineFlags { .. }
                 | GObjectTypeKind::DefineQuark { .. }
+                | GObjectTypeKind::DefineCustom { .. }
         ) {
             func_refs.insert(gt.class_init_function_name());
             func_refs.insert(gt.init_function_name());
@@ -383,6 +384,7 @@ fn collect_gobject_implicit_refs(
                 | GObjectTypeKind::DefineEnum { .. }
                 | GObjectTypeKind::DefineFlags { .. }
                 | GObjectTypeKind::DefineQuark { .. }
+                | GObjectTypeKind::DefineCustom { .. }
         ) {
             type_refs.insert(format!("_{tn}Class"));
         }

@@ -70,7 +70,8 @@ impl Rule for MissingAutoptrCleanup {
                     }
                     GObjectTypeKind::DefineQuark { .. }
                     | GObjectTypeKind::DefineEnum { .. }
-                    | GObjectTypeKind::DefineFlags { .. } => {}
+                    | GObjectTypeKind::DefineFlags { .. }
+                    | GObjectTypeKind::DefineCustom { .. } => {}
                 }
             }
 
