@@ -152,6 +152,9 @@ fn main() -> Result<()> {
         config.filter_by_category(category)?;
     }
 
+    // Validate that explicitly enabled rules don't conflict with config
+    scanner::validate_config(&config)?;
+
     // Handle --list-rules
     if args.list_rules {
         match format {

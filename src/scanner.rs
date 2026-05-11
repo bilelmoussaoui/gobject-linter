@@ -220,6 +220,53 @@ fn apply_msvc_compatibility(
 
 for_each_rule!(impl_create_all_rules);
 
+macro_rules! impl_validate_config {
+    ($(($config_field:ident, $rule_type:ident)),* $(,)?) => {
+        /// Check that explicitly enabled rules are compatible with config
+        /// constraints (min_glib_version, msvc_compatible). Returns an error
+        /// describing the first conflict found.
+        pub fn validate_config(config: &Config) -> Result<()> {
+            $(
+            {
+                let rule_config = &config.rules.$config_field;
+                if let Some(level) = rule_config.level
+                    && level.is_enabled()
+                {
+                    let rule = $rule_type;
+                    let name = stringify!($config_field);
+
+                    if let Some((req_major, req_minor)) = rule.min_glib_version()
+                        && !is_rule_compatible(config, Some((req_major, req_minor)))
+                    {
+                        let (cfg_major, cfg_minor) = config.min_glib_version.unwrap_or((2, 0));
+                        anyhow::bail!(
+                            "Rule '{}' requires GLib >= {}.{}, but min_glib_version is {}.{}",
+                            name, req_major, req_minor, cfg_major, cfg_minor,
+                        );
+                    }
+
+                    if config.msvc_compatible && rule.requires_auto_cleanup() {
+                        anyhow::bail!(
+                            "Rule '{}' requires g_auto* macros, which are unavailable with msvc_compatible = true",
+                            name,
+                        );
+                    }
+
+                    if name == "no_g_auto_macros" && !config.msvc_compatible {
+                        anyhow::bail!(
+                            "Rule 'no_g_auto_macros' is only meaningful with msvc_compatible = true",
+                        );
+                    }
+                }
+            }
+            )*
+            Ok(())
+        }
+    };
+}
+
+for_each_rule!(impl_validate_config);
+
 /// Validate that all rule names in inline ignore directives are valid
 /// Returns a list of warnings about unknown rules
 fn validate_inline_ignores(
