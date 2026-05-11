@@ -224,6 +224,29 @@ impl Parser {
             });
         }
 
+        // G_DEFINE_POINTER_TYPE only takes 2 args: TypeName, func_prefix
+        if macro_name == "G_DEFINE_POINTER_TYPE" && arg_values.len() >= 2 {
+            let type_name = arg_values[0];
+            let function_prefix = arg_values[1];
+
+            return Some(GObjectType {
+                type_name: type_name.to_owned(),
+                type_macro: None,
+                function_prefix: function_prefix.to_owned(),
+                parent_type: None,
+                flags: None,
+                kind: GObjectTypeKind::Define(DefineKind::Pointer),
+                interfaces: Vec::new(),
+                has_private: false,
+                code_block_statements: Vec::new(),
+                export_macros: Vec::new(),
+                doc: None,
+                properties: Vec::new(),
+                signals: Vec::new(),
+                location: self.node_location(parent),
+            });
+        }
+
         // G_DEFINE_* needs 3 args
         if macro_name.starts_with("G_DEFINE_") && arg_values.len() >= 3 {
             let type_name = arg_values[0];
@@ -262,7 +285,6 @@ impl Parser {
                 "G_DEFINE_INTERFACE_WITH_CODE" => {
                     GObjectTypeKind::Define(DefineKind::InterfaceWithCode)
                 }
-                "G_DEFINE_POINTER_TYPE" => GObjectTypeKind::Define(DefineKind::Pointer),
                 // G_DEFINE_TYPE_EXTENDED(TypeName, prefix, ParentType, flags, CODE)
                 "G_DEFINE_TYPE_EXTENDED" => GObjectTypeKind::Define(DefineKind::TypeExtended),
                 _ => return None,
@@ -287,11 +309,7 @@ impl Parser {
                 type_name: type_name.to_owned(),
                 type_macro: None,
                 function_prefix: function_prefix.to_owned(),
-                parent_type: if matches!(kind, GObjectTypeKind::Define(DefineKind::Pointer)) {
-                    None
-                } else {
-                    Some(parent_type.to_owned())
-                },
+                parent_type: Some(parent_type.to_owned()),
                 flags: extended_flags,
                 kind,
                 interfaces,
