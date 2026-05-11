@@ -166,7 +166,7 @@ fn is_error_propagated(statements: &[Statement], var_name: &str, extra: &[String
         return true;
     }
 
-    if !extra.is_empty() && check_error_handled_dynamic(statements, var_name, extra) {
+    if !extra.is_empty() && check_error_handled(statements, var_name, extra) {
         return true;
     }
 
@@ -190,33 +190,15 @@ fn is_error_propagated(statements: &[Statement], var_name: &str, extra: &[String
     false
 }
 
-fn check_error_handled(statements: &[Statement], var_name: &str, functions: &[&str]) -> bool {
-    for stmt in statements {
-        for call in stmt.iter_calls() {
-            if let Some(func_name) = call.function_name_str()
-                && functions.contains(&func_name)
-            {
-                for arg in &call.arguments {
-                    let Argument::Expression(arg_expr) = arg;
-                    if arg_expr.contains_identifier(var_name) {
-                        return true;
-                    }
-                }
-            }
-        }
-    }
-    false
-}
-
-fn check_error_handled_dynamic(
+fn check_error_handled<S: AsRef<str>>(
     statements: &[Statement],
     var_name: &str,
-    functions: &[String],
+    functions: &[S],
 ) -> bool {
     for stmt in statements {
         for call in stmt.iter_calls() {
             if let Some(func_name) = call.function_name_str()
-                && functions.iter().any(|f| f == func_name)
+                && functions.iter().any(|f| f.as_ref() == func_name)
             {
                 for arg in &call.arguments {
                     let Argument::Expression(arg_expr) = arg;
