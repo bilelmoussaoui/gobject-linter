@@ -104,7 +104,7 @@ impl UntranslatedString {
                 }
                 // Skip strings with no alphabetic characters (numbers,
                 // punctuation, format specifiers, etc.)
-                if !string_value.chars().any(|c| c.is_alphabetic()) {
+                if !string_value.chars().any(char::is_alphabetic) {
                     return;
                 }
             }
