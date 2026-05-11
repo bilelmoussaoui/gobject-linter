@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fs, path::Path};
 
 use anyhow::{Context, Result};
+use colored::Colorize;
 
 use crate::rules::{Fix, Violation};
 
@@ -33,8 +34,29 @@ pub fn apply_fixes(violations: &[Violation]) -> Result<usize> {
 
         let mut modified_content = content;
 
+        // Track the lowest byte offset touched so far (we apply top-down in
+        // the reversed list, i.e. from high offsets to low). Any fix whose
+        // range overlaps into the already-modified region is skipped.
+        let mut protected_boundary: Option<usize> = None;
+
         // Apply each fix
         for fix in fixes {
+            if let Some(boundary) = protected_boundary
+                && fix.end_byte > boundary
+            {
+                eprintln!(
+                    "{}: skipping overlapping fix in {} (bytes {}..{} overlaps with already-applied fix at byte {}); re-run --fix to apply",
+                    "warning".yellow(),
+                    file_path.display(),
+                    fix.start_byte,
+                    fix.end_byte,
+                    boundary,
+                );
+                continue;
+            }
+
+            protected_boundary = Some(fix.start_byte);
+
             // Replace the range [start_byte, end_byte) with replacement
             let mut new_content = Vec::new();
             new_content.extend_from_slice(&modified_content[..fix.start_byte]);
