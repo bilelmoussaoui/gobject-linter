@@ -407,13 +407,13 @@ impl Parser {
                 }
             }
             _ => {
-                // Unknown statement type - fail loudly so we implement it immediately
-                todo!(
-                    "Unimplemented statement type: {} at {}:{}",
+                tracing::warn!(
+                    "Unhandled statement type: {} at {}:{}",
                     node.kind(),
                     node.start_position().row + 1,
                     node.start_position().column + 1
-                )
+                );
+                None
             }
         }
     }

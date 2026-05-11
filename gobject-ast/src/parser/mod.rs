@@ -203,6 +203,21 @@ impl Parser {
             return;
         }
 
+        // For ERROR nodes, try to recover a function definition from the
+        // deconstructed children, then recurse into the remaining children
+        // to pick up any valid function_definition nodes that tree-sitter
+        // managed to parse inside the error region.
+        if node.kind() == "ERROR" {
+            if let Some(item) = self.try_recover_function_from_error(node, source) {
+                file_model.top_level_items.push(item);
+            }
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                self.visit_node(child, source, file_model);
+            }
+            return;
+        }
+
         // Only recurse when the node wasn't recognized as a top-level item
         // (translation_unit, unrecognized wrapper nodes, etc.)
         let mut cursor = node.walk();
@@ -223,10 +238,10 @@ impl Parser {
         let name = if let Some(declarator) = node.child_by_field_name("declarator") {
             match self.extract_declarator_name(declarator, source) {
                 Some(n) if !n.is_empty() => n,
-                // Empty declarator name means tree-sitter misparsed an
-                // unknown return type (e.g. HWND)
                 _ => self.extract_name_from_macro_type_specifier(node, source)?,
             }
+        } else if let Some(func_decl) = self.find_function_declarator(node) {
+            self.extract_declarator_name(func_decl, source)?
         } else {
             self.extract_name_from_macro_type_specifier(node, source)?
         };
