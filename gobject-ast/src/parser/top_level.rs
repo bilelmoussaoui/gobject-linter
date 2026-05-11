@@ -431,7 +431,12 @@ impl Parser {
                 }
                 None
             }
-            "function_definition" => self.parse_function_definition_node(node, source),
+            "function_definition" => {
+                if self.is_bogus_function_definition(node) {
+                    return None;
+                }
+                self.parse_function_definition_node(node, source)
+            }
             "expression_statement" => self
                 .parse_expression_stmt(node, source)
                 .map(TopLevelItem::Expression),
@@ -503,6 +508,23 @@ impl Parser {
             }
             _ => None,
         }
+    }
+
+    /// A function_definition that contains nested function_definitions or
+    /// gobject_type_macros is bogus which happens when a parse error (e.g.
+    /// Objective-C `@interface`) causes tree-sitter to treat the rest of
+    /// the file as a single function body.
+    fn is_bogus_function_definition(&self, node: Node) -> bool {
+        if !node.has_error() {
+            return false;
+        }
+        let body = match node.child_by_field_name("body") {
+            Some(b) => b,
+            None => return false,
+        };
+        let mut cursor = body.walk();
+        body.children(&mut cursor)
+            .any(|c| matches!(c.kind(), "function_definition" | "gobject_type_macro"))
     }
 
     /// Parse a function definition from a node whose children include the
