@@ -847,10 +847,9 @@ impl PropertyEnumConvention {
                         replacement,
                     );
 
-                    violations.push(self.violation_with_fixes(
+                    violations.push(self.violation_with_fixes_at(
                         path,
-                        binary.location.line,
-                        binary.location.column,
+                        &binary.location,
                         format!(
                             "GParamSpec array size uses outdated property (should be {} + 1)",
                             expected_last_prop

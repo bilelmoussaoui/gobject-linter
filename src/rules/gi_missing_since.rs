@@ -67,10 +67,9 @@ impl GiMissingSince {
                         let dep_ver = type_doc.and_then(|d| d.deprecated.as_ref().map(|(v, _)| v));
                         match dep_ver {
                             None => {
-                                violations.push(self.violation(
+                                violations.push(self.violation_at(
                                     path,
-                                    gt.location.line,
-                                    gt.location.column,
+                                    &gt.location,
                                     format!(
                                         "Type '{}' has DEPRECATED_IN_{}_{} but is missing a Deprecated: annotation",
                                         gt.type_name,
@@ -79,10 +78,9 @@ impl GiMissingSince {
                                 ));
                             }
                             Some(v) if v != macro_ver => {
-                                violations.push(self.violation(
+                                violations.push(self.violation_at(
                                     path,
-                                    gt.location.line,
-                                    gt.location.column,
+                                    &gt.location,
                                     format!(
                                         "Type '{}' has DEPRECATED_IN_{}_{} but Deprecated: says {}",
                                         gt.type_name, macro_ver.major, macro_ver.minor, v,
@@ -96,10 +94,9 @@ impl GiMissingSince {
                         let since = type_doc.and_then(|d| d.since.as_ref());
                         match since {
                             None => {
-                                violations.push(self.violation(
+                                violations.push(self.violation_at(
                                     path,
-                                    gt.location.line,
-                                    gt.location.column,
+                                    &gt.location,
                                     format!(
                                         "Type '{}' has AVAILABLE_IN_{}_{} but is missing a Since: annotation",
                                         gt.type_name,
@@ -108,10 +105,9 @@ impl GiMissingSince {
                                 ));
                             }
                             Some(v) if v != macro_ver => {
-                                violations.push(self.violation(
+                                violations.push(self.violation_at(
                                     path,
-                                    gt.location.line,
-                                    gt.location.column,
+                                    &gt.location,
                                     format!(
                                         "Type '{}' has AVAILABLE_IN_{}_{} but Since: says {}",
                                         gt.type_name, macro_ver.major, macro_ver.minor, v,
@@ -123,10 +119,9 @@ impl GiMissingSince {
                     }
                     None if !gt.export_macros.is_empty() => {
                         if let Some(since) = type_doc.and_then(|d| d.since.as_ref()) {
-                            violations.push(self.violation(
+                            violations.push(self.violation_at(
                                 path,
-                                gt.location.line,
-                                gt.location.column,
+                                &gt.location,
                                 format!(
                                     "Type '{}' has Since: {} but is missing a versioned export macro",
                                     gt.type_name,
@@ -167,10 +162,9 @@ impl GiMissingSince {
                         let dep_ver = func_doc.and_then(|d| d.deprecated.as_ref().map(|(v, _)| v));
                         match dep_ver {
                             None => {
-                                violations.push(self.violation(
+                                violations.push(self.violation_at(
                                     path,
-                                    func_decl.location.line,
-                                    func_decl.location.column,
+                                    &func_decl.location,
                                     format!(
                                         "Function '{}' has DEPRECATED_IN_{}_{} but is missing a Deprecated: annotation",
                                         func_decl.name,
@@ -179,10 +173,9 @@ impl GiMissingSince {
                                 ));
                             }
                             Some(v) if v != macro_ver => {
-                                violations.push(self.violation(
+                                violations.push(self.violation_at(
                                     path,
-                                    func_decl.location.line,
-                                    func_decl.location.column,
+                                    &func_decl.location,
                                     format!(
                                         "Function '{}' has DEPRECATED_IN_{}_{} but Deprecated: says {}",
                                         func_decl.name,
@@ -216,10 +209,9 @@ impl GiMissingSince {
 
                         match since {
                             None => {
-                                violations.push(self.violation(
+                                violations.push(self.violation_at(
                                     path,
-                                    func_decl.location.line,
-                                    func_decl.location.column,
+                                    &func_decl.location,
                                     format!(
                                         "Function '{}' has AVAILABLE_IN_{}_{} but is missing a Since: annotation",
                                         func_decl.name,
@@ -228,10 +220,9 @@ impl GiMissingSince {
                                 ));
                             }
                             Some(v) if v != macro_ver => {
-                                violations.push(self.violation(
+                                violations.push(self.violation_at(
                                     path,
-                                    func_decl.location.line,
-                                    func_decl.location.column,
+                                    &func_decl.location,
                                     format!(
                                         "Function '{}' has AVAILABLE_IN_{}_{} but Since: says {}",
                                         func_decl.name, macro_ver.major, macro_ver.minor, v,
@@ -243,10 +234,9 @@ impl GiMissingSince {
                     }
                     None if !func_decl.export_macros.is_empty() => {
                         if let Some(since) = func_doc.and_then(|d| d.since.as_ref()) {
-                            violations.push(self.violation(
+                            violations.push(self.violation_at(
                                 path,
-                                func_decl.location.line,
-                                func_decl.location.column,
+                                &func_decl.location,
                                 format!(
                                     "Function '{}' has Since: {} but is missing a versioned export macro",
                                     func_decl.name,
@@ -329,10 +319,9 @@ impl GiMissingSince {
 
                         match (prop_since, func_since) {
                             (Some(pv), None) => {
-                                violations.push(self.violation(
+                                violations.push(self.violation_at(
                                     path,
-                                    gt.location.line,
-                                    gt.location.column,
+                                    &gt.location,
                                     format!(
                                         "Property '{prop_name}' has Since: {pv} but \
                                          {role} '{func_name}' has no Since: annotation"
@@ -340,10 +329,9 @@ impl GiMissingSince {
                                 ));
                             }
                             (None, Some(fv)) => {
-                                violations.push(self.violation(
+                                violations.push(self.violation_at(
                                     path,
-                                    gt.location.line,
-                                    gt.location.column,
+                                    &gt.location,
                                     format!(
                                         "Property '{prop_name}' has no Since: annotation but \
                                          {role} '{func_name}' has Since: {fv}"
@@ -351,10 +339,9 @@ impl GiMissingSince {
                                 ));
                             }
                             (Some(pv), Some(fv)) if pv != fv => {
-                                violations.push(self.violation(
+                                violations.push(self.violation_at(
                                     path,
-                                    gt.location.line,
-                                    gt.location.column,
+                                    &gt.location,
                                     format!(
                                         "Property '{prop_name}' Since: {pv} does not match \
                                          {role} '{func_name}' Since: {fv}"

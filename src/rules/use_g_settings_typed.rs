@@ -115,13 +115,7 @@ impl UseGSettingsTyped {
             replacement,
         );
 
-        violations.push(self.violation_with_fix(
-            &file.path,
-            call.location.line,
-            call.location.column,
-            message,
-            fix,
-        ));
+        violations.push(self.violation_with_fix_at(&file.path, &call.location, message, fix));
     }
 
     fn check_variant_get_call(
@@ -193,13 +187,7 @@ impl UseGSettingsTyped {
             replacement,
         );
 
-        violations.push(self.violation_with_fix(
-            &file.path,
-            call.location.line,
-            call.location.column,
-            message,
-            fix,
-        ));
+        violations.push(self.violation_with_fix_at(&file.path, &call.location, message, fix));
     }
 
     /// Extract g_variant_new pattern and return (format_string,

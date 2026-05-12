@@ -138,7 +138,7 @@ impl UseGSourceConstants {
             );
             let fix = Fix::new(loc.start_byte, loc.end_byte, replacement);
 
-            violations.push(self.violation_with_fix(file_path, loc.line, loc.column, message, fix));
+            violations.push(self.violation_with_fix_at(file_path, loc, message, fix));
         });
     }
 }

@@ -122,10 +122,9 @@ impl GParamSpecNullNickBlurb {
             ));
         }
 
-        violations.push(self.violation_with_fixes(
+        violations.push(self.violation_with_fixes_at(
             &file.path,
-            call.location.line,
-            call.location.column,
+            &call.location,
             format!(
                 "{} should have NULL for {}",
                 call.function_name(&file.source),

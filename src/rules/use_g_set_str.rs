@@ -81,13 +81,7 @@ impl UseGSetStr {
             Fix::new(s2.location().start_byte, s2_end, replacement),
         ];
 
-        violations.push(self.violation_with_fixes(
-            &file.path,
-            s1.location().line,
-            s1.location().column,
-            message,
-            fixes,
-        ));
+        violations.push(self.violation_with_fixes_at(&file.path, s1.location(), message, fixes));
         true
     }
 

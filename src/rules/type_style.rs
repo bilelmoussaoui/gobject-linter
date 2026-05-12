@@ -184,10 +184,9 @@ impl TypeStyle {
         let new_text = source_text.replacen(&type_info.base_type, canonical, 1);
         let fix = Fix::new(loc.start_byte, loc.end_byte, new_text);
 
-        violations.push(self.violation_with_fix(
+        violations.push(self.violation_with_fix_at(
             &file.path,
-            type_info.location.line,
-            type_info.location.column,
+            &type_info.location,
             format!("use `{}` instead of `{}`", canonical, type_info.base_type),
             fix,
         ));

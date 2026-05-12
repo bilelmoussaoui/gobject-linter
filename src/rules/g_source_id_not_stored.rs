@@ -56,10 +56,9 @@ impl Rule for GSourceIdNotStored {
                                 !expr.is_null()
                             })
                         {
-                            violations.push(self.violation(
+                            violations.push(self.violation_at(
                                 &file.path,
-                                call.location.line,
-                                call.location.column,
+                                &call.location,
                                 format!(
                                     "{}() called without storing the returned source ID. If the object is destroyed before the callback fires, this will cause a use-after-free. Store the ID and use g_clear_handle_id() in dispose.",
                                     call.function_name(&file.source)

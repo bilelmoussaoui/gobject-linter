@@ -416,18 +416,7 @@ pub trait Rule: Send + Sync {
         column: usize,
         message: String,
     ) -> Violation {
-        Violation {
-            file: file.to_path_buf(),
-            line,
-            column,
-            message,
-            rule: self.name(),
-            category: self.category(),
-            level: RuleLevel::Error, // Will be overridden by scanner
-            snippet: None,
-            rule_index: 0, // Will be set by scanner based on execution order
-            fixes: Vec::new(),
-        }
+        self.violation_with_fixes(file, line, column, message, vec![])
     }
 
     /// Helper to create a violation with an automated fix
@@ -439,18 +428,7 @@ pub trait Rule: Send + Sync {
         message: String,
         fix: Fix,
     ) -> Violation {
-        Violation {
-            file: file.to_path_buf(),
-            line,
-            column,
-            message,
-            rule: self.name(),
-            category: self.category(),
-            level: RuleLevel::Error, // Will be overridden by scanner
-            snippet: None,
-            rule_index: 0,
-            fixes: vec![fix],
-        }
+        self.violation_with_fixes(file, line, column, message, vec![fix])
     }
 
     /// Helper to create a violation with multiple automated fixes
@@ -474,5 +452,34 @@ pub trait Rule: Send + Sync {
             rule_index: 0,
             fixes,
         }
+    }
+
+    fn violation_at(
+        &self,
+        file: &std::path::Path,
+        location: &SourceLocation,
+        message: String,
+    ) -> Violation {
+        self.violation(file, location.line, location.column, message)
+    }
+
+    fn violation_with_fix_at(
+        &self,
+        file: &std::path::Path,
+        location: &SourceLocation,
+        message: String,
+        fix: Fix,
+    ) -> Violation {
+        self.violation_with_fix(file, location.line, location.column, message, fix)
+    }
+
+    fn violation_with_fixes_at(
+        &self,
+        file: &std::path::Path,
+        location: &SourceLocation,
+        message: String,
+        fixes: Vec<Fix>,
+    ) -> Violation {
+        self.violation_with_fixes(file, location.line, location.column, message, fixes)
     }
 }

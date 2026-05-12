@@ -773,10 +773,9 @@ impl DeadCode {
             }
             for (def_path, is_static, location) in defs {
                 if *is_static {
-                    violations.push(self.violation(
+                    violations.push(self.violation_at(
                         def_path,
-                        location.line,
-                        location.column,
+                        location,
                         format!("Static function '{}' is never used", func_name),
                     ));
                     continue;
@@ -789,10 +788,9 @@ impl DeadCode {
                         continue;
                     }
                     for (decl_path, decl_location) in decls {
-                        violations.push(self.violation(
+                        violations.push(self.violation_at(
                             decl_path,
-                            decl_location.line,
-                            decl_location.column,
+                            decl_location,
                             format!(
                                 "Internal function '{}' is never used (declared in private header)",
                                 func_name
@@ -814,10 +812,9 @@ impl DeadCode {
                 continue;
             }
             for (decl_path, decl_location) in decls {
-                violations.push(self.violation(
+                violations.push(self.violation_at(
                     decl_path,
-                    decl_location.line,
-                    decl_location.column,
+                    decl_location,
                     format!(
                         "Internal function '{}' is never used (declared but not defined)",
                         func_name
@@ -842,10 +839,9 @@ impl DeadCode {
                 continue;
             }
             for (def_path, location) in defs {
-                violations.push(self.violation(
+                violations.push(self.violation_at(
                     def_path,
-                    location.line,
-                    location.column,
+                    location,
                     format!("Type '{}' is defined but never used", type_name),
                 ));
             }
@@ -863,10 +859,9 @@ impl DeadCode {
                 continue;
             }
             for (def_path, location) in defs {
-                violations.push(self.violation(
+                violations.push(self.violation_at(
                     def_path,
-                    location.line,
-                    location.column,
+                    location,
                     format!("Enum value '{}' is defined but never used", value_name),
                 ));
             }
@@ -893,10 +888,9 @@ impl DeadCode {
                 ) {
                     continue;
                 }
-                violations.push(self.violation(
+                violations.push(self.violation_at(
                     def_path,
-                    location.line,
-                    location.column,
+                    location,
                     format!("Field '{}' in '{}' is never read", field_name, struct_name),
                 ));
             }

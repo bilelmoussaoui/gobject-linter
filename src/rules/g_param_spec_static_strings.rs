@@ -120,10 +120,9 @@ impl GParamSpecStaticStrings {
             new_flags,
         );
 
-        violations.push(self.violation_with_fix(
+        violations.push(self.violation_with_fix_at(
             &file.path,
-            call.location.line,
-            call.location.column,
+            &call.location,
             format!(
                 "Add {} to {} flags (saves memory for static strings)",
                 needed_desc,

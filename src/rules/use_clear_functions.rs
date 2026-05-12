@@ -350,10 +350,9 @@ impl UseClearFunctions {
                 Fix::delete_line(stmt2.location(), source),
             ];
 
-            violations.push(self.violation_with_fixes(
+            violations.push(self.violation_with_fixes_at(
                 &file.path,
-                stmt1.location().line,
-                stmt1.location().column,
+                stmt1.location(),
                 message,
                 fixes,
             ));
@@ -406,13 +405,7 @@ impl UseClearFunctions {
             replacement,
         );
 
-        violations.push(self.violation_with_fix(
-            &file.path,
-            if_stmt.location.line,
-            if_stmt.location.column,
-            message,
-            fix,
-        ));
+        violations.push(self.violation_with_fix_at(&file.path, &if_stmt.location, message, fix));
 
         true
     }
@@ -559,13 +552,7 @@ impl UseClearFunctions {
                 )
             };
 
-            violations.push(self.violation_with_fix(
-                &file.path,
-                first_loc.line,
-                first_loc.column,
-                message,
-                fix,
-            ));
+            violations.push(self.violation_with_fix_at(&file.path, &first_loc, message, fix));
         }
         true
     }
@@ -637,10 +624,9 @@ impl UseClearFunctions {
                 format!("{};", call_text),
             );
 
-            violations.push(self.violation_with_fix(
+            violations.push(self.violation_with_fix_at(
                 &file.path,
-                if_stmt.location.line,
-                if_stmt.location.column,
+                &if_stmt.location,
                 "Remove unnecessary braces around single g_clear_handle_id call".to_string(),
                 fix,
             ));
@@ -700,13 +686,7 @@ impl UseClearFunctions {
             replacement,
         );
 
-        violations.push(self.violation_with_fix(
-            &file.path,
-            if_stmt.location.line,
-            if_stmt.location.column,
-            message,
-            fix,
-        ));
+        violations.push(self.violation_with_fix_at(&file.path, &if_stmt.location, message, fix));
         true
     }
 
@@ -743,13 +723,7 @@ impl UseClearFunctions {
             Fix::delete_line(s2.location(), &file.source),
         ];
 
-        violations.push(self.violation_with_fixes(
-            &file.path,
-            s1.location().line,
-            s1.location().column,
-            message,
-            fixes,
-        ));
+        violations.push(self.violation_with_fixes_at(&file.path, s1.location(), message, fixes));
         true
     }
 
@@ -793,13 +767,7 @@ impl UseClearFunctions {
         let stmt_end = stmt.location().find_semicolon_end(&file.source);
         let fix = Fix::new(stmt.location().start_byte, stmt_end, replacement);
 
-        violations.push(self.violation_with_fix(
-            &file.path,
-            stmt.location().line,
-            stmt.location().column,
-            message,
-            fix,
-        ));
+        violations.push(self.violation_with_fix_at(&file.path, stmt.location(), message, fix));
         true
     }
 

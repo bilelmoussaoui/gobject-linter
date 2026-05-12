@@ -114,10 +114,9 @@ impl UseExplicitDefaultFlags {
                         replacement_const.to_string(),
                     );
 
-                    violations.push(self.violation_with_fix(
+                    violations.push(self.violation_with_fix_at(
                         &file.path,
-                        call.location.line,
-                        call.location.column,
+                        &call.location,
                         format!(
                             "Use {} instead of 0 for {}() flags parameter",
                             replacement_const, target_func

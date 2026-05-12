@@ -96,12 +96,6 @@ impl PropertyCanonicalName {
             )
         };
 
-        violations.push(self.violation_with_fix(
-            &file.path,
-            string_lit_location.line,
-            string_lit_location.column,
-            message,
-            fix,
-        ));
+        violations.push(self.violation_with_fix_at(&file.path, string_lit_location, message, fix));
     }
 }

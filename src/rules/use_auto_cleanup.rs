@@ -119,12 +119,7 @@ impl UseAutoCleanup {
                     continue;
                 }
 
-                violations.push(self.violation(
-                    file_path,
-                    location.line,
-                    location.column,
-                    suggestion,
-                ));
+                violations.push(self.violation_at(file_path, location, suggestion));
             }
         }
     }
@@ -271,10 +266,9 @@ impl UseAutoCleanup {
                 if let Some(cleanup_vars) = cleanup_labels.get(goto_label)
                     && cleanup_vars.contains(*var_name)
                 {
-                    violations.push(self.violation(
+                    violations.push(self.violation_at(
                         &file.path,
-                        location.line,
-                        location.column,
+                        location,
                         format!(
                             "Consider using g_autoptr({}) {} and g_steal_pointer to avoid goto cleanup",
                             type_info.base_type, var_name

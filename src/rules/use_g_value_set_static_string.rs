@@ -79,10 +79,9 @@ impl UseGValueSetStaticString {
             replacement,
         );
 
-        violations.push(self.violation_with_fix(
+        violations.push(self.violation_with_fix_at(
             &file.path,
-            call.location.line,
-            call.location.column,
+            &call.location,
             format!(
                 "Use g_value_set_static_string instead of g_value_set_string for string literal {}",
                 string_lit.value

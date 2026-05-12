@@ -30,10 +30,9 @@ impl Rule for DeprecatedAddPrivate {
         violations: &mut Vec<Violation>,
     ) {
         for call in func.find_calls(&["g_type_class_add_private"]) {
-            violations.push(self.violation(
+            violations.push(self.violation_at(
                 &file.path,
-                call.location.line,
-                call.location.column,
+                &call.location,
                 "g_type_class_add_private is deprecated since GLib 2.58. Use G_DEFINE_TYPE_WITH_PRIVATE or G_ADD_PRIVATE instead".to_string(),
             ));
         }

@@ -110,10 +110,9 @@ impl UnnecessaryNullCheck {
             stmt_text.to_string(),
         );
 
-        violations.push(self.violation_with_fix(
+        violations.push(self.violation_with_fix_at(
             &file.path,
-            if_stmt.location.line,
-            if_stmt.location.column,
+            &if_stmt.location,
             format!(
                 "Remove unnecessary NULL check before {} ({} handles NULL)",
                 func_name, func_name

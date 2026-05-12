@@ -84,10 +84,9 @@ impl Rule for UseGObjectClassInstallProperties {
             )
         };
 
-        violations.push(self.violation_with_fixes(
+        violations.push(self.violation_with_fixes_at(
             &file.path,
-            first_call.location.line,
-            first_call.location.column,
+            &first_call.location,
             message,
             fixes,
         ));

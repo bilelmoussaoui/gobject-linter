@@ -89,10 +89,9 @@ impl StrcmpExplicitComparison {
                     " != 0".to_string(),
                 );
 
-                violations.push(self.violation_with_fix(
+                violations.push(self.violation_with_fix_at(
                     &file.path,
-                    call.location.line,
-                    call.location.column,
+                    &call.location,
                     format!(
                         "{}() returns 0 for equality — add explicit comparison: '{}(...) != 0'",
                         func_name, func_name
@@ -120,10 +119,9 @@ impl StrcmpExplicitComparison {
                         ),
                     ];
 
-                    violations.push(self.violation_with_fixes(
+                    violations.push(self.violation_with_fixes_at(
                         &file.path,
-                        call.location.line,
-                        call.location.column,
+                        &call.location,
                         format!(
                             "{}() returns 0 for equality — use '{}(...) == 0' instead of '!{}(...)'",
                             func_name, func_name, func_name

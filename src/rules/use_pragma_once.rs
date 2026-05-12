@@ -71,10 +71,9 @@ impl Rule for UsePragmaOnce {
                 // Fix 3: Remove the entire #endif line (with preceding blank line if any)
                 fixes.push(Fix::delete_line_and_leading_blank(&endif_loc, &file.source));
 
-                violations.push(self.violation_with_fixes(
+                violations.push(self.violation_with_fixes_at(
                     path,
-                    ifndef_loc.line,
-                    ifndef_loc.column,
+                    &ifndef_loc,
                     format!("Use #pragma once instead of include guard '{}'", guard_name),
                     fixes,
                 ));

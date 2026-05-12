@@ -105,7 +105,7 @@ impl Rule for MissingAutoptrCleanup {
                 _ => unreachable!(),
             };
 
-            violations.push(self.violation(path, location.line, location.column, message));
+            violations.push(self.violation_at(path, &location, message));
         }
     }
 }

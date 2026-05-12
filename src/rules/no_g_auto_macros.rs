@@ -33,10 +33,9 @@ impl Rule for NoGAutoMacros {
         for stmt in &func.body_statements {
             for decl in stmt.iter_declarations() {
                 if let Some(auto_macro) = &decl.type_info.auto_cleanup {
-                    violations.push(self.violation(
+                    violations.push(self.violation_at(
                         &file.path,
-                        decl.location.line,
-                        decl.location.column,
+                        &decl.location,
                         format!("{auto_macro} requires compiler cleanup attribute support",),
                     ));
                 }

@@ -109,12 +109,6 @@ impl UseGVariantNewTyped {
             replacement,
         );
 
-        violations.push(self.violation_with_fix(
-            &file.path,
-            call.location.line,
-            call.location.column,
-            message,
-            fix,
-        ));
+        violations.push(self.violation_with_fix_at(&file.path, &call.location, message, fix));
     }
 }

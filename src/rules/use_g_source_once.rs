@@ -95,10 +95,9 @@ impl Rule for UseGSourceOnce {
                         // Add callback fixes (return type + return statements)
                         fixes.extend(callback_fixes);
 
-                        violations.push(self.violation_with_fixes(
+                        violations.push(self.violation_with_fixes_at(
                             &file.path,
-                            call.location.line,
-                            call.location.column,
+                            &call.location,
                             format!(
                                 "Callback '{}' always returns G_SOURCE_REMOVE. Use {} instead of {}",
                                 callback_name, replacement, func_name

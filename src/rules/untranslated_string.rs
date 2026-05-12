@@ -110,10 +110,9 @@ impl UntranslatedString {
             }
 
             let location = arg_expr.location();
-            violations.push(self.violation(
+            violations.push(self.violation_at(
                 &file.path,
-                location.line,
-                location.column,
+                location,
                 format!(
                     "User-visible string in {}() should be wrapped with _(\"...\")",
                     func_name

@@ -78,10 +78,9 @@ impl GErrorInit {
 
         let fix = Fix::new(insert_pos, insert_pos, " = NULL".to_string());
 
-        violations.push(self.violation_with_fix(
+        violations.push(self.violation_with_fix_at(
             &file.path,
-            decl.location.line,
-            decl.location.column,
+            &decl.location,
             format!("GError *{} must be initialized to NULL", decl.name),
             fix,
         ));

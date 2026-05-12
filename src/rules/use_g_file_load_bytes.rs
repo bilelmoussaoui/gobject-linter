@@ -144,10 +144,9 @@ impl UseGFileLoadBytes {
             {
                 // Check if this contents variable came from g_file_load_contents
                 if load_contents_vars.contains(&contents_var) {
-                    violations.push(self.violation(
+                    violations.push(self.violation_at(
                             &file.path,
-                            call.location.line,
-                            call.location.column,
+                            &call.location,
                             "Consider using g_file_load_bytes/g_file_load_bytes_async instead of g_file_load_contents + g_bytes_new_take for simplicity".to_string(),
                         ));
                 }

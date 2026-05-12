@@ -62,10 +62,9 @@ impl Rule for MissingExportMacro {
         }
 
         if func.export_macros.is_empty() {
-            violations.push(self.violation(
+            violations.push(self.violation_at(
                 &file.path,
-                func.location.line,
-                func.location.column,
+                &func.location,
                 format!(
                     "Public function '{}' in header is missing an export macro (e.g., G_MODULE_EXPORT, *_EXPORT)",
                     func.name
@@ -91,10 +90,9 @@ impl Rule for MissingExportMacro {
         }
 
         if gobject_type.export_macros.is_empty() {
-            violations.push(self.violation(
+            violations.push(self.violation_at(
                 &file.path,
-                gobject_type.location.line,
-                gobject_type.location.column,
+                &gobject_type.location,
                 format!(
                     "'{}' is missing an export macro (e.g., G_MODULE_EXPORT, *_EXPORT)",
                     gobject_type.type_name

@@ -73,10 +73,9 @@ impl Rule for UseGAsciiFunctions {
                     config.style.format_call(replacement, &args),
                 );
 
-                violations.push(self.violation_with_fix(
+                violations.push(self.violation_with_fix_at(
                     &file.path,
-                    call.location.line,
-                    call.location.column,
+                    &call.location,
                     format!(
                         "Use {}() instead of {}() — C ctype functions are locale-dependent",
                         replacement, func_name

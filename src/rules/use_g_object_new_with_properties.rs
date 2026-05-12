@@ -77,10 +77,9 @@ impl UseGObjectNewWithProperties {
 
                 // Only report if there's at least one g_object_set call
                 if set_count > 0 {
-                    violations.push(self.violation(
+                    violations.push(self.violation_at(
                         &file.path,
-                        location.line,
-                        location.column,
+                        &location,
                         format!(
                             "Set properties in g_object_new() instead of {} separate g_object_set() call{}",
                             set_count,

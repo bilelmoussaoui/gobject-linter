@@ -127,10 +127,9 @@ impl UseGObjectNotifyByPspec {
                 let pspec = format!("{}[{}]", array_name, enum_value);
                 let replacement = style.format_call("g_object_notify_by_pspec", &[obj_str, &pspec]);
 
-                violations.push(self.violation_with_fix(
+                violations.push(self.violation_with_fix_at(
                     file_path,
-                    call.location.line,
-                    call.location.column,
+                    &call.location,
                     format!(
                         "Use g_object_notify_by_pspec({}, {}[{}]) instead of g_object_notify({}, \"{}\") for better performance",
                         obj_str, array_name, enum_value, obj_str, property_name
@@ -141,10 +140,9 @@ impl UseGObjectNotifyByPspec {
                 // Still ambiguous after type checking, just suggest without fix
                 let property_constant = self.property_name_to_constant(property_name);
                 let array_name = &candidates[0].1; // Use first array name as example
-                violations.push(self.violation(
+                violations.push(self.violation_at(
                     file_path,
-                    call.location.line,
-                    call.location.column,
+                    &call.location,
                     format!(
                         "Use g_object_notify_by_pspec(obj, {}[{}]) instead of g_object_notify(obj, \"{}\") for better performance (ambiguous: multiple classes define this property)",
                         array_name, property_constant, property_name
@@ -162,10 +160,9 @@ impl UseGObjectNotifyByPspec {
                 "properties"
             };
 
-            violations.push(self.violation(
+            violations.push(self.violation_at(
                 file_path,
-                call.location.line,
-                call.location.column,
+                &call.location,
                 format!(
                     "Use g_object_notify_by_pspec(obj, {}[{}]) instead of g_object_notify(obj, \"{}\") for better performance",
                     suggested_array, property_constant, property_name

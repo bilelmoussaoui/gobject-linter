@@ -152,13 +152,7 @@ impl UseGStealPointer {
             ),
         ];
 
-        violations.push(self.violation_with_fixes(
-            &file.path,
-            s1.location().line,
-            s1.location().column,
-            message,
-            fixes,
-        ));
+        violations.push(self.violation_with_fixes_at(&file.path, s1.location(), message, fixes));
         true
     }
 
@@ -196,13 +190,7 @@ impl UseGStealPointer {
             Fix::new(s2.location().start_byte, s2_end, replacement),
         ];
 
-        violations.push(self.violation_with_fixes(
-            &file.path,
-            s1.location().line,
-            s1.location().column,
-            message,
-            fixes,
-        ));
+        violations.push(self.violation_with_fixes_at(&file.path, s1.location(), message, fixes));
         true
     }
 
@@ -268,13 +256,7 @@ impl UseGStealPointer {
             if_stmt.location.end_byte,
             replacement,
         );
-        violations.push(self.violation_with_fix(
-            &file.path,
-            if_stmt.location.line,
-            if_stmt.location.column,
-            message,
-            fix,
-        ));
+        violations.push(self.violation_with_fix_at(&file.path, &if_stmt.location, message, fix));
         true
     }
 
@@ -340,10 +322,9 @@ impl UseGStealPointer {
                 Fix::new(body_start, body_end, replacement)
             };
 
-            violations.push(self.violation_with_fix(
+            violations.push(self.violation_with_fix_at(
                 &file.path,
-                if_stmt.then_body[0].location().line,
-                if_stmt.then_body[0].location().column,
+                if_stmt.then_body[0].location(),
                 message,
                 fix,
             ));
@@ -416,10 +397,9 @@ impl UseGStealPointer {
                 Fix::new(body_start, body_end, replacement)
             };
 
-            violations.push(self.violation_with_fix(
+            violations.push(self.violation_with_fix_at(
                 &file.path,
-                if_stmt.then_body[0].location().line,
-                if_stmt.then_body[0].location().column,
+                if_stmt.then_body[0].location(),
                 message,
                 fix,
             ));

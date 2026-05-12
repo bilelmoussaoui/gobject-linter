@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::Path};
 
-use gobject_ast::model::{Parameter, TypeInfo};
+use gobject_ast::model::{Parameter, SourceLocation, TypeInfo};
 
 use crate::{
     ast_context::AstContext,
@@ -16,8 +16,7 @@ struct DeclInfo<'a> {
 }
 
 struct DefInfo<'a> {
-    line: usize,
-    column: usize,
+    location: SourceLocation,
     path: &'a Path,
     return_type: &'a TypeInfo,
     parameters: &'a [Parameter],
@@ -83,8 +82,7 @@ impl Rule for InconsistentFunctionSignature {
                                 &func.return_type,
                                 &func.parameters,
                                 path,
-                                func.location.line,
-                                func.location.column,
+                                func.location,
                                 &mut static_violations,
                             );
                         }
@@ -93,8 +91,7 @@ impl Rule for InconsistentFunctionSignature {
                             .entry(func.name.as_str())
                             .or_default()
                             .push(DefInfo {
-                                line: func.location.line,
-                                column: func.location.column,
+                                location: func.location,
                                 path,
                                 return_type: &func.return_type,
                                 parameters: &func.parameters,
@@ -126,8 +123,7 @@ impl Rule for InconsistentFunctionSignature {
                     def.return_type,
                     def.parameters,
                     def.path,
-                    def.line,
-                    def.column,
+                    def.location,
                     violations,
                 );
             }
@@ -178,15 +174,13 @@ impl InconsistentFunctionSignature {
         def_ret: &TypeInfo,
         def_params: &[Parameter],
         path: &Path,
-        line: usize,
-        column: usize,
+        location: SourceLocation,
         violations: &mut Vec<Violation>,
     ) {
         if !decl_ret.matches(def_ret) {
-            violations.push(self.violation(
+            violations.push(self.violation_at(
                 path,
-                line,
-                column,
+                &location,
                 format!(
                     "'{}' declared as returning '{}' but defined as returning '{}'",
                     name,
@@ -200,10 +194,9 @@ impl InconsistentFunctionSignature {
         let def_params = self.effective_params(def_params);
 
         if decl_params.len() != def_params.len() {
-            violations.push(self.violation(
+            violations.push(self.violation_at(
                 path,
-                line,
-                column,
+                &location,
                 format!(
                     "'{}' declared with {} parameter(s) but defined with {}",
                     name,
@@ -234,10 +227,9 @@ impl InconsistentFunctionSignature {
                             .as_deref()
                             .or(fn_.as_deref())
                             .map_or_else(|| format!("{}", i + 1), |n| format!("'{n}'"));
-                        violations.push(self.violation(
+                        violations.push(self.violation_at(
                             path,
-                            line,
-                            column,
+                            &location,
                             format!(
                                 "'{}' parameter {} declared as '{}' but defined as '{}'",
                                 name,
@@ -249,10 +241,9 @@ impl InconsistentFunctionSignature {
                     }
                 }
                 _ => {
-                    violations.push(self.violation(
+                    violations.push(self.violation_at(
                         path,
-                        line,
-                        column,
+                        &location,
                         format!("'{}' parameter {} variadic mismatch between declaration and definition", name, i + 1),
                     ));
                 }

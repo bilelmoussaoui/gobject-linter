@@ -79,10 +79,9 @@ impl UseGStrcmp0 {
                 "g_strcmp0".to_string(),
             );
 
-            violations.push(self.violation_with_fix(
+            violations.push(self.violation_with_fix_at(
                     &file.path,
-                    call.location.line,
-                    call.location.column,
+                    &call.location,
                     "Consider g_strcmp0 instead of strcmp if arguments can be NULL (g_strcmp0 is NULL-safe)".to_string(),
                     fix,
                 ));

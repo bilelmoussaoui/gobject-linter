@@ -82,10 +82,9 @@ impl Rule for GErrorLeak {
             let has_noreturn = calls_noreturn_function(&func.body_statements, &extra_noreturn);
 
             if !is_freed && !is_propagated && !has_noreturn {
-                violations.push(self.violation(
+                violations.push(self.violation_at(
                     &file.path,
-                    loc.line,
-                    loc.column,
+                    &loc,
                     format!(
                         "GError variable '{}' may be leaked; it should be freed with g_error_free/g_clear_error or propagated with g_propagate_error/g_task_return_error/g_steal_pointer",
                         var_name

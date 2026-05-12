@@ -46,12 +46,7 @@ impl Rule for UseGStrlcpy {
                 _ => continue,
             };
 
-            violations.push(self.violation(
-                &file.path,
-                call.location.line,
-                call.location.column,
-                message.to_string(),
-            ));
+            violations.push(self.violation_at(&file.path, &call.location, message.to_string()));
         }
     }
 }

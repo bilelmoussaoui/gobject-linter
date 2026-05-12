@@ -71,10 +71,9 @@ impl GTaskSourceTag {
                 let call = style.format_call_stmt("g_task_set_source_tag", &[var_name, &func.name]);
                 let fix = Fix::new(stmt_end, stmt_end, format!("\n{}{}", indentation, call));
 
-                violations.push(self.violation_with_fix(
+                violations.push(self.violation_with_fix_at(
                     &file.path,
-                    name_location.line,
-                    name_location.column,
+                    &name_location,
                     format!("GTask '{}' created without g_task_set_source_tag", var_name),
                     fix,
                 ));

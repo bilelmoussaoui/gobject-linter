@@ -94,10 +94,9 @@ impl GiNotBindingsFriendly {
             .iter()
             .any(|p| matches!(p, Parameter::Variadic))
         {
-            violations.push(self.violation(
+            violations.push(self.violation_at(
                 path,
-                func.location.line,
-                func.location.column,
+                &func.location,
                 format!(
                     "Function '{}' uses variadic arguments which cannot be introspected",
                     func.name,
@@ -141,10 +140,9 @@ impl GiNotBindingsFriendly {
         }
 
         if out_count > 2 {
-            violations.push(self.violation(
+            violations.push(self.violation_at(
                 path,
-                func.location.line,
-                func.location.column,
+                &func.location,
                 format!(
                     "Function '{}' has {} out parameters (pointer-to-pointer); \
                      consider reducing to at most 2 for better bindings",
@@ -161,10 +159,9 @@ impl GiNotBindingsFriendly {
         violations: &mut Vec<Violation>,
     ) {
         if is_container_type(&func.return_type.base_type) && func.return_type.pointer_depth >= 1 {
-            violations.push(self.violation(
+            violations.push(self.violation_at(
                 path,
-                func.location.line,
-                func.location.column,
+                &func.location,
                 format!(
                     "Function '{}' returns {}* in public API; {}",
                     func.name,
@@ -183,10 +180,9 @@ impl GiNotBindingsFriendly {
             };
             if is_container_type(&type_info.base_type) && type_info.pointer_depth >= 1 {
                 let param_label = name.as_deref().unwrap_or("(unnamed)");
-                violations.push(self.violation(
+                violations.push(self.violation_at(
                     path,
-                    func.location.line,
-                    func.location.column,
+                    &func.location,
                     format!(
                         "Function '{}' parameter '{}' uses {}* in public API; {}",
                         func.name,

@@ -88,10 +88,9 @@ impl UseGBytesUnrefToData {
             Fix::delete_line(stmt2.location(), &file.source),
         ];
 
-        violations.push(self.violation_with_fixes(
+        violations.push(self.violation_with_fixes_at(
             &file.path,
-            assignment.location.line,
-            assignment.location.column,
+            &assignment.location,
             message,
             fixes,
         ));

@@ -100,10 +100,9 @@ impl SignalCanonicalName {
 
                 let fix = Fix::new(fix_start, fix_end, fixed_first_str);
 
-                violations.push(self.violation_with_fix(
+                violations.push(self.violation_with_fix_at(
                     &file.path,
-                    string_lit.location.line,
-                    string_lit.location.column,
+                    &string_lit.location,
                     format!(
                         "Signal name '{}' should use hyphens instead of underscores: '{}'",
                         signal_name, fixed_signal

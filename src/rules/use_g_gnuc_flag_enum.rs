@@ -52,10 +52,9 @@ impl Rule for UseGGnucFlagEnum {
         let source = &file.source;
         let fix = self.generate_fix(enum_info, source, enum_name);
 
-        violations.push(self.violation_with_fix(
+        violations.push(self.violation_with_fix_at(
             &file.path,
-            enum_info.location.line,
-            enum_info.location.column,
+            &enum_info.location,
             format!(
                 "Enum '{}' appears to be a flags enum but is missing G_GNUC_FLAG_ENUM attribute",
                 enum_name

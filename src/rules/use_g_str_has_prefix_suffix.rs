@@ -156,13 +156,7 @@ impl UseGStrHasPrefixSuffix {
         );
         let fix = Fix::new(location.start_byte, location.end_byte, replacement);
 
-        violations.push(self.violation_with_fix(
-            &file.path,
-            location.line,
-            location.column,
-            message,
-            fix,
-        ));
+        violations.push(self.violation_with_fix_at(&file.path, location, message, fix));
     }
 
     /// Check for strcmp(str + strlen(str) - strlen("suffix"), "suffix") == 0
@@ -222,13 +216,7 @@ impl UseGStrHasPrefixSuffix {
         );
         let fix = Fix::new(location.start_byte, location.end_byte, replacement);
 
-        violations.push(self.violation_with_fix(
-            &file.path,
-            location.line,
-            location.column,
-            message,
-            fix,
-        ));
+        violations.push(self.violation_with_fix_at(&file.path, location, message, fix));
     }
 
     /// Validates that arg is `<str_expr> + strlen(<str_expr>) -
