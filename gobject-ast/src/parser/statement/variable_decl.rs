@@ -99,7 +99,10 @@ impl Parser {
             if !has_equals {
                 // Before "=", extract variable name and location
                 match child.kind() {
-                    "pointer_declarator" | "identifier" | "array_declarator" => {
+                    "pointer_declarator"
+                    | "identifier"
+                    | "array_declarator"
+                    | "parenthesized_declarator" => {
                         if let Some((id, loc)) = self.find_identifier_with_location(child, source) {
                             var_name = Some(id);
                             var_name_location = loc;

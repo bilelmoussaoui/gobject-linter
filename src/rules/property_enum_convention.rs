@@ -598,7 +598,7 @@ impl PropertyEnumConvention {
         let already_cast = match &switch_stmt.condition {
             Expression::Cast(cast) => {
                 // Check if cast type contains the enum name
-                cast.type_info.contains(enum_name)
+                cast.type_info.base_type.contains(enum_name)
             }
             _ => false,
         };

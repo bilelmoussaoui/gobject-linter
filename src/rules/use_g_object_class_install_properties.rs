@@ -378,7 +378,7 @@ impl UseGObjectClassInstallProperties {
         for item in &file.top_level_items {
             if let TopLevelItem::Declaration(decl) = item
                 && decl.name == "props"
-                && decl.type_info.full_text.contains("GParamSpec")
+                && decl.type_info.is_base_type("GParamSpec")
             {
                 return "obj_props".to_string();
             }

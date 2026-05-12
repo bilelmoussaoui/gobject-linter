@@ -1,7 +1,7 @@
-use std::{path::Path, sync::LazyLock};
+use std::sync::LazyLock;
 
 use gobject_ast::model::{
-    Parameter, StructField, TopLevelItem, TypeDefItem, TypeInfo, TypedefTarget,
+    FileModel, Parameter, StructField, TopLevelItem, TypeDefItem, TypeInfo, TypedefTarget,
 };
 
 use crate::{
@@ -55,9 +55,9 @@ impl Rule for TypeStyle {
             .and_then(|v| v.as_str())
             .unwrap_or("glib");
 
-        for (path, file) in ast_context.iter_all_files() {
+        for (_, file) in ast_context.iter_all_files() {
             for item in file.iter_all_items() {
-                self.check_item(item, path, style, violations);
+                self.check_item(item, file, style, violations);
             }
         }
     }
@@ -67,27 +67,27 @@ impl TypeStyle {
     fn check_item(
         &self,
         item: &TopLevelItem,
-        path: &Path,
+        file: &FileModel,
         style: &str,
         violations: &mut Vec<Violation>,
     ) {
         match item {
             TopLevelItem::FunctionDeclaration(decl) => {
-                self.check_type(&decl.return_type, path, style, violations);
-                self.check_params(&decl.parameters, path, style, violations);
+                self.check_type(&decl.return_type, file, style, violations);
+                self.check_params(&decl.parameters, file, style, violations);
             }
             TopLevelItem::FunctionDefinition(def) => {
-                self.check_type(&def.return_type, path, style, violations);
-                self.check_params(&def.parameters, path, style, violations);
+                self.check_type(&def.return_type, file, style, violations);
+                self.check_params(&def.parameters, file, style, violations);
                 for var in def.iter_local_declarations() {
-                    self.check_type(&var.type_info, path, style, violations);
+                    self.check_type(&var.type_info, file, style, violations);
                 }
             }
             TopLevelItem::TypeDefinition(typedef_item) => {
-                self.check_typedef(typedef_item, path, style, violations);
+                self.check_typedef(typedef_item, file, style, violations);
             }
             TopLevelItem::Declaration(decl) => {
-                self.check_type(&decl.type_info, path, style, violations);
+                self.check_type(&decl.type_info, file, style, violations);
             }
             _ => {}
         }
@@ -96,7 +96,7 @@ impl TypeStyle {
     fn check_typedef(
         &self,
         item: &TypeDefItem,
-        path: &Path,
+        file: &FileModel,
         style: &str,
         violations: &mut Vec<Violation>,
     ) {
@@ -108,20 +108,20 @@ impl TypeStyle {
             } => {
                 match target {
                     TypedefTarget::Type(type_info) => {
-                        self.check_type(type_info, path, style, violations);
+                        self.check_type(type_info, file, style, violations);
                     }
                     TypedefTarget::Callback {
                         return_type,
                         parameters,
                     } => {
-                        self.check_type(return_type, path, style, violations);
-                        self.check_params(parameters, path, style, violations);
+                        self.check_type(return_type, file, style, violations);
+                        self.check_params(parameters, file, style, violations);
                     }
                 }
-                self.check_fields(struct_fields, path, style, violations);
+                self.check_fields(struct_fields, file, style, violations);
             }
             TypeDefItem::Struct { fields, .. } => {
-                self.check_fields(fields, path, style, violations);
+                self.check_fields(fields, file, style, violations);
             }
             TypeDefItem::Enum(_) => {}
         }
@@ -130,13 +130,13 @@ impl TypeStyle {
     fn check_fields(
         &self,
         fields: &[StructField],
-        path: &Path,
+        file: &FileModel,
         style: &str,
         violations: &mut Vec<Violation>,
     ) {
         for field in fields {
             field.walk(&mut |f| {
-                self.check_type(&f.field_type, path, style, violations);
+                self.check_type(&f.field_type, file, style, violations);
             });
         }
     }
@@ -144,13 +144,13 @@ impl TypeStyle {
     fn check_params(
         &self,
         parameters: &[Parameter],
-        path: &Path,
+        file: &FileModel,
         style: &str,
         violations: &mut Vec<Violation>,
     ) {
         for param in parameters {
             if let Parameter::Regular { type_info, .. } = param {
-                self.check_type(type_info, path, style, violations);
+                self.check_type(type_info, file, style, violations);
             }
         }
     }
@@ -158,7 +158,7 @@ impl TypeStyle {
     fn check_type(
         &self,
         type_info: &TypeInfo,
-        path: &Path,
+        file: &FileModel,
         style: &str,
         violations: &mut Vec<Violation>,
     ) {
@@ -178,17 +178,14 @@ impl TypeStyle {
             return;
         }
 
-        let new_text = type_info
-            .full_text
-            .replacen(&type_info.base_type, canonical, 1);
-        let fix = Fix::new(
-            type_info.location.start_byte,
-            type_info.location.end_byte,
-            new_text,
-        );
+        let loc = &type_info.location;
+        let source_text =
+            std::str::from_utf8(&file.source[loc.start_byte..loc.end_byte]).unwrap_or("");
+        let new_text = source_text.replacen(&type_info.base_type, canonical, 1);
+        let fix = Fix::new(loc.start_byte, loc.end_byte, new_text);
 
         violations.push(self.violation_with_fix(
-            path,
+            &file.path,
             type_info.location.line,
             type_info.location.column,
             format!("use `{}` instead of `{}`", canonical, type_info.base_type),

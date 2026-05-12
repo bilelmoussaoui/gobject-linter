@@ -220,7 +220,7 @@ impl UseGSourceOnce {
         let replacement = format!(
             "{:width$}",
             "void",
-            width = func.return_type.full_text.trim().len()
+            width = func.return_type.display_name().len()
         );
 
         // Use the location from the return type's TypeInfo

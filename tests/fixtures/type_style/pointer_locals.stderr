@@ -1,0 +1,5 @@
+pointer_locals.c:6:2: type_style: use `gchar` instead of `char`
+pointer_locals.c:7:2: type_style: use `gchar` instead of `char`
+pointer_locals.c:8:2: type_style: use `gint` instead of `int`
+pointer_locals.c:9:2: type_style: use `gulong` instead of `unsigned long`
+pointer_locals.c:10:2: type_style: use `gint` instead of `int`

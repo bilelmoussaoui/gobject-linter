@@ -189,7 +189,9 @@ impl InconsistentFunctionSignature {
                 column,
                 format!(
                     "'{}' declared as returning '{}' but defined as returning '{}'",
-                    name, decl_ret.full_text, def_ret.full_text,
+                    name,
+                    decl_ret.display_name(),
+                    def_ret.display_name(),
                 ),
             ));
         }
@@ -238,7 +240,10 @@ impl InconsistentFunctionSignature {
                             column,
                             format!(
                                 "'{}' parameter {} declared as '{}' but defined as '{}'",
-                                name, param_id, dt.full_text, ft.full_text,
+                                name,
+                                param_id,
+                                dt.display_name(),
+                                ft.display_name(),
                             ),
                         ));
                     }

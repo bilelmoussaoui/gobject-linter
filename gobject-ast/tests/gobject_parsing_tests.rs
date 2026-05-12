@@ -243,9 +243,10 @@ fn test_vfunc_parameters_and_return_types() {
     else {
         panic!("expected Regular")
     };
-    assert_eq!(ds_p0.full_text, "MyObject*");
+    assert_eq!(ds_p0.base_type, "MyObject");
+    assert_eq!(ds_p0.pointer_depth, 1);
     assert_eq!(ds_n0.as_deref(), Some("self"));
-    assert_eq!(ds_p1.full_text, "int");
+    assert_eq!(ds_p1.base_type, "int");
     assert_eq!(ds_n1.as_deref(), Some("value"));
 
     // Find the get_value vfunc
@@ -265,7 +266,8 @@ fn test_vfunc_parameters_and_return_types() {
     else {
         panic!("expected Regular")
     };
-    assert_eq!(gv_p0.full_text, "MyObject*");
+    assert_eq!(gv_p0.base_type, "MyObject");
+    assert_eq!(gv_p0.pointer_depth, 1);
 }
 
 #[test]

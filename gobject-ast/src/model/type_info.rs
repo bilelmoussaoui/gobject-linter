@@ -79,9 +79,6 @@ pub struct TypeInfo {
     /// Pointer indirections: 0 = value, 1 = `*`, 2 = `**`.
     #[serde(skip_serializing_if = "is_zero")]
     pub pointer_depth: usize,
-    /// Full type string as it appears in source (`"const GFile *"`).
-    #[serde(skip)]
-    pub full_text: String,
     pub location: SourceLocation,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auto_cleanup: Option<AutoCleanupMacro>,
@@ -150,7 +147,6 @@ impl TypeInfo {
             is_struct,
             is_union,
             pointer_depth,
-            full_text: cleaned,
             location,
             auto_cleanup,
         }
@@ -208,9 +204,26 @@ impl TypeInfo {
         self.base_type == name
     }
 
-    /// Check if the type contains the given string (in full text)
-    pub fn contains(&self, pattern: &str) -> bool {
-        self.full_text.contains(pattern)
+    /// Human-readable type string reconstructed from structured fields,
+    /// e.g. `"const char *"`.
+    pub fn display_name(&self) -> String {
+        let mut s = String::new();
+        if self.is_const {
+            s.push_str("const ");
+        }
+        if self.is_struct {
+            s.push_str("struct ");
+        } else if self.is_union {
+            s.push_str("union ");
+        }
+        s.push_str(&self.base_type);
+        if self.pointer_depth > 0 {
+            s.push(' ');
+            for _ in 0..self.pointer_depth {
+                s.push('*');
+            }
+        }
+        s
     }
 
     /// Check if the type uses any auto-cleanup macro (g_autoptr, g_autofree,
@@ -249,46 +262,51 @@ impl TypeInfo {
     /// types (`int32_t`), and C99 types (`long long`, `_Bool`).
     /// `gchar *` / `char *` at pointer_depth 1 maps to `BasicType::String`.
     pub fn as_basic(&self) -> Option<BasicType> {
+        // Pointer-depth-sensitive entries first: these override the base-name
+        // match below (e.g. `char *` is String, not Char).
         match (self.base_type.as_str(), self.pointer_depth) {
-            ("gboolean", 0) => Some(BasicType::Boolean),
-            ("gchar" | "char", 0) => Some(BasicType::Char),
-            ("guchar" | "unsigned char", 0) => Some(BasicType::UChar),
-            ("gint" | "int" | "signed" | "signed int", 0) => Some(BasicType::Int),
-            ("guint" | "unsigned int" | "unsigned", 0) => Some(BasicType::UInt),
-            ("glong" | "long" | "signed long" | "long int" | "signed long int", 0) => {
+            ("gchar" | "char", 1) => return Some(BasicType::String),
+            ("gpointer" | "void", 1) => return Some(BasicType::Pointer),
+            ("gconstpointer", 0) => return Some(BasicType::Pointer),
+            _ => {}
+        }
+
+        // All remaining matches depend only on the base type name.
+        match self.base_type.as_str() {
+            "gboolean" => Some(BasicType::Boolean),
+            "gchar" | "char" => Some(BasicType::Char),
+            "guchar" | "unsigned char" => Some(BasicType::UChar),
+            "gint" | "int" | "signed" | "signed int" => Some(BasicType::Int),
+            "guint" | "unsigned int" | "unsigned" => Some(BasicType::UInt),
+            "glong" | "long" | "signed long" | "long int" | "signed long int" => {
                 Some(BasicType::Long)
             }
-            ("gulong" | "unsigned long" | "unsigned long int", 0) => Some(BasicType::ULong),
-            ("gint64" | "int64_t", 0) => Some(BasicType::Int64),
-            ("guint64" | "uint64_t", 0) => Some(BasicType::UInt64),
-            ("gfloat" | "float", 0) => Some(BasicType::Float),
-            ("gdouble" | "double", 0) => Some(BasicType::Double),
-            ("gchar" | "char", 1) => Some(BasicType::String),
-            ("gpointer" | "void", 1) => Some(BasicType::Pointer),
-            // C types without a G_TYPE_* equivalent
-            ("_Bool" | "bool", 0) => Some(BasicType::Bool),
-            ("gshort" | "short" | "signed short" | "short int" | "signed short int", 0) => {
+            "gulong" | "unsigned long" | "unsigned long int" => Some(BasicType::ULong),
+            "gint64" | "int64_t" => Some(BasicType::Int64),
+            "guint64" | "uint64_t" => Some(BasicType::UInt64),
+            "gfloat" | "float" => Some(BasicType::Float),
+            "gdouble" | "double" => Some(BasicType::Double),
+            "_Bool" | "bool" => Some(BasicType::Bool),
+            "gshort" | "short" | "signed short" | "short int" | "signed short int" => {
                 Some(BasicType::Short)
             }
-            ("gushort" | "unsigned short" | "unsigned short int", 0) => Some(BasicType::UShort),
-            ("long long" | "signed long long" | "long long int" | "signed long long int", 0) => {
+            "gushort" | "unsigned short" | "unsigned short int" => Some(BasicType::UShort),
+            "long long" | "signed long long" | "long long int" | "signed long long int" => {
                 Some(BasicType::LongLong)
             }
-            ("unsigned long long" | "unsigned long long int", 0) => Some(BasicType::ULongLong),
-            ("long double", 0) => Some(BasicType::LongDouble),
-            ("gint8" | "int8_t" | "signed char", 0) => Some(BasicType::Int8),
-            ("guint8" | "uint8_t", 0) => Some(BasicType::UInt8),
-            ("gint16" | "int16_t", 0) => Some(BasicType::Int16),
-            ("guint16" | "uint16_t", 0) => Some(BasicType::UInt16),
-            ("gint32" | "int32_t", 0) => Some(BasicType::Int32),
-            ("guint32" | "uint32_t", 0) => Some(BasicType::UInt32),
-            ("gsize" | "size_t", 0) => Some(BasicType::Size),
-            ("gssize" | "ssize_t", 0) => Some(BasicType::SSize),
-            ("goffset", 0) => Some(BasicType::Offset),
-            ("gintptr" | "intptr_t", 0) => Some(BasicType::IntPtr),
-            ("guintptr" | "uintptr_t", 0) => Some(BasicType::UIntPtr),
-            // gconstpointer is const gpointer, maps to Pointer, is_const carries the qualifier
-            ("gconstpointer", 0) => Some(BasicType::Pointer),
+            "unsigned long long" | "unsigned long long int" => Some(BasicType::ULongLong),
+            "long double" => Some(BasicType::LongDouble),
+            "gint8" | "int8_t" | "signed char" => Some(BasicType::Int8),
+            "guint8" | "uint8_t" => Some(BasicType::UInt8),
+            "gint16" | "int16_t" => Some(BasicType::Int16),
+            "guint16" | "uint16_t" => Some(BasicType::UInt16),
+            "gint32" | "int32_t" => Some(BasicType::Int32),
+            "guint32" | "uint32_t" => Some(BasicType::UInt32),
+            "gsize" | "size_t" => Some(BasicType::Size),
+            "gssize" | "ssize_t" => Some(BasicType::SSize),
+            "goffset" => Some(BasicType::Offset),
+            "gintptr" | "intptr_t" => Some(BasicType::IntPtr),
+            "guintptr" | "uintptr_t" => Some(BasicType::UIntPtr),
             _ => None,
         }
     }
