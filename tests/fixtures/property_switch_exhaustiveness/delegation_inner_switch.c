@@ -1,15 +1,8 @@
 #include <glib-object.h>
 
-typedef struct {
-  GObject parent_instance;
-  char *name;
-  gboolean editing;
-} MyEditable;
-
-typedef struct {
-  GObjectClass parent_class;
-} MyEditableClass;
-
+typedef struct _MyEditable MyEditable;
+G_DECLARE_FINAL_TYPE (MyEditable, my_editable, MY, EDITABLE, GObject)
+struct _MyEditable { GObject parent_instance; char *name; gboolean editing; };
 G_DEFINE_TYPE (MyEditable, my_editable, G_TYPE_OBJECT)
 
 enum {

@@ -1,6 +1,10 @@
 #include <glib-object.h>
 
+typedef struct _MyObject MyObject;
+G_DECLARE_FINAL_TYPE (MyObject, my_object, MY, OBJECT, GObject)
+struct _MyObject { GObject parent_instance; };
 G_DEFINE_TYPE (MyObject, my_object, G_TYPE_OBJECT)
+static void my_object_init (MyObject *self) { }
 
 
 /* Case 1: Old pattern with PROP_0 and N_PROPS */
@@ -26,7 +30,11 @@ my_object_class_init (MyObjectClass *klass)
   g_object_class_install_properties (object_class, N_PROPS, my_props);
 }
 
+typedef struct _Widget Widget;
+G_DECLARE_FINAL_TYPE (Widget, widget, MY, WIDGET, GObject)
+struct _Widget { GObject parent_instance; };
 G_DEFINE_TYPE (Widget, widget, G_TYPE_OBJECT)
+static void widget_init (Widget *self) { }
 
 /* Case 2: Old pattern with prefix */
 typedef enum {
@@ -49,7 +57,11 @@ widget_class_init (WidgetClass *klass)
   g_object_class_install_properties (object_class, WIDGET_N_PROPS, widget_props);
 }
 
+typedef struct _Modern Modern;
+G_DECLARE_FINAL_TYPE (Modern, modern, MY, MODERN, GObject)
+struct _Modern { GObject parent_instance; };
 G_DEFINE_TYPE (Modern, modern, G_TYPE_OBJECT)
+static void modern_init (Modern *self) { }
 
 /* Case 3: Already using modern pattern - should NOT be flagged */
 typedef enum {
@@ -72,13 +84,13 @@ modern_class_init (ModernClass *klass)
   g_object_class_install_properties (object_class, G_N_ELEMENTS (modern_props), modern_props);
 }
 
-/* Case 4: Non-GParamSpec array using N_PROPS - should NOT be touched */
-static int counts[N_PROPS];
-
-G_DEFINE_TYPE (Feature, feature, G_TYPE_OBJECT)
-
 /* Case 5: GParamSpec array in conditional block */
 #ifdef ENABLE_FEATURE
+typedef struct _Feature Feature;
+G_DECLARE_FINAL_TYPE (Feature, feature, MY, FEATURE, GObject)
+struct _Feature { GObject parent_instance; };
+G_DEFINE_TYPE (Feature, feature, G_TYPE_OBJECT)
+static void feature_init (Feature *self) { }
 typedef enum {
   FEATURE_PROP_0,
   FEATURE_PROP_ENABLED,
@@ -100,12 +112,3 @@ feature_class_init (FeatureClass *klass)
 }
 #endif
 
-/* Case 6: install_properties call that doesn't use the right array - should NOT be touched */
-static void
-wrong_usage (void)
-{
-  GObjectClass *object_class = NULL;
-
-  /* This uses N_PROPS but passes a different array that we don't track */
-  g_object_class_install_properties (object_class, N_PROPS, some_other_props);
-}

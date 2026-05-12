@@ -1,1 +1,1 @@
-multiline.c:8:5: g_task_source_tag: GTask 'task' created without g_task_set_source_tag
+multiline.c:10:5: g_task_source_tag: GTask 'task' created without g_task_set_source_tag

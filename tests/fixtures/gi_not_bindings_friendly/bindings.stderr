@@ -1,11 +1,11 @@
-bindings.h:7:1: gi_not_bindings_friendly: Function 'my_widget_set_properties' uses variadic arguments which cannot be introspected
-bindings.h:10:1: gi_not_bindings_friendly: Function 'my_widget_new_with_args' uses variadic arguments which cannot be introspected
-bindings.h:26:1: gi_not_bindings_friendly: Function 'my_widget_get_geometry' has 3 out parameters (pointer-to-pointer); consider reducing to at most 2 for better bindings
-bindings.h:34:1: gi_not_bindings_friendly: Function 'my_widget_parse' has 3 out parameters (pointer-to-pointer); consider reducing to at most 2 for better bindings
-bindings.h:58:1: gi_not_bindings_friendly: Function 'my_widget_get_children' returns GList* in public API; Consider GListModel for better introspection support
-bindings.h:61:1: gi_not_bindings_friendly: Function 'my_widget_get_items' returns GSList* in public API; Consider GListModel for better introspection support
-bindings.h:64:1: gi_not_bindings_friendly: Function 'my_widget_get_attributes' returns GHashTable* in public API; Introspection cannot determine key/value types
-bindings.h:67:1: gi_not_bindings_friendly: Function 'my_widget_get_actions' returns GPtrArray* in public API; Consider a typed alternative for better introspection support
-bindings.h:70:1: gi_not_bindings_friendly: Function 'my_widget_set_items' parameter 'items' uses GArray* in public API; Consider a typed alternative for better introspection support
-bindings.h:73:1: gi_not_bindings_friendly: Function 'my_widget_set_data' parameter 'data' uses GByteArray* in public API; Consider a typed alternative for better introspection support
-bindings.h:78:1: gi_not_bindings_friendly: Function 'my_widget_add_children' parameter 'children' uses GList* in public API; Consider GListModel for better introspection support
+bindings.h:10:1: gi_not_bindings_friendly: Function 'my_widget_set_properties' uses variadic arguments which cannot be introspected
+bindings.h:13:1: gi_not_bindings_friendly: Function 'my_widget_new_with_args' uses variadic arguments which cannot be introspected
+bindings.h:29:1: gi_not_bindings_friendly: Function 'my_widget_get_geometry' has 3 out parameters (pointer-to-pointer); consider reducing to at most 2 for better bindings
+bindings.h:37:1: gi_not_bindings_friendly: Function 'my_widget_parse' has 3 out parameters (pointer-to-pointer); consider reducing to at most 2 for better bindings
+bindings.h:61:1: gi_not_bindings_friendly: Function 'my_widget_get_children' returns GList* in public API; Consider GListModel for better introspection support
+bindings.h:64:1: gi_not_bindings_friendly: Function 'my_widget_get_items' returns GSList* in public API; Consider GListModel for better introspection support
+bindings.h:67:1: gi_not_bindings_friendly: Function 'my_widget_get_attributes' returns GHashTable* in public API; Introspection cannot determine key/value types
+bindings.h:70:1: gi_not_bindings_friendly: Function 'my_widget_get_actions' returns GPtrArray* in public API; Consider a typed alternative for better introspection support
+bindings.h:73:1: gi_not_bindings_friendly: Function 'my_widget_set_items' parameter 'items' uses GArray* in public API; Consider a typed alternative for better introspection support
+bindings.h:76:1: gi_not_bindings_friendly: Function 'my_widget_set_data' parameter 'data' uses GByteArray* in public API; Consider a typed alternative for better introspection support
+bindings.h:81:1: gi_not_bindings_friendly: Function 'my_widget_add_children' parameter 'children' uses GList* in public API; Consider GListModel for better introspection support

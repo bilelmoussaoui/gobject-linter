@@ -1,8 +1,8 @@
-prefer_glib.c:3:1: type_style: use `gint` instead of `int`
-prefer_glib.c:4:1: type_style: use `guint` instead of `unsigned int`
-prefer_glib.c:5:1: type_style: use `gchar` instead of `char`
-prefer_glib.c:6:1: type_style: use `gfloat` instead of `float`
-prefer_glib.c:7:1: type_style: use `gdouble` instead of `double`
-prefer_glib.c:8:1: type_style: use `gint64` instead of `int64_t`
-prefer_glib.c:9:1: type_style: use `guint32` instead of `uint32_t`
-prefer_glib.c:9:22: type_style: use `guint` instead of `unsigned int`
+prefer_glib.c:4:1: type_style: use `gint` instead of `int`
+prefer_glib.c:5:1: type_style: use `guint` instead of `unsigned int`
+prefer_glib.c:6:1: type_style: use `gchar` instead of `char`
+prefer_glib.c:7:1: type_style: use `gfloat` instead of `float`
+prefer_glib.c:8:1: type_style: use `gdouble` instead of `double`
+prefer_glib.c:9:1: type_style: use `gint64` instead of `int64_t`
+prefer_glib.c:10:1: type_style: use `guint32` instead of `uint32_t`
+prefer_glib.c:10:22: type_style: use `guint` instead of `unsigned int`

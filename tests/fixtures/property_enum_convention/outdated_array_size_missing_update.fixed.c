@@ -1,6 +1,10 @@
 #include <glib-object.h>
 
+typedef struct _MyObject MyObject;
+G_DECLARE_FINAL_TYPE (MyObject, my_object, MY, OBJECT, GObject)
+struct _MyObject { GObject parent_instance; };
 G_DEFINE_TYPE (MyObject, my_object, G_TYPE_OBJECT)
+static void my_object_init (MyObject *self) { }
 
 
 /* Modern pattern where PROP_DESCRIPTION was added but array still uses PROP_TITLE + 1 */

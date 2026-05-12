@@ -2,6 +2,11 @@
 
 #include <glib-object.h>
 
+#define MY_AVAILABLE_IN_4_0
+#define MY_AVAILABLE_IN_4_8
+#define MY_AVAILABLE_IN_4_10
+#define MY_AVAILABLE_IN_4_12
+
 #define MY_TYPE_WIDGET (my_widget_get_type ())
 
 MY_AVAILABLE_IN_4_0

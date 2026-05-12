@@ -11,7 +11,7 @@ test_function (void)
         g_autolist(GFile) files = NULL;
         g_autoslist(GFile) slist = NULL;
         g_autoqueue(GFile) queue = NULL;
-        g_auto(GString) *builder = g_string_new ("");
+        g_auto(GStrv) builder = NULL;
 
         g_print ("%s\n", str);
 }

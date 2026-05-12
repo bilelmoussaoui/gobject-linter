@@ -1,4 +1,4 @@
-#include <glib-object.h>
+#include <gio/gio.h>
 
 /* Variable already uses g_autoptr — should not be flagged. */
 static void

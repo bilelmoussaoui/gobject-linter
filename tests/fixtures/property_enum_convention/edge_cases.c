@@ -1,6 +1,10 @@
 #include <glib-object.h>
 
+typedef struct _BadSpacing BadSpacing;
+G_DECLARE_FINAL_TYPE (BadSpacing, bad_spacing, BAD, SPACING, GObject)
+struct _BadSpacing { GObject parent_instance; };
 G_DEFINE_TYPE (BadSpacing, bad_spacing, G_TYPE_OBJECT)
+static void bad_spacing_init (BadSpacing *self) { }
 
 
 /* Case 1: First property already has = 0 with bad spacing */
@@ -24,7 +28,11 @@ bad_spacing_class_init (BadSpacingClass *klass)
   g_object_class_install_properties (object_class, N_PROPS, bad_spacing_props);
 }
 
+typedef struct _Legacy Legacy;
+G_DECLARE_FINAL_TYPE (Legacy, legacy, MY, LEGACY, GObject)
+struct _Legacy { GObject parent_instance; };
 G_DEFINE_TYPE (Legacy, legacy, G_TYPE_OBJECT)
+static void legacy_init (Legacy *self) { }
 
 /* Case 2: Very old code using NUM_PROPERTIES */
 typedef enum {

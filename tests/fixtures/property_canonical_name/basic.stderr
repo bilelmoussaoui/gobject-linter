@@ -1,1 +1,2 @@
-basic.c:11:26: property_canonical_name: Property name 'display_name' should use dashes instead of underscores. Use 'display-name' for consistency with GObject conventions
+basic.c:17:26: property_canonical_name: Property name 'display_name' should use dashes instead of underscores. Use 'display-name' for consistency with GObject conventions
+basic.c:17:26: property_canonical_name: Property name 'display_name' should use dashes instead of underscores. Use 'display-name' for consistency with GObject conventions

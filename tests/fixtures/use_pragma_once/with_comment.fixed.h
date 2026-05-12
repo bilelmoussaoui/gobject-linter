@@ -4,6 +4,6 @@
 
 #include <glib-object.h>
 
-extern PyTypeObject PyGBoxed_Type;
+extern GType my_boxed_type;
 
-void pygi_register_gboxed(void);
+void my_register_boxed (void);

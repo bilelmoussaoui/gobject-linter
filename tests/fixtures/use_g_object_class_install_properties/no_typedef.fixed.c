@@ -1,6 +1,15 @@
 #include <glib-object.h>
 
+typedef struct _GdmDisplay GdmDisplay;
+G_DECLARE_FINAL_TYPE (GdmDisplay, gdm_display, GDM, DISPLAY, GObject)
+
+struct _GdmDisplay {
+  GObject parent_instance;
+};
+
 G_DEFINE_TYPE (GdmDisplay, gdm_display, G_TYPE_OBJECT)
+
+static void gdm_display_init (GdmDisplay *self) { }
 
 
 enum {

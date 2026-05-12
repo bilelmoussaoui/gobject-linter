@@ -1,5 +1,15 @@
+#include <gio/gio.h>
+
+typedef struct { int dummy; } Item;
+
+static GSList *get_some_items (void) { return NULL; }
+static void process_item (Item *item) { (void) item; }
+static GList *build_list (void) { return NULL; }
+static GList *get_variants (void) { return NULL; }
+static void process_variant (GVariant *variant) { (void) variant; }
+
 static void
-test_glist_cleanup (void)
+test_glist_cleanup (GDBusInterfaceSkeleton *skeleton, guint signal_id)
 {
   GList *connections;
 
@@ -55,11 +65,11 @@ test_variant_cleanup (void)
       process_variant (variant);
     }
 
-  g_list_free_full (variants, g_variant_unref);
+  g_list_free_full (variants, (GDestroyNotify) g_variant_unref);
 }
 
 static void
-test_already_auto (void)
+test_already_auto (GDBusInterfaceSkeleton *skeleton, guint signal_id)
 {
   g_autolist(GObject) connections = NULL;
 
@@ -73,7 +83,7 @@ test_already_auto (void)
 }
 
 static void
-test_no_cleanup (void)
+test_no_cleanup (GDBusInterfaceSkeleton *skeleton, guint signal_id)
 {
   GList *connections;
 

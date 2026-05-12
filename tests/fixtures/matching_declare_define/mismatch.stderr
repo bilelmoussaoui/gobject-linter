@@ -1,1 +1,1 @@
-mismatch.c:3:1: matching_declare_define: 'FooBar' is declared with G_DECLARE_FINAL_TYPE but defined with G_DEFINE_TYPE
+mismatch.c:4:1: matching_declare_define: 'FooBar' is declared with G_DECLARE_FINAL_TYPE but defined with G_DEFINE_TYPE

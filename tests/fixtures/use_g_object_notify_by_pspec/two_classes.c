@@ -1,8 +1,29 @@
 #include <glib-object.h>
 
+typedef struct _Foo Foo;
+G_DECLARE_FINAL_TYPE (Foo, foo, FOO, FOO, GObject)
+
+struct _Foo {
+  GObject parent_instance;
+};
+
+typedef struct _Bar Bar;
+G_DECLARE_FINAL_TYPE (Bar, bar, BAR, BAR, GObject)
+
+struct _Bar {
+  GObject parent_instance;
+};
+
+typedef Foo FooObject;
+typedef Bar BarObject;
+
 G_DEFINE_TYPE (Foo, foo, G_TYPE_OBJECT)
 
+static void foo_init (Foo *self) { }
+
 G_DEFINE_TYPE (Bar, bar, G_TYPE_OBJECT)
+
+static void bar_init (Bar *self) { }
 
 // First class
 enum {

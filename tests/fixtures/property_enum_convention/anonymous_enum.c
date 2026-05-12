@@ -1,6 +1,15 @@
 #include <glib-object.h>
 
+typedef struct _ClutterActor ClutterActor;
+G_DECLARE_FINAL_TYPE (ClutterActor, clutter_actor, CLUTTER, ACTOR, GObject)
+struct _ClutterActor {
+  GObject parent_instance;
+  GObject *actor;
+  char *name;
+  gboolean enabled;
+};
 G_DEFINE_TYPE (ClutterActor, clutter_actor, G_TYPE_OBJECT)
+static void clutter_actor_init (ClutterActor *self) { }
 
 
 enum
@@ -13,17 +22,6 @@ enum
 };
 
 static GParamSpec *clutter_actor_props[N_PROPS] = { NULL, };
-
-static void
-clutter_actor_class_init (ClutterActorClass *klass)
-{
-  GObjectClass *object_class = G_OBJECT_CLASS (klass);
-
-  object_class->get_property = clutter_actor_get_property;
-  object_class->set_property = clutter_actor_set_property;
-
-  g_object_class_install_properties (object_class, N_PROPS, clutter_actor_props);
-}
 
 static void
 clutter_actor_get_property (GObject    *object,
@@ -74,4 +72,15 @@ clutter_actor_set_property (GObject      *object,
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
     }
+}
+
+static void
+clutter_actor_class_init (ClutterActorClass *klass)
+{
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
+
+  object_class->get_property = clutter_actor_get_property;
+  object_class->set_property = clutter_actor_set_property;
+
+  g_object_class_install_properties (object_class, N_PROPS, clutter_actor_props);
 }

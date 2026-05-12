@@ -1,3 +1,5 @@
+#include <glib-object.h>
+
 typedef struct _MyBoxed MyBoxed;
 
 static MyBoxed *

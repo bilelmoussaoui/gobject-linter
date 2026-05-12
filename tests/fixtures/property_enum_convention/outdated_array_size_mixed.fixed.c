@@ -1,6 +1,10 @@
 #include <glib-object.h>
 
+typedef struct _Widget Widget;
+G_DECLARE_FINAL_TYPE (Widget, widget, MY, WIDGET, GObject)
+struct _Widget { GObject parent_instance; };
 G_DEFINE_TYPE (Widget, widget, G_TYPE_OBJECT)
+static void widget_init (Widget *self) { }
 
 
 /* First object: Modern pattern with correct array size */
@@ -24,7 +28,11 @@ widget_class_init (WidgetClass *klass)
   g_object_class_install_properties (object_class, G_N_ELEMENTS (widget_props), widget_props);
 }
 
+typedef struct _Document Document;
+G_DECLARE_FINAL_TYPE (Document, document, MY, DOCUMENT, GObject)
+struct _Document { GObject parent_instance; };
 G_DEFINE_TYPE (Document, document, G_TYPE_OBJECT)
+static void document_init (Document *self) { }
 
 /* Second object: Outdated array size - PROP_DESCRIPTION was added but array still uses PROP_TITLE + 1 */
 typedef enum {

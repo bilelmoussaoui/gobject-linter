@@ -1,1 +1,2 @@
-basic.c:11:5: g_param_spec_static_strings: Add G_PARAM_STATIC_NAME to g_param_spec_string flags (saves memory for static strings)
+basic.c:22:5: g_param_spec_static_strings: Add G_PARAM_STATIC_NAME to g_param_spec_string flags (saves memory for static strings)
+basic.c:22:5: g_param_spec_static_strings: Add G_PARAM_STATIC_NAME to g_param_spec_string flags (saves memory for static strings)

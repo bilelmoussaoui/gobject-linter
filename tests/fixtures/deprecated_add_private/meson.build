@@ -1,0 +1,4 @@
+sources = [
+  'basic.c',
+]
+

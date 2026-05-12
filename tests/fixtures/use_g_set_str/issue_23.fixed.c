@@ -4,6 +4,9 @@ typedef struct {
   gchar *word;
 } MyObj;
 
+static const char *outer_func (const char *s) { return s; }
+static const char *inner_func (const char *s) { return s; }
+
 /* nested function calls as strdup arg — trim_end_matches eats extra parens */
 
 static void

@@ -1,3 +1,5 @@
+#include <glib.h>
+
 // Should NOT trigger: list of char* primitives with g_free destructor
 void test_primitive_list(void) {
     GSList *my_list = NULL;

@@ -1,1 +1,1 @@
-outdated_array_size_missing_update.c:13:29: property_enum_convention: GParamSpec array size uses outdated property (should be PROP_DESCRIPTION + 1)
+outdated_array_size_missing_update.c:17:29: property_enum_convention: GParamSpec array size uses outdated property (should be PROP_DESCRIPTION + 1)

@@ -1,6 +1,17 @@
 #include <glib-object.h>
 
+typedef struct _Foo Foo;
+G_DECLARE_FINAL_TYPE (Foo, foo, FOO, FOO, GObject)
+
+struct _Foo {
+  GObject parent_instance;
+};
+
+typedef Foo FooObject;
+
 G_DEFINE_TYPE (Foo, foo, G_TYPE_OBJECT)
+
+static void foo_init (Foo *self) { }
 
 enum {
   PROP_0,

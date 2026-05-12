@@ -1,6 +1,10 @@
 #include <glib-object.h>
 
+typedef struct _Override Override;
+G_DECLARE_FINAL_TYPE (Override, override, MY, OVERRIDE, GObject)
+struct _Override { GObject parent_instance; };
 G_DEFINE_TYPE (Override, override, G_TYPE_OBJECT)
+static void override_init (Override *self) { }
 
 
 /* N_PROPS in middle (override properties) - should NOT be transformed */

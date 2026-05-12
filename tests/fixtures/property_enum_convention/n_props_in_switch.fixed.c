@@ -1,7 +1,17 @@
 #include <glib-object.h>
 
+typedef struct _MetaScreenCastSession MetaScreenCastSession;
+G_DECLARE_FINAL_TYPE (MetaScreenCastSession, meta_screen_cast_session, META, SCREEN_CAST_SESSION, GObject)
+struct _MetaScreenCastSession {
+  GObject parent_instance;
+  GObject *remote_desktop_session;
+  GObject *session_manager;
+  char *peer_name;
+};
 G_DEFINE_TYPE (MetaScreenCastSession, meta_screen_cast_session, G_TYPE_OBJECT)
+static void meta_screen_cast_session_init (MetaScreenCastSession *self) { }
 
+enum { META_DBUS_SESSION_PROP_SESSION_MANAGER = 1, META_DBUS_SESSION_PROP_PEER_NAME };
 
 typedef enum {
   PROP_0,
@@ -10,17 +20,6 @@ typedef enum {
 } MetaScreenCastSessionProperty;
 
 static GParamSpec *props[N_PROPS] = { NULL, };
-
-static void
-meta_screen_cast_session_class_init (MetaScreenCastSessionClass *klass)
-{
-  GObjectClass *object_class = G_OBJECT_CLASS (klass);
-
-  object_class->get_property = meta_screen_cast_session_get_property;
-  object_class->set_property = meta_screen_cast_session_set_property;
-
-  g_object_class_install_properties (object_class, N_PROPS, props);
-}
 
 static void
 meta_screen_cast_session_set_property (GObject      *object,
@@ -45,4 +44,14 @@ meta_screen_cast_session_set_property (GObject      *object,
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
     }
+}
+
+static void
+meta_screen_cast_session_class_init (MetaScreenCastSessionClass *klass)
+{
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
+
+  object_class->set_property = meta_screen_cast_session_set_property;
+
+  g_object_class_install_properties (object_class, N_PROPS, props);
 }

@@ -2,6 +2,7 @@
 
 #include <glib-object.h>
 
+#define MY_EXPORT
 #define MY_TYPE_OBJECT (my_object_get_type ())
 MY_EXPORT
 G_DECLARE_FINAL_TYPE (MyObject, my_object, MY, OBJECT, GObject)

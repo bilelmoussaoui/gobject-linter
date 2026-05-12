@@ -5,3 +5,4 @@ has_auto_macros.c:10:9: no_g_auto_macros: g_autoptr(GError) requires compiler cl
 has_auto_macros.c:11:9: no_g_auto_macros: g_autolist(GFile) requires compiler cleanup attribute support
 has_auto_macros.c:12:9: no_g_auto_macros: g_autoslist(GFile) requires compiler cleanup attribute support
 has_auto_macros.c:13:9: no_g_auto_macros: g_autoqueue(GFile) requires compiler cleanup attribute support
+has_auto_macros.c:14:9: no_g_auto_macros: g_auto(GStrv) requires compiler cleanup attribute support

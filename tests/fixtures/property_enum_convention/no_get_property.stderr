@@ -1,1 +1,1 @@
-no_get_property.c:6:1: property_enum_convention: Use modern property enum pattern (remove PROP_0, N_PROPS, start from = 1)
+no_get_property.c:12:1: property_enum_convention: Use modern property enum pattern (remove PROP_0, N_PROPS, start from = 1)

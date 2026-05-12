@@ -6,7 +6,7 @@ foo_is_valid (void)
   return TRUE;
 }
 
-gchar *
+const char *
 foo_get_label (void)
 {
   return "label";

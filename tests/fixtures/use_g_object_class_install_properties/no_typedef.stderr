@@ -1,1 +1,1 @@
-no_typedef.c:30:9: use_g_object_class_install_properties: Use g_object_class_install_properties() instead of 2 g_object_class_install_property() calls
+no_typedef.c:39:9: use_g_object_class_install_properties: Use g_object_class_install_properties() instead of 2 g_object_class_install_property() calls

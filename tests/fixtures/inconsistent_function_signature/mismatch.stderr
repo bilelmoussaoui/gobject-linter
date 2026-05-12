@@ -1,2 +1,1 @@
 mismatch.c:3:1: inconsistent_function_signature: 'foo_is_valid' declared as returning 'gboolean' but defined as returning 'gint'
-mismatch.c:9:1: inconsistent_function_signature: 'foo_get_label' declared as returning 'const gchar *' but defined as returning 'gchar *'

@@ -1,6 +1,10 @@
 #include <glib-object.h>
 
+typedef struct _MyObject MyObject;
+G_DECLARE_FINAL_TYPE (MyObject, my_object, MY, OBJECT, GObject)
+struct _MyObject { GObject parent_instance; char *name; char *title; };
 G_DEFINE_TYPE (MyObject, my_object, G_TYPE_OBJECT)
+static void my_object_init (MyObject *self) { }
 
 
 typedef enum {
@@ -11,17 +15,6 @@ typedef enum {
 } MyObjectProperty;
 
 static GParamSpec *my_props[N_PROPS] = { NULL, };
-
-static void
-my_object_class_init (MyObjectClass *klass)
-{
-  GObjectClass *object_class = G_OBJECT_CLASS (klass);
-
-  object_class->get_property = my_object_get_property;
-  object_class->set_property = my_object_set_property;
-
-  g_object_class_install_properties (object_class, N_PROPS, my_props);
-}
 
 static void
 my_object_get_property (GObject    *object,
@@ -67,4 +60,15 @@ my_object_set_property (GObject      *object,
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
     }
+}
+
+static void
+my_object_class_init (MyObjectClass *klass)
+{
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
+
+  object_class->get_property = my_object_get_property;
+  object_class->set_property = my_object_set_property;
+
+  g_object_class_install_properties (object_class, N_PROPS, my_props);
 }

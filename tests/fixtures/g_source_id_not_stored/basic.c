@@ -1,4 +1,4 @@
-#include <glib.h>
+#include <glib-object.h>
 
 typedef struct {
   GObject parent;
@@ -49,10 +49,16 @@ ok_null_user_data (void)
 }
 
 static void
+once_callback (gpointer user_data)
+{
+  g_print ("once fired\n");
+}
+
+static void
 ok_timeout_once (MyObject *self)
 {
   /* Should trigger - g_timeout_add_once still returns an ID */
-  g_timeout_add_once (1000, timeout_callback, self);
+  g_timeout_add_once (1000, once_callback, self);
 }
 
 static void

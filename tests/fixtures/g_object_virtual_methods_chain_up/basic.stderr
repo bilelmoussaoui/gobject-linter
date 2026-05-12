@@ -1,1 +1,1 @@
-basic.c:3:1: g_object_virtual_methods_chain_up: foo_dispose must chain up to parent class (e.g., G_OBJECT_CLASS (parent_class)->dispose (object))
+basic.c:11:1: g_object_virtual_methods_chain_up: foo_dispose must chain up to parent class (e.g., G_OBJECT_CLASS (parent_class)->dispose (object))

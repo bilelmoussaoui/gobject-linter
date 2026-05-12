@@ -1,3 +1,5 @@
+#include <glib.h>
+
 // Should trigger violation: hex power-of-two flags
 typedef enum
 {

@@ -1,6 +1,9 @@
 // Should NOT trigger: all signal names use hyphens
 #include <glib-object.h>
 
+static void on_value_changed (void) { }
+static void on_item_selected (void) { }
+
 void my_class_init(GObjectClass *klass) {
     g_signal_new("value-changed",
                  G_TYPE_FROM_CLASS(klass),

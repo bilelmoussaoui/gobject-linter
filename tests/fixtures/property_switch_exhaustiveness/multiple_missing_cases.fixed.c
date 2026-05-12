@@ -1,19 +1,8 @@
 #include <glib-object.h>
 
-typedef struct {
-  GObject parent_instance;
-  char *name;
-  char *password;
-  char *secret;
-  char *token;
-  char *status;
-  int progress;
-} MyObject;
-
-typedef struct {
-  GObjectClass parent_class;
-} MyObjectClass;
-
+typedef struct _MyObject MyObject;
+G_DECLARE_FINAL_TYPE (MyObject, my_object, MY, OBJECT, GObject)
+struct _MyObject { GObject parent_instance; char *name; char *password; char *secret; char *token; char *status; int progress; };
 G_DEFINE_TYPE (MyObject, my_object, G_TYPE_OBJECT)
 
 typedef enum {

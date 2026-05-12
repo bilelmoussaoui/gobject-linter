@@ -1,1 +1,1 @@
-modern_enum_missing_switch_cast.c:7:1: property_enum_convention: Add (MyObjectProps) cast to switch statements for type safety
+modern_enum_missing_switch_cast.c:11:1: property_enum_convention: Add (MyObjectProps) cast to switch statements for type safety

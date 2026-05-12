@@ -1,1 +1,1 @@
-type_since.h:14:1: gi_missing_since: Type 'MyPopover' has AVAILABLE_IN_4_6 but is missing a Since: annotation
+type_since.h:17:1: gi_missing_since: Type 'MyPopover' has AVAILABLE_IN_4_6 but is missing a Since: annotation

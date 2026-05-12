@@ -1,37 +1,75 @@
-#include <glib-object.h>
+#include <gio/gio.h>
+
+typedef struct _Foo Foo;
+G_DECLARE_FINAL_TYPE (Foo, foo, MY, FOO, GObject)
+struct _Foo { GObject parent_instance; GObject *child; };
+G_DEFINE_TYPE (Foo, foo, G_TYPE_OBJECT)
+
+static void foo_init (Foo *self) { }
+static void foo_class_init (FooClass *klass) { }
 
 static void
 foo_dispose (GObject *object)
 {
-  FooPrivate *priv = foo_get_instance_private (FOO (object));
-  g_clear_object (&priv->child);
+  Foo *self = MY_FOO (object);
+  g_clear_object (&self->child);
 }
 
 // Valid: chains up using object_class variable
+
+typedef struct _Bar Bar;
+G_DECLARE_FINAL_TYPE (Bar, bar, MY, BAR, GObject)
+struct _Bar { GObject parent_instance; GObject *child; };
+G_DEFINE_TYPE (Bar, bar, G_TYPE_OBJECT)
+
+static void bar_init (Bar *self) { }
+static void bar_class_init (BarClass *klass) { }
+
 static void
 bar_dispose (GObject *object)
 {
-  BarPrivate *priv = bar_get_instance_private (BAR (object));
+  Bar *self = MY_BAR (object);
   GObjectClass *object_class = G_OBJECT_CLASS (bar_parent_class);
 
-  g_clear_object (&priv->child);
+  g_clear_object (&self->child);
 
   object_class->dispose (object);
 }
 
 // Valid: chains up using klass variable
+
+typedef struct _Baz Baz;
+G_DECLARE_FINAL_TYPE (Baz, baz, BAZ, BAZ, GObject)
+
+struct _Baz {
+  GObject parent_instance;
+  gpointer data;
+};
+
+G_DEFINE_TYPE (Baz, baz, G_TYPE_OBJECT)
+
+static void baz_init (Baz *self) { }
+static void baz_class_init (BazClass *klass) { }
+
 static void
 baz_finalize (GObject *object)
 {
   GObjectClass *klass = G_OBJECT_CLASS (baz_parent_class);
 
   // Some cleanup
-  g_free (object->data);
+  Baz *self = BAZ_BAZ (object);
+  g_free (self->data);
 
   klass->finalize (object);
 }
 
 // Valid: Not a GObject virtual method - GSource has its own finalize
+
+typedef struct {
+  GSource parent;
+  gchar *callback;
+} CallbackSource;
+
 static void
 callback_source_finalize (GSource *source)
 {
@@ -39,35 +77,30 @@ callback_source_finalize (GSource *source)
   g_clear_pointer (&callback_source->callback, g_free);
 }
 
-// Valid: Chains up correctly (from real gnome-shell code)
+// Valid: Chains up correctly (simplified from real gnome-shell code)
+
+typedef struct _MyDevice MyDevice;
+G_DECLARE_FINAL_TYPE (MyDevice, my_device, MY, DEVICE, GObject)
+
+struct _MyDevice {
+  GObject parent_instance;
+  gpointer impl_state;
+  gint slot_base;
+};
+
+G_DEFINE_TYPE (MyDevice, my_device, G_TYPE_OBJECT)
+
+static void my_device_init (MyDevice *self) { }
+static void my_device_class_init (MyDeviceClass *klass) { }
+
 static void
-meta_virtual_input_device_native_dispose (GObject *object)
+my_device_dispose (GObject *object)
 {
-  ClutterVirtualInputDevice *virtual_device =
-    CLUTTER_VIRTUAL_INPUT_DEVICE (object);
-  MetaVirtualInputDeviceNative *virtual_native =
-    META_VIRTUAL_INPUT_DEVICE_NATIVE (object);
-  MetaSeatNative *seat_native =
-    meta_virtual_input_device_native_get_seat_native (virtual_native);
+  MyDevice *self = MY_DEVICE (object);
   GObjectClass *object_class =
-    G_OBJECT_CLASS (meta_virtual_input_device_native_parent_class);
+    G_OBJECT_CLASS (my_device_parent_class);
 
-  if (virtual_native->impl_state)
-    {
-      GTask *task;
-
-      task = g_task_new (virtual_device, NULL, NULL, NULL);
-      g_task_set_task_data (task, virtual_native->impl_state,
-                            (GDestroyNotify) impl_state_free);
-      meta_seat_impl_run_input_task (seat_native->impl, task,
-                                     (GSourceFunc) release_device_in_impl);
-      g_object_unref (task);
-
-      virtual_native->impl_state = NULL;
-    }
-
-  meta_seat_native_release_touch_slots (seat_native,
-                                        virtual_native->slot_base);
+  g_clear_pointer (&self->impl_state, g_free);
 
   object_class->dispose (object);
 }

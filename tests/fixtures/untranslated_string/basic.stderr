@@ -1,4 +1,4 @@
-basic.c:8:27: untranslated_string: User-visible string in gtk_label_new() should be wrapped with _("...")
-basic.c:11:42: untranslated_string: User-visible string in gtk_label_set_text() should be wrapped with _("...")
-basic.c:20:40: untranslated_string: User-visible string in gtk_button_new_with_label() should be wrapped with _("...")
-basic.c:23:46: untranslated_string: User-visible string in gtk_window_set_title() should be wrapped with _("...")
+basic.c:13:27: untranslated_string: User-visible string in gtk_label_new() should be wrapped with _("...")
+basic.c:16:42: untranslated_string: User-visible string in gtk_label_set_text() should be wrapped with _("...")
+basic.c:25:40: untranslated_string: User-visible string in gtk_button_new_with_label() should be wrapped with _("...")
+basic.c:28:46: untranslated_string: User-visible string in gtk_window_set_title() should be wrapped with _("...")

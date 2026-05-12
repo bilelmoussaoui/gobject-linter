@@ -1,1 +1,1 @@
-basic.c:6:3: deprecated_add_private: g_type_class_add_private is deprecated since GLib 2.58. Use G_DEFINE_TYPE_WITH_PRIVATE or G_ADD_PRIVATE instead
+basic.c:14:3: deprecated_add_private: g_type_class_add_private is deprecated since GLib 2.58. Use G_DEFINE_TYPE_WITH_PRIVATE or G_ADD_PRIVATE instead

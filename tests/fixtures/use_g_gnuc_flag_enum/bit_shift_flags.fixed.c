@@ -1,3 +1,5 @@
+#include <glib.h>
+
 // Should trigger violation: flags enum without G_GNUC_FLAG_ENUM
 typedef enum
 {

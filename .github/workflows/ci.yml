@@ -83,6 +83,23 @@ jobs:
       - name: Run tests
         run: cargo test --all
 
+  fixtures:
+    name: Test Fixtures Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build libglib2.0-dev libgtk-4-dev
+
+      - name: Setup fixtures build
+        run: meson setup _build tests/fixtures
+
+      - name: Build fixtures
+        run: ninja -C _build
+
   rule-consistency:
     name: Rule Consistency Check
     runs-on: ubuntu-latest

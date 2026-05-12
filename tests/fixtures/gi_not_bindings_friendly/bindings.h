@@ -2,6 +2,9 @@
 
 #include <glib-object.h>
 
+#define MY_EXPORT
+typedef struct _MyWidget MyWidget;
+
 /* --- Variadic: should warn --- */
 
 MY_EXPORT

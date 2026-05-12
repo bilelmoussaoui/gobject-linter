@@ -1,4 +1,4 @@
-#include <glib.h>
+#include <gio/gio.h>
 
 typedef struct {
   GError *error;

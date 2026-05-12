@@ -1,4 +1,5 @@
 #include <glib.h>
+#include <stdint.h>
 
 int my_get_count(void);
 unsigned int my_get_flags(void);

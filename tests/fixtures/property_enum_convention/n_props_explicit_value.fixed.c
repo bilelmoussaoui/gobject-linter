@@ -1,6 +1,10 @@
 #include <glib-object.h>
 
+typedef struct _Example Example;
+G_DECLARE_FINAL_TYPE (Example, example, MY, EXAMPLE, GObject)
+struct _Example { GObject parent_instance; };
 G_DEFINE_TYPE (Example, example, G_TYPE_OBJECT)
+static void example_init (Example *self) { }
 
 
 /* Edge case: N_PROPS has an explicit value assignment (N_PROPS = PROP_ORIENTATION) */

@@ -2,6 +2,9 @@
 
 #include <glib-object.h>
 
+#define MY_AVAILABLE_IN_4_4
+#define MY_AVAILABLE_IN_4_6
+
 /* Type with AVAILABLE_IN and matching Since: in .c file */
 #define MY_TYPE_DIALOG (my_dialog_get_type ())
 

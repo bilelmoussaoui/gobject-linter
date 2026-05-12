@@ -1,3 +1,5 @@
+#include <glib.h>
+
 // Should pass: already has G_GNUC_FLAG_ENUM
 typedef enum
 {

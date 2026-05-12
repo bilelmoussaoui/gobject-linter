@@ -1,3 +1,5 @@
+#include <gio/gio.h>
+
 void gdm_client_get_greeter(GObject *client,
                             GCancellable *cancellable,
                             GAsyncReadyCallback callback,
@@ -11,5 +13,5 @@ void gdm_client_get_greeter(GObject *client,
                        user_data);
     g_task_set_source_tag (task, gdm_client_get_greeter);
 
-    return task;
+    g_object_unref (task);
 }

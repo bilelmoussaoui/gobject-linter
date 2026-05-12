@@ -1,5 +1,7 @@
 #include <gio/gio.h>
 
+static void my_func_thread (GTask *task, gpointer src, gpointer data, GCancellable *c) { }
+
 static void
 my_func_async (GObject *source, GCancellable *cancellable,
                GAsyncReadyCallback callback, gpointer user_data)

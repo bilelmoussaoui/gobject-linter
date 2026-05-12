@@ -1,4 +1,4 @@
-#include <glib.h>
+#include <gio/gio.h>
 
 static void
 my_func (void)

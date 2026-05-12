@@ -1,3 +1,5 @@
+#include <glib.h>
+
 // False positive: if statement contains a for loop, not a g_clear_* call
 void
 test_for_loop (void)

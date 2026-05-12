@@ -1,6 +1,10 @@
 // Should trigger: g_signal_lookup and g_signal_group_connect variants
 #include <glib-object.h>
 
+static void on_item (void) { }
+static void on_state (void) { }
+static void on_notify (void) { }
+
 void test_lookup_and_group(GObject *obj, GSignalGroup *group) {
     guint signal_id = g_signal_lookup("value-changed", G_TYPE_FROM_INSTANCE(obj));
 

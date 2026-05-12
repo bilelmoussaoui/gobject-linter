@@ -1,5 +1,7 @@
 #include <glib-object.h>
 
+#define I_(s) (s)
+
 typedef struct {
   GObject parent_instance;
 } MyButton;

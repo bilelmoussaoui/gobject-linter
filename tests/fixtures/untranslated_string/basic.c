@@ -1,8 +1,13 @@
 #include <gtk/gtk.h>
 
+#include <libintl.h>
+
+#define _(s) (s)
+
 void test_untranslated(void) {
     GtkWidget *label;
     GtkWidget *button;
+    GtkWidget *window;
 
     // Should be flagged - untranslated string
     label = gtk_label_new("Hello World");

@@ -1,9 +1,12 @@
+#include <glib-object.h>
 
+typedef struct _MyObject MyObject;
+G_DECLARE_FINAL_TYPE (MyObject, my_object, MY, OBJECT, GObject)
+struct _MyObject { GObject parent_instance; };
 G_DEFINE_TYPE (MyObject, my_object, G_TYPE_OBJECT)
+static void my_object_init (MyObject *self) { }
 
 // Test case for g_object_class_install_property (singular) detection
-typedef struct _MyObject MyObject;
-typedef struct _MyObjectClass MyObjectClass;
 
 enum {
   PROP_0,
@@ -13,7 +16,7 @@ enum {
 };
 
 static void
-my_object_get_property (MyObject *self,
+my_object_get_property (GObject *object,
                         guint property_id,
                         GValue *value,
                         GParamSpec *pspec)
@@ -25,12 +28,12 @@ my_object_get_property (MyObject *self,
     case PROP_BAR:
       break;
     default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (self, property_id, pspec);
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     }
 }
 
 static void
-my_object_set_property (MyObject *self,
+my_object_set_property (GObject *object,
                         guint property_id,
                         const GValue *value,
                         GParamSpec *pspec)
@@ -42,7 +45,7 @@ my_object_set_property (MyObject *self,
     case PROP_BAR:
       break;
     default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (self, property_id, pspec);
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     }
 }
 

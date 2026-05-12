@@ -1,3 +1,7 @@
+#include <gio/gio.h>
+
+enum { PROP_0, PROP_G_INTERFACE_INFO };
+
 // Should NOT trigger: G_PARAM_STATIC_STRINGS is already present, even with cast
 void test_cast_flags(GObjectClass *gobject_class) {
     g_object_class_install_property(
