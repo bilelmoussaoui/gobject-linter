@@ -15,3 +15,13 @@ vnc_disconnect (VncState *vs)
     vs->disconnecting = FALSE;
   }
 }
+
+/* g_clear_handle_id guarded by unrelated condition — no violation */
+
+static void
+vnc_disconnect2 (VncState *vs)
+{
+  if (vs->disconnecting) {
+    g_clear_handle_id (&vs->ioc_tag, g_source_remove);
+  }
+}
