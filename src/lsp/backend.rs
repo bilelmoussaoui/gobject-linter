@@ -304,7 +304,7 @@ impl LanguageServer for GObjectBackend {
                 ) {
                     text_edits.push(TextEdit {
                         range: Range { start, end },
-                        new_text: fix.replacement.clone(),
+                        new_text: fix.replacement.clone().unwrap_or_default(),
                     });
                 }
             }

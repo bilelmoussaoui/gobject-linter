@@ -218,12 +218,10 @@ impl PropertyEnumConvention {
                 // Fix 1: Remove PROP_0 line entirely (including any blank line after it)
                 if has_prop_0 && enum_info.values.len() >= 2 {
                     let prop_0 = &enum_info.values[0];
-
-                    // Use SourceLocation's find_line_bounds_with_following_blank
-                    let (line_start, line_end) = prop_0
-                        .location
-                        .find_line_bounds_with_following_blank(&file.source);
-                    fixes.push(Fix::new(line_start, line_end, String::new()));
+                    fixes.push(Fix::delete_line_and_trailing_blank(
+                        &prop_0.location,
+                        &file.source,
+                    ));
                 }
 
                 // Fix 2: Add " = 1" to the first real property (second value)
@@ -253,11 +251,10 @@ impl PropertyEnumConvention {
                 // Fix 3: Remove N_PROPS line entirely (including any blank line before it)
                 if has_n_props && enum_info.values.len() >= 2 {
                     let n_props = enum_info.values.last().unwrap();
-
-                    // Use SourceLocation's find_line_bounds which already handles preceding blank
-                    // lines
-                    let (line_start, line_end) = n_props.location.find_line_bounds(&file.source);
-                    fixes.push(Fix::new(line_start, line_end, String::new()));
+                    fixes.push(Fix::delete_line_and_leading_blank(
+                        &n_props.location,
+                        &file.source,
+                    ));
                 }
 
                 // Fix 4 & 5: Find GParamSpec arrays and fix both their declarations and
@@ -468,10 +465,9 @@ impl PropertyEnumConvention {
                     if first_val.value == Some(0)
                         && let Some(value_loc) = &first_val.value_location
                     {
-                        fixes.push(Fix::new(
+                        fixes.push(Fix::delete(
                             first_val.name_location.end_byte,
                             value_loc.end_byte,
-                            String::new(),
                         ));
                     }
 

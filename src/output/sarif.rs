@@ -113,12 +113,13 @@ fn generate_result(
                         "endColumn": end_pos.1,
                     });
 
-                    replacements.push(json!({
+                    let mut replacement = json!({
                         "deletedRegion": deleted_region,
-                        "insertedContent": {
-                            "text": fix.replacement,
-                        }
-                    }));
+                    });
+                    if let Some(ref text) = fix.replacement {
+                        replacement["insertedContent"] = json!({"text": text});
+                    }
+                    replacements.push(replacement);
                 }
             }
 

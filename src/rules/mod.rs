@@ -72,40 +72,58 @@ pub struct Fix {
     pub start_byte: usize,
     /// Byte offset where the fix ends (exclusive)
     pub end_byte: usize,
-    /// Replacement text
-    pub replacement: String,
+    /// Replacement text (`None` = pure deletion)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replacement: Option<String>,
 }
 
 impl Fix {
-    /// Create a fix from absolute byte offsets
+    /// Create a fix that replaces a byte range with new text
     pub fn new(start_byte: usize, end_byte: usize, replacement: impl Into<String>) -> Self {
         Self {
             start_byte,
             end_byte,
-            replacement: replacement.into(),
+            replacement: Some(replacement.into()),
         }
     }
 
-    /// Create a fix that deletes an entire line (including indentation and
-    /// newline)
+    /// Create a fix that deletes a byte range
+    pub fn delete(start_byte: usize, end_byte: usize) -> Self {
+        Self {
+            start_byte,
+            end_byte,
+            replacement: None,
+        }
+    }
+
+    /// Delete an entire line (including indentation and newline)
     pub fn delete_line(location: &SourceLocation, source: &[u8]) -> Self {
-        // Find the start of the line (rewind to previous newline or start of file)
         let mut line_start = location.start_byte;
         while line_start > 0 && source[line_start - 1] != b'\n' {
             line_start -= 1;
         }
 
-        // Find the end of the line (advance to next newline, including it)
         let mut line_end = location.end_byte;
         while line_end < source.len() && source[line_end] != b'\n' {
             line_end += 1;
         }
-        // Include the newline itself
         if line_end < source.len() && source[line_end] == b'\n' {
             line_end += 1;
         }
 
-        Self::new(line_start, line_end, String::new())
+        Self::delete(line_start, line_end)
+    }
+
+    /// Delete a line and any preceding blank line
+    pub fn delete_line_and_leading_blank(location: &SourceLocation, source: &[u8]) -> Self {
+        let (start, end) = location.find_line_bounds(source);
+        Self::delete(start, end)
+    }
+
+    /// Delete a line and any following blank line
+    pub fn delete_line_and_trailing_blank(location: &SourceLocation, source: &[u8]) -> Self {
+        let (start, end) = location.find_line_bounds_with_following_blank(source);
+        Self::delete(start, end)
     }
 }
 

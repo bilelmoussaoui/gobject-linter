@@ -187,7 +187,7 @@ impl IncludeOrder {
             while end < source.len() && source[end] == b'\n' {
                 end += 1;
             }
-            fixes.push(Fix::new(inc.location.start_byte, end, String::new()));
+            fixes.push(Fix::delete(inc.location.start_byte, end));
         }
 
         violations.push(self.violation_with_fixes(

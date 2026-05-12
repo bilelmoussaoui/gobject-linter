@@ -59,23 +59,17 @@ impl Rule for UsePragmaOnce {
                 let mut fixes = Vec::new();
 
                 // Fix 1: Delete #ifndef line (with following blank line if any)
-                let (ifndef_start, ifndef_end) =
-                    ifndef_loc.find_line_bounds_with_following_blank(&file.source);
+                fixes.push(Fix::delete_line_and_trailing_blank(
+                    &ifndef_loc,
+                    &file.source,
+                ));
 
                 // Fix 2: Replace #define line with #pragma once
                 let (define_start, define_end) = define_loc.find_line_bounds(&file.source);
-
-                // Combine: delete #ifndef, replace #define with #pragma once
-                fixes.push(Fix::new(ifndef_start, ifndef_end, String::new()));
-                fixes.push(Fix::new(
-                    define_start,
-                    define_end,
-                    "#pragma once\n".to_string(),
-                ));
+                fixes.push(Fix::new(define_start, define_end, "#pragma once\n"));
 
                 // Fix 3: Remove the entire #endif line (with preceding blank line if any)
-                let (endif_start, endif_end) = endif_loc.find_line_bounds(&file.source);
-                fixes.push(Fix::new(endif_start, endif_end, String::new()));
+                fixes.push(Fix::delete_line_and_leading_blank(&endif_loc, &file.source));
 
                 violations.push(self.violation_with_fixes(
                     path,

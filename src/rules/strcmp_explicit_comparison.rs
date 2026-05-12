@@ -111,11 +111,7 @@ impl StrcmpExplicitComparison {
                     // Fix: remove the '!' and add ' == 0' after the call
                     let fixes = vec![
                         // Remove the '!' operator
-                        Fix::new(
-                            unary.location.start_byte,
-                            call.location.start_byte,
-                            String::new(),
-                        ),
+                        Fix::delete(unary.location.start_byte, call.location.start_byte),
                         // Add ' == 0' after the call
                         Fix::new(
                             call.location.end_byte,

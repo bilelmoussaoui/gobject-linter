@@ -400,7 +400,7 @@ impl PropertySwitchExhaustiveness {
                 && switch_stmt.has_default_case()
             {
                 let (start, end) = self.find_default_case_range(switch_stmt, &file.source);
-                let fix = Fix::new(start, end, String::new());
+                let fix = Fix::delete(start, end);
                 violations.push(self.violation_with_fixes(
                     &file.path,
                     switch_stmt.location.line,

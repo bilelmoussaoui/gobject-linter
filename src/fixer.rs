@@ -62,7 +62,9 @@ pub fn apply_fixes(violations: &[Violation]) -> Result<usize> {
             // Replace the range [start_byte, end_byte) with replacement
             let mut new_content = Vec::new();
             new_content.extend_from_slice(&modified_content[..fix.start_byte]);
-            new_content.extend_from_slice(fix.replacement.as_bytes());
+            if let Some(ref replacement) = fix.replacement {
+                new_content.extend_from_slice(replacement.as_bytes());
+            }
             new_content.extend_from_slice(&modified_content[fix.end_byte..]);
 
             modified_content = new_content;

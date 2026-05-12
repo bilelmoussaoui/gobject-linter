@@ -173,8 +173,10 @@ impl UseGSourceOnce {
             }
 
             for ret_expr in return_exprs {
-                let (line_start, line_end) = ret_expr.location().find_line_bounds(&file.source);
-                fixes.push(Fix::new(line_start, line_end, String::new()));
+                fixes.push(Fix::delete_line_and_leading_blank(
+                    ret_expr.location(),
+                    &file.source,
+                ));
             }
 
             found_definition = true;
