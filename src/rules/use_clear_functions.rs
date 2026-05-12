@@ -552,7 +552,11 @@ impl UseClearFunctions {
 
                 Fix::new(brace_start, brace_end, formatted_replacement)
             } else {
-                Fix::new(first_loc.start_byte, second_loc.end_byte, replacement)
+                Fix::new(
+                    first_loc.start_byte,
+                    second_loc.find_semicolon_end(source),
+                    replacement,
+                )
             };
 
             violations.push(self.violation_with_fix(
@@ -622,7 +626,11 @@ impl UseClearFunctions {
         {
             let call_text = call.location.as_str(source).unwrap_or("");
             let loc = if_stmt.then_body[0].location();
-            let fix = Fix::new(loc.start_byte, loc.end_byte, format!("{};", call_text));
+            let fix = Fix::new(
+                loc.start_byte,
+                loc.find_semicolon_end(source),
+                format!("{};", call_text),
+            );
 
             violations.push(self.violation_with_fix(
                 &file.path,

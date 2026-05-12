@@ -1,0 +1,1 @@
+handle_id_multi_stmt.c:14:5: use_clear_functions: Use g_clear_handle_id (&vs->ioc_tag, g_source_remove) instead of g_source_remove and zero assignment
