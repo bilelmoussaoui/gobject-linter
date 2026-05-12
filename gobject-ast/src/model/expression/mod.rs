@@ -85,6 +85,24 @@ impl Expression {
         }
     }
 
+    pub fn is_falsy(&self) -> bool {
+        match self {
+            Self::Boolean(b) => !b.value,
+            Self::NumberLiteral(n) => n.value == "0",
+            Self::Identifier(id) => id.name == "FALSE",
+            _ => false,
+        }
+    }
+
+    pub fn is_truthy(&self) -> bool {
+        match self {
+            Self::Boolean(b) => b.value,
+            Self::NumberLiteral(n) => n.value == "1",
+            Self::Identifier(id) => id.name == "TRUE",
+            _ => false,
+        }
+    }
+
     /// Convert this expression back to source text
     pub fn to_source_string<'a>(&self, source: &'a [u8]) -> Option<&'a str> {
         let loc = self.location();

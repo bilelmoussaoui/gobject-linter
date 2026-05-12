@@ -161,9 +161,8 @@ impl UseGSourceOnce {
             }
 
             if !return_exprs.iter().all(|expr| {
-                expr.to_source_string(&file.source).is_some_and(|s| {
-                    s == "FALSE" || s == "G_SOURCE_REMOVE" || s == "0" || s == "false"
-                })
+                expr.is_falsy()
+                    || matches!(expr, Expression::Identifier(id) if id.name == "G_SOURCE_REMOVE")
             }) {
                 return None;
             }

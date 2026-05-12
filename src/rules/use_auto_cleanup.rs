@@ -227,11 +227,8 @@ impl UseAutoCleanup {
                 && call.arguments.len() >= 2
             {
                 let Argument::Expression(expr) = &call.arguments[1];
-                match expr.as_ref() {
-                    Expression::Boolean(b) if !b.value => return true,
-                    Expression::NumberLiteral(n) if n.value == "0" => return true,
-                    Expression::Identifier(id) if id.name == "FALSE" => return true,
-                    _ => {}
+                if expr.is_falsy() {
+                    return true;
                 }
             }
         }

@@ -122,57 +122,23 @@ impl UseGSourceConstants {
         _source: &[u8],
         violations: &mut Vec<Violation>,
     ) {
-        // Walk all nested expressions to find TRUE/FALSE
-        expr.walk(&mut |e| match e {
-            Expression::Identifier(id) if id.name == "TRUE" || id.name == "FALSE" => {
-                let replacement = if id.name == "TRUE" {
-                    "G_SOURCE_CONTINUE"
-                } else {
-                    "G_SOURCE_REMOVE"
-                };
+        expr.walk(&mut |e| {
+            let (old_name, replacement) = if e.is_truthy() {
+                ("TRUE", "G_SOURCE_CONTINUE")
+            } else if e.is_falsy() {
+                ("FALSE", "G_SOURCE_REMOVE")
+            } else {
+                return;
+            };
 
-                let fix = Fix::new(
-                    id.location.start_byte,
-                    id.location.end_byte,
-                    replacement.to_string(),
-                );
+            let loc = e.location();
+            let message = format!(
+                "Use {} instead of {} in GSourceFunc callback",
+                replacement, old_name
+            );
+            let fix = Fix::new(loc.start_byte, loc.end_byte, replacement);
 
-                violations.push(self.violation_with_fix(
-                    file_path,
-                    id.location.line,
-                    id.location.column,
-                    format!(
-                        "Use {} instead of {} in GSourceFunc callback",
-                        replacement, id.name
-                    ),
-                    fix,
-                ));
-            }
-            Expression::Boolean(b) => {
-                let (old_name, replacement) = if b.value {
-                    ("TRUE", "G_SOURCE_CONTINUE")
-                } else {
-                    ("FALSE", "G_SOURCE_REMOVE")
-                };
-
-                let fix = Fix::new(
-                    b.location.start_byte,
-                    b.location.end_byte,
-                    replacement.to_string(),
-                );
-
-                violations.push(self.violation_with_fix(
-                    file_path,
-                    b.location.line,
-                    b.location.column,
-                    format!(
-                        "Use {} instead of {} in GSourceFunc callback",
-                        replacement, old_name
-                    ),
-                    fix,
-                ));
-            }
-            _ => {}
+            violations.push(self.violation_with_fix(file_path, loc.line, loc.column, message, fix));
         });
     }
 }

@@ -1,4 +1,4 @@
-use gobject_ast::model::{CallExpression, Expression, FileModel, FunctionDefItem};
+use gobject_ast::model::{CallExpression, FileModel, FunctionDefItem};
 
 use crate::{
     ast_context::AstContext,
@@ -59,13 +59,8 @@ impl UseGStringFreeAndSteal {
         let Some(second_expr) = call.get_arg(1) else {
             return;
         };
-        let is_false = match second_expr {
-            Expression::Boolean(b) => !b.value,
-            Expression::NumberLiteral(n) => n.value == "0",
-            _ => false,
-        };
 
-        if !is_false {
+        if !second_expr.is_falsy() {
             return;
         }
 
