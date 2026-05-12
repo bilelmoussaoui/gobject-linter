@@ -187,6 +187,12 @@ impl UseAutoCleanup {
             return None;
         }
 
+        // g_ptr_array_free(array, FALSE) / g_array_free(array, FALSE) return the
+        // element data -> Skip
+        if self.frees_array_keeping_data(func, var_name, type_info) {
+            return None;
+        }
+
         // General case: allocated + manually freed + not returned → g_autoptr(Type)
         let is_allocated = func.is_var_allocated(type_info);
         let is_manually_freed = func.is_var_passed_to_cleanup(type_info);
@@ -199,6 +205,38 @@ impl UseAutoCleanup {
         }
 
         None
+    }
+
+    fn frees_array_keeping_data(
+        &self,
+        func: &FunctionDefItem,
+        var_name: &str,
+        type_info: &TypeInfo,
+    ) -> bool {
+        let free_func = match type_info.base_type.as_str() {
+            "GPtrArray" => "g_ptr_array_free",
+            "GArray" => "g_array_free",
+            _ => return false,
+        };
+
+        let calls = func.find_calls(&[free_func]);
+        for call in calls {
+            if call
+                .get_arg(0)
+                .is_some_and(|arg| matches!(arg, Expression::Identifier(id) if id.name == var_name))
+                && call.arguments.len() >= 2
+            {
+                let Argument::Expression(expr) = &call.arguments[1];
+                match expr.as_ref() {
+                    Expression::Boolean(b) if !b.value => return true,
+                    Expression::NumberLiteral(n) if n.value == "0" => return true,
+                    Expression::Identifier(id) if id.name == "FALSE" => return true,
+                    _ => {}
+                }
+            }
+        }
+
+        false
     }
 
     fn uses_basic_destructor(&self, func: &FunctionDefItem, free_func: &str) -> bool {

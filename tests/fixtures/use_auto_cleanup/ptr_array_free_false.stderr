@@ -1,0 +1,1 @@
+ptr_array_free_false.c:18:3: use_auto_cleanup: Consider using g_autoptr(GPtrArray) array to avoid manual cleanup

@@ -10,6 +10,7 @@ sources = [
   'error_basic.c',
   'goto_basic.c',
   'plain_struct.c',
+  'ptr_array_free_false.c',
 ]
 
 foreach src : sources
