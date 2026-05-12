@@ -623,6 +623,11 @@ impl UseClearFunctions {
             && let Statement::Expression(expr_stmt) = &if_stmt.then_body[0]
             && let Expression::Call(call) = expr_stmt.as_ref()
             && call.is_function("g_clear_handle_id")
+            && let Some(cond_var) = if_stmt.extract_nonzero_check_variable(source)
+            && let Some(cleared_var) = call
+                .get_arg_text(0, source)
+                .and_then(|s| s.strip_prefix('&'))
+            && cond_var == cleared_var
         {
             let call_text = call.location.as_str(source).unwrap_or("");
             let loc = if_stmt.then_body[0].location();
