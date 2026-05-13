@@ -108,8 +108,8 @@ impl UseGObjectNewWithProperties {
             Statement::Declaration(decl) => {
                 if let Some(Expression::Call(call)) = &decl.initializer {
                     // Check if this call is one of our empty g_object_new calls
-                    for &empty_call in empty_new_calls {
-                        if std::ptr::eq(call as *const _, empty_call as *const _) {
+                    for empty_call in empty_new_calls {
+                        if call.location.start_byte == empty_call.location.start_byte {
                             return Some((decl.name.as_str(), decl.location));
                         }
                     }
@@ -120,8 +120,8 @@ impl UseGObjectNewWithProperties {
                 if let Expression::Assignment(assign) = expr_stmt.as_ref()
                     && let Expression::Call(call) = &*assign.rhs
                 {
-                    for &empty_call in empty_new_calls {
-                        if std::ptr::eq(call as *const _, empty_call as *const _) {
+                    for empty_call in empty_new_calls {
+                        if call.location.start_byte == empty_call.location.start_byte {
                             let var_name = assign.lhs_as_text(source);
                             if !var_name.is_empty() {
                                 return Some((var_name, *expr_stmt.location()));

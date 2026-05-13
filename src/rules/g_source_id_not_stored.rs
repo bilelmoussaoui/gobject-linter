@@ -8,6 +8,19 @@ use crate::{
 
 pub struct GSourceIdNotStored;
 
+const SOURCE_FUNCTIONS: &[&str] = &[
+    "g_timeout_add",
+    "g_timeout_add_full",
+    "g_timeout_add_seconds",
+    "g_timeout_add_seconds_full",
+    "g_timeout_add_once",
+    "g_timeout_add_seconds_once",
+    "g_idle_add",
+    "g_idle_add_full",
+    "g_idle_add_once",
+    "gtk_widget_add_tick_callback",
+];
+
 impl Rule for GSourceIdNotStored {
     fn name(&self) -> &'static str {
         "g_source_id_not_stored"
@@ -29,42 +42,22 @@ impl Rule for GSourceIdNotStored {
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        // List of GSource functions that return a source ID
-        const SOURCE_FUNCTIONS: &[&str] = &[
-            "g_timeout_add",
-            "g_timeout_add_full",
-            "g_timeout_add_seconds",
-            "g_timeout_add_seconds_full",
-            "g_timeout_add_once",
-            "g_timeout_add_seconds_once",
-            "g_idle_add",
-            "g_idle_add_full",
-            "g_idle_add_once",
-            "gtk_widget_add_tick_callback",
-        ];
-
-        // Walk all statements (including nested) and check expression statements
         for stmt in &func.body_statements {
             stmt.walk(&mut |s| {
-                // Only check expression statements (not assignments/declarations)
                 if let Statement::Expression(expr_stmt) = s
                     && expr_stmt.is_call_to_any(SOURCE_FUNCTIONS)
-                    && let Expression::Call(call) = expr_stmt.as_ref() {
-                        // Check if user_data (last argument) is not NULL
-                        if !call.arguments.is_empty()
-                            && call.has_arg_matching(call.arguments.len() - 1, |expr| {
-                                !expr.is_null()
-                            })
-                        {
-                            violations.push(self.violation_at(
-                                &file.path,
-                                &call.location,
-                                format!(
-                                    "{}() called without storing the returned source ID. If the object is destroyed before the callback fires, this will cause a use-after-free. Store the ID and use g_clear_handle_id() in dispose.",
-                                    call.function_name(&file.source)
-                                ),
-                            ));
-                        }
+                    && let Expression::Call(call) = expr_stmt.as_ref()
+                    && !call.arguments.is_empty()
+                        && call.has_arg_matching(call.arguments.len() - 1, |expr| !expr.is_null())
+                    {
+                        violations.push(self.violation_at(
+                            &file.path,
+                            &call.location,
+                            format!(
+                                "{}() called without storing the returned source ID. If the object is destroyed before the callback fires, this will cause a use-after-free. Store the ID and use g_clear_handle_id() in dispose.",
+                                call.function_name(&file.source)
+                            ),
+                        ));
                     }
             });
         }

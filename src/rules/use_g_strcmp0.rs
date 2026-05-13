@@ -1,4 +1,4 @@
-use gobject_ast::model::{Expression, FileModel, FunctionDefItem, Statement};
+use gobject_ast::model::{FileModel, FunctionDefItem};
 
 use crate::{
     ast_context::AstContext,
@@ -37,42 +37,7 @@ impl Rule for UseGStrcmp0 {
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        self.check_statements(&func.body_statements, file, violations);
-    }
-}
-
-impl UseGStrcmp0 {
-    fn check_statements(
-        &self,
-        statements: &[Statement],
-        file: &FileModel,
-        violations: &mut Vec<Violation>,
-    ) {
-        for stmt in statements {
-            // Walk all expressions in the statement tree (recursively)
-            // walk_expressions visits each expression in the statement tree,
-            // but does not recurse into nested expressions within those expressions
-            stmt.walk_expressions(&mut |expr| {
-                // Walk this expression and all its nested expressions
-                expr.walk(&mut |e| {
-                    self.check_expression(e, file, violations);
-                });
-            });
-        }
-    }
-
-    fn check_expression(
-        &self,
-        expr: &Expression,
-        file: &FileModel,
-        violations: &mut Vec<Violation>,
-    ) {
-        // Check for strcmp usage (suggest g_strcmp0 for NULL-safety)
-        if expr.is_call_to("strcmp") {
-            let Expression::Call(call) = expr else {
-                return;
-            };
-            // Create fix to replace "strcmp" with "g_strcmp0"
+        for call in func.find_calls(&["strcmp"]) {
             let fix = Fix::new(
                 call.location.start_byte,
                 call.location.start_byte + "strcmp".len(),
@@ -80,11 +45,11 @@ impl UseGStrcmp0 {
             );
 
             violations.push(self.violation_with_fix_at(
-                    &file.path,
-                    &call.location,
-                    "Consider g_strcmp0 instead of strcmp if arguments can be NULL (g_strcmp0 is NULL-safe)".to_string(),
-                    fix,
-                ));
+                &file.path,
+                &call.location,
+                "Consider g_strcmp0 instead of strcmp if arguments can be NULL (g_strcmp0 is NULL-safe)".to_string(),
+                fix,
+            ));
         }
     }
 }
