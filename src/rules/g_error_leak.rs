@@ -158,6 +158,7 @@ fn is_error_propagated(statements: &[Statement], var_name: &str, extra: &[String
         var_name,
         &[
             "g_propagate_error",
+            "g_propagate_prefixed_error",
             "g_steal_pointer",
             "g_task_return_error",
         ],
