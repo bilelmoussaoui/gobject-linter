@@ -1,11 +1,14 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use serde::Serialize;
 
 use crate::model::{
-    Comment, EnumInfo, EnumValueDoc, Expression, FunctionDeclItem, FunctionDefItem, GObjectType,
-    PreprocessorDirective, SourceLocation, Statement, TopLevelItem, TypeDefItem, TypeDoc, TypeInfo,
-    TypedefTarget, VariableDecl,
+    Comment, EnumInfo, EnumValueDoc, Expression, FunctionDeclItem, FunctionDefItem, FunctionDoc,
+    GObjectType, GType, PreprocessorDirective, SourceLocation, Statement, TopLevelItem,
+    TypeDefItem, TypeDoc, TypeInfo, TypedefTarget, VariableDecl,
 };
 
 /// The complete project model - a map of files to their content
@@ -39,6 +42,104 @@ impl Project {
             }
         }
         false
+    }
+
+    pub fn iter_all_files(&self) -> impl Iterator<Item = (&Path, &FileModel)> {
+        self.files.iter().map(|(path, file)| (path.as_path(), file))
+    }
+
+    pub fn iter_c_files(&self) -> impl Iterator<Item = (&Path, &FileModel)> {
+        self.files
+            .iter()
+            .filter(|(path, _)| path.extension().is_some_and(|ext| ext == "c"))
+            .map(|(path, file)| (path.as_path(), file))
+    }
+
+    pub fn iter_header_files(&self) -> impl Iterator<Item = (&Path, &FileModel)> {
+        self.files
+            .iter()
+            .filter(|(path, _)| path.extension().is_some_and(|ext| ext == "h"))
+            .map(|(path, file)| (path.as_path(), file))
+    }
+
+    pub fn find_func_doc(&self, name: &str) -> Option<&FunctionDoc> {
+        self.iter_c_files()
+            .flat_map(|(_, f)| f.iter_function_definitions())
+            .find(|f| f.name == name)
+            .and_then(|f| f.doc.as_ref())
+            .or_else(|| {
+                self.iter_all_files()
+                    .flat_map(|(_, f)| f.iter_function_declarations())
+                    .find(|f| f.name == name)
+                    .and_then(|f| f.doc.as_ref())
+            })
+    }
+
+    pub fn find_type_doc(&self, type_name: &str) -> Option<&TypeDoc> {
+        self.iter_c_files()
+            .flat_map(|(_, f)| f.iter_all_gobject_types())
+            .find(|gt| gt.type_name == type_name)
+            .and_then(|gt| gt.doc.as_ref())
+            .or_else(|| {
+                self.iter_header_files()
+                    .flat_map(|(_, f)| f.iter_all_gobject_types())
+                    .find(|gt| gt.type_name == type_name)
+                    .and_then(|gt| gt.doc.as_ref())
+            })
+    }
+
+    pub fn find_gobject_type_by_gtype(&self, gtype: &GType) -> Option<&GObjectType> {
+        self.iter_all_files()
+            .flat_map(|(_, f)| f.iter_all_gobject_types())
+            .find(|gt| gt.type_macro.as_ref() == Some(gtype))
+    }
+
+    /// Given a GObjectType and its overridden property names, find the
+    /// implemented interface that defines the most of them. Returns `None`
+    /// if no interface matches any property, or if there's a tie.
+    pub fn find_interface_for_overrides<'a>(
+        &self,
+        gobject_type: &'a GObjectType,
+        override_names: &[&str],
+    ) -> Option<&'a GType> {
+        let mut best: Option<(&GType, usize)> = None;
+        let mut tied = false;
+
+        for iface in &gobject_type.interfaces {
+            let Some(iface_type) = self.find_gobject_type_by_gtype(&iface.interface_type) else {
+                continue;
+            };
+            let count = override_names
+                .iter()
+                .filter(|name| {
+                    iface_type
+                        .properties
+                        .iter()
+                        .any(|p| p.property().name == **name)
+                })
+                .count();
+            if count == 0 {
+                continue;
+            }
+            match best {
+                Some((_, best_count)) if count > best_count => {
+                    best = Some((&iface.interface_type, count));
+                    tied = false;
+                }
+                Some((_, best_count)) if count == best_count => {
+                    tied = true;
+                }
+                None => {
+                    best = Some((&iface.interface_type, count));
+                }
+                _ => {}
+            }
+        }
+
+        if tied {
+            return None;
+        }
+        best.map(|(gtype, _)| gtype)
     }
 
     /// Check if a function has export macros (truly public API)

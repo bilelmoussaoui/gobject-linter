@@ -120,34 +120,18 @@ impl AstContext {
         &self.type_aliases
     }
 
-    /// Iterate over all files in the project
     pub fn iter_all_files(&self) -> impl Iterator<Item = (&Path, &FileModel)> {
-        self.project
-            .files
-            .iter()
-            .map(|(path, file)| (path.as_path(), file))
+        self.project.iter_all_files()
     }
 
-    /// Iterate over all C files (extension .c) in the project
     pub fn iter_c_files(&self) -> impl Iterator<Item = (&Path, &FileModel)> {
-        self.project
-            .files
-            .iter()
-            .filter(|(path, _)| path.extension().is_some_and(|ext| ext == "c"))
-            .map(|(path, file)| (path.as_path(), file))
+        self.project.iter_c_files()
     }
 
-    /// Iterate over all header files (extension .h) in the project
     pub fn iter_header_files(&self) -> impl Iterator<Item = (&Path, &FileModel)> {
-        self.project
-            .files
-            .iter()
-            .filter(|(path, _)| path.extension().is_some_and(|ext| ext == "h"))
-            .map(|(path, file)| (path.as_path(), file))
+        self.project.iter_header_files()
     }
 
-    /// Iterate over all files that are not part of the public API: all `.c`
-    /// files and any `.h` files that meson does not mark as installed/public.
     pub fn iter_private_files(&self) -> impl Iterator<Item = (&Path, &FileModel)> {
         self.project.files.iter().filter_map(|(path, file)| {
             let p = path.as_path();
@@ -161,51 +145,32 @@ impl AstContext {
         })
     }
 
-    /// Check if a file path is a public header.
-    /// A header is public if it appears in either the GIR filelist or the
-    /// installed headers set
-    /// Returns None if no meson info is available at all.
     pub fn is_public_header(&self, path: &Path) -> Option<bool> {
         let h = self.meson_headers.as_ref()?;
         Some(h.gir.contains(path) || h.installed.contains(path))
     }
 
-    /// Check if a file path is a header passed to g-ir-scanner.
     pub fn is_gir_header(&self, path: &Path) -> Option<bool> {
         let h = self.meson_headers.as_ref()?;
         Some(h.gir.contains(path))
     }
 
-    /// Check if public/private distinction is available
     pub fn has_public_private_info(&self) -> bool {
         self.meson_headers.is_some()
     }
 
-    /// Look up the doc for a function by name.  Checks the definition
-    /// first (where docs typically live in GTK-Doc), then declarations.
     pub fn find_func_doc(&self, name: &str) -> Option<&gobject_ast::model::FunctionDoc> {
-        self.iter_c_files()
-            .flat_map(|(_, f)| f.iter_function_definitions())
-            .find(|f| f.name == name)
-            .and_then(|f| f.doc.as_ref())
-            .or_else(|| {
-                self.iter_all_files()
-                    .flat_map(|(_, f)| f.iter_function_declarations())
-                    .find(|f| f.name == name)
-                    .and_then(|f| f.doc.as_ref())
-            })
+        self.project.find_func_doc(name)
     }
 
     pub fn find_type_doc(&self, type_name: &str) -> Option<&gobject_ast::model::TypeDoc> {
-        self.iter_c_files()
-            .flat_map(|(_, f)| f.iter_all_gobject_types())
-            .find(|gt| gt.type_name == type_name)
-            .and_then(|gt| gt.doc.as_ref())
-            .or_else(|| {
-                self.iter_header_files()
-                    .flat_map(|(_, f)| f.iter_all_gobject_types())
-                    .find(|gt| gt.type_name == type_name)
-                    .and_then(|gt| gt.doc.as_ref())
-            })
+        self.project.find_type_doc(type_name)
+    }
+
+    pub fn find_gobject_type_by_gtype(
+        &self,
+        gtype: &gobject_ast::model::GType,
+    ) -> Option<&gobject_ast::model::GObjectType> {
+        self.project.find_gobject_type_by_gtype(gtype)
     }
 }
