@@ -6,8 +6,8 @@ use std::{
 use serde::Serialize;
 
 use crate::model::{
-    Comment, DefineKind, EnumInfo, EnumValueDoc, Expression, FunctionDeclItem, FunctionDefItem,
-    FunctionDoc, GObjectType, GObjectTypeKind, GType, InterfaceImplementation,
+    Comment, DeclareKind, DefineKind, EnumInfo, EnumValueDoc, Expression, FunctionDeclItem,
+    FunctionDefItem, FunctionDoc, GObjectType, GObjectTypeKind, GType, InterfaceImplementation,
     PreprocessorDirective, SourceLocation, Statement, TopLevelItem, TypeDefItem, TypeDoc, TypeInfo,
     TypedefTarget, UnaryOp, VariableDecl,
 };
@@ -493,8 +493,133 @@ impl FileModel {
     /// the matching `*_class_init` function and extracting param_spec
     /// assignments and signal registrations from it.
     pub fn resolve_gobject_types(&mut self) {
+        self.extract_manual_declare_types();
         Self::extract_manual_gobject_types(&mut self.top_level_items);
         Self::resolve_items(&mut self.top_level_items, &self.source);
+    }
+
+    /// Scan for manual `#define TYPE_MACRO (prefix_get_type ())` patterns
+    /// and synthesize Declare-style `GObjectType` entries. This covers headers
+    /// that don't use `G_DECLARE_*` macros.
+    fn extract_manual_declare_types(&mut self) {
+        let existing_macros: Vec<GType> = self
+            .iter_all_items()
+            .filter_map(|item| match item {
+                TopLevelItem::Preprocessor(PreprocessorDirective::GObjectType(gt)) => {
+                    gt.type_macro.clone()
+                }
+                _ => None,
+            })
+            .collect();
+
+        // Collect all defines for cross-referencing
+        struct DefineInfo {
+            name: String,
+            value: String,
+            location: SourceLocation,
+        }
+        let defines: Vec<DefineInfo> = self
+            .iter_all_items()
+            .filter_map(|item| match item {
+                TopLevelItem::Preprocessor(PreprocessorDirective::Define {
+                    name,
+                    value: Some(value),
+                    location,
+                }) => Some(DefineInfo {
+                    name: name.clone(),
+                    value: value.clone(),
+                    location: *location,
+                }),
+                _ => None,
+            })
+            .collect();
+
+        let mut new_types = Vec::new();
+
+        for define in &defines {
+            // Match: #define XXX_TYPE_YYY (zzz_get_type ())
+            if !define.name.contains("_TYPE_") {
+                continue;
+            }
+            let gtype = GType::Identifier(define.name.clone());
+            if existing_macros.contains(&gtype) {
+                continue;
+            }
+
+            // Extract function prefix from the value
+            let trimmed = define.value.trim().trim_matches(|c| c == '(' || c == ')');
+            let Some(func_name) = trimmed.split_whitespace().next() else {
+                continue;
+            };
+            let Some(function_prefix) = func_name.strip_suffix("_get_type") else {
+                continue;
+            };
+
+            // Find the cast macro to extract the type_name:
+            // #define XXX_YYY(obj) (G_TYPE_CHECK_INSTANCE_CAST (..., TypeName))
+            // The cast macro name is the type macro without _TYPE
+            let Some((module_prefix, type_suffix)) = define.name.split_once("_TYPE_") else {
+                continue;
+            };
+            let cast_macro_name = format!("{}_{}", module_prefix, type_suffix);
+
+            let type_name = defines
+                .iter()
+                .find(|d| d.name == cast_macro_name)
+                .and_then(|d| {
+                    // Last identifier before the closing paren is the type name
+                    // e.g. (G_TYPE_CHECK_INSTANCE_CAST ((obj), GTK_TYPE_APP_CHOOSER,
+                    // GtkAppChooser))
+                    d.value
+                        .rsplit(',')
+                        .next()
+                        .map(|s| s.trim().trim_end_matches(')').trim().to_owned())
+                });
+
+            let Some(type_name) = type_name else {
+                continue;
+            };
+            if type_name.is_empty() || !type_name.chars().next().unwrap().is_uppercase() {
+                continue;
+            }
+
+            // Check this type_name isn't already registered
+            let already_exists = self.iter_all_items().any(|item| {
+                matches!(
+                    item,
+                    TopLevelItem::Preprocessor(PreprocessorDirective::GObjectType(gt))
+                    if gt.type_name == type_name
+                )
+            });
+            if already_exists {
+                continue;
+            }
+
+            new_types.push(TopLevelItem::Preprocessor(
+                PreprocessorDirective::GObjectType(Box::new(GObjectType {
+                    type_name,
+                    type_macro: Some(gtype),
+                    function_prefix: function_prefix.to_owned(),
+                    parent_type: None,
+                    flags: None,
+                    kind: GObjectTypeKind::Declare {
+                        kind: DeclareKind::Derivable,
+                        module_prefix: module_prefix.to_owned(),
+                        type_prefix: type_suffix.to_owned(),
+                    },
+                    interfaces: Vec::new(),
+                    has_private: false,
+                    code_block_statements: Vec::new(),
+                    export_macros: Vec::new(),
+                    doc: None,
+                    properties: Vec::new(),
+                    signals: Vec::new(),
+                    location: define.location,
+                })),
+            ));
+        }
+
+        self.top_level_items.extend(new_types);
     }
 
     /// Scan for `*_get_type` functions that return `GType` and contain a
