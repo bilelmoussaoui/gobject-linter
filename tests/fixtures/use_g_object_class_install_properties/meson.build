@@ -8,6 +8,8 @@ sources = [
   'with_enum.fixed.c',
   'with_variable.c',
   'with_variable.fixed.c',
+  'with_override.c',
+  'with_override.fixed.c',
 ]
 
 foreach src : sources

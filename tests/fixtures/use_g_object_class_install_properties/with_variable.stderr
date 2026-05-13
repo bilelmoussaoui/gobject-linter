@@ -1,1 +1,1 @@
-with_variable.c:29:3: use_g_object_class_install_properties: Use g_object_class_install_properties() instead of 2 g_object_class_install_property() calls
+with_variable.c:29:3: use_g_object_class_install_properties: Use g_object_class_install_properties() instead of 2 individual property installation calls

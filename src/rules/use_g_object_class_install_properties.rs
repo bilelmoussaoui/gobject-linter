@@ -1,6 +1,6 @@
 use gobject_ast::model::{
-    CallExpression, EnumInfo, Expression, FileModel, FunctionDefItem, ParamSpecAssignment,
-    Statement, TopLevelItem,
+    CallExpression, EnumInfo, Expression, FileModel, FunctionDefItem, GType, ParamSpecAssignment,
+    Statement,
 };
 
 use crate::{
@@ -34,7 +34,7 @@ impl Rule for UseGObjectClassInstallProperties {
 
     fn check_enum(
         &self,
-        _ast_context: &AstContext,
+        ast_context: &AstContext,
         config: &Config,
         enum_info: &EnumInfo,
         file: &FileModel,
@@ -44,9 +44,17 @@ impl Rule for UseGObjectClassInstallProperties {
             return;
         }
 
-        let Some(gobject_type) = file.find_gobject_type_for_property_enum(enum_info) else {
+        let Some(mut gobject_type) = file.find_gobject_type_for_property_enum(enum_info) else {
             return;
         };
+        // Prefer the Define variant which has interfaces populated
+        if gobject_type.interfaces.is_empty()
+            && let Some(define) = file
+                .iter_all_gobject_types()
+                .find(|gt| gt.type_name == gobject_type.type_name && gt.kind.is_define())
+        {
+            gobject_type = define;
+        }
 
         let class_init_name = gobject_type.class_init_function_name();
         let Some(func) = file
@@ -57,30 +65,40 @@ impl Rule for UseGObjectClassInstallProperties {
         };
 
         let install_property_calls = func.find_calls(&["g_object_class_install_property"]);
-        if install_property_calls.is_empty() {
+        let override_property_calls = func.find_calls(&["g_object_class_override_property"]);
+
+        if install_property_calls.is_empty() && override_property_calls.is_empty() {
             return;
         }
 
+        let total_calls = install_property_calls.len() + override_property_calls.len();
+
         let fixes = self.generate_fixes(
+            ast_context,
             file,
             func,
+            gobject_type,
             &install_property_calls,
+            &override_property_calls,
             &gobject_type.properties,
             enum_info,
             &file.source,
             &config.style,
         );
 
-        let first_call = install_property_calls[0];
+        let first_call = install_property_calls
+            .first()
+            .or(override_property_calls.first())
+            .unwrap();
         let message = if fixes.is_empty() {
             format!(
-                "Consider using g_object_class_install_properties() instead of {} g_object_class_install_property() calls",
-                install_property_calls.len()
+                "Consider using g_object_class_install_properties() instead of {} individual property installation calls",
+                total_calls
             )
         } else {
             format!(
-                "Use g_object_class_install_properties() instead of {} g_object_class_install_property() calls",
-                install_property_calls.len()
+                "Use g_object_class_install_properties() instead of {} individual property installation calls",
+                total_calls
             )
         };
 
@@ -97,15 +115,37 @@ impl UseGObjectClassInstallProperties {
     #[allow(clippy::too_many_arguments)]
     fn generate_fixes(
         &self,
+        ast_context: &AstContext,
         file: &FileModel,
         class_init: &FunctionDefItem,
+        gobject_type: &gobject_ast::model::GObjectType,
         install_calls: &[&CallExpression],
+        override_calls: &[&CallExpression],
         assignments: &[ParamSpecAssignment],
         property_enum: &EnumInfo,
         source: &[u8],
         style: &crate::config::Style,
     ) -> Vec<Fix> {
         let mut fixes = Vec::new();
+
+        // Resolve interface for override properties
+        let override_names: Vec<&str> = assignments
+            .iter()
+            .filter_map(|a| match a {
+                ParamSpecAssignment::OverrideProperty { property, .. } => {
+                    Some(property.name.as_str())
+                }
+                _ => None,
+            })
+            .collect();
+
+        let iface_gtype = if !override_names.is_empty() {
+            ast_context
+                .project
+                .find_interface_for_overrides(gobject_type, &override_names)
+        } else {
+            None
+        };
 
         // Pre-collect variable-pattern assignments for lookup during fix generation
         let param_spec_assignments: Vec<_> = assignments
@@ -125,8 +165,24 @@ impl UseGObjectClassInstallProperties {
             })
             .collect();
 
-        // Check if enum has N_PROPS
-        let n_props_value = property_enum.values.iter().find(|v| v.is_prop_last());
+        // Handle split enum: find and remove the intermediate sentinel
+        let split_sentinel = self.find_split_sentinel(property_enum);
+        if let Some((sentinel_value, first_override_value)) = &split_sentinel {
+            // Remove the sentinel enum member (e.g., N_REAL_PROPS,\n) and any trailing
+            // blank
+            fixes.push(Fix::delete_line_and_trailing_blank(
+                &sentinel_value.location,
+                source,
+            ));
+            // Remove the = N_REAL_PROPS initializer from the first override member
+            if let Some(value_loc) = &first_override_value.value_location {
+                let eq_start = self.find_equals_before(source, value_loc.start_byte);
+                fixes.push(Fix::new(eq_start, value_loc.end_byte, String::new()));
+            }
+        }
+
+        // Check if enum has N_PROPS (the final sentinel)
+        let n_props_value = property_enum.values.iter().rev().find(|v| v.is_prop_last());
         let n_props_name = if let Some(n_props) = n_props_value {
             n_props.name.clone()
         } else {
@@ -160,25 +216,63 @@ impl UseGObjectClassInstallProperties {
             n_props_name
         };
 
-        // Determine array name: prefer "props", fallback to "obj_props"
-        let array_name = self.determine_array_name(file, source);
+        // Find existing array from ArraySubscript assignments, or from typed arrays
+        let enum_member_names: Vec<&str> = property_enum
+            .values
+            .iter()
+            .map(|v| v.name.as_str())
+            .collect();
+        let existing_array_name = assignments
+            .iter()
+            .find_map(|a| {
+                if let ParamSpecAssignment::ArraySubscript { array_name, .. } = a {
+                    Some(array_name.as_str())
+                } else {
+                    None
+                }
+            })
+            .or_else(|| {
+                file.find_typed_arrays("GParamSpec", true, None)
+                    .into_iter()
+                    .find(|d| {
+                        matches!(&d.array_size, Some(Expression::Identifier(id)) if enum_member_names.contains(&id.name.as_str()))
+                    })
+                    .map(|d| d.name.as_str())
+            });
 
-        // Fix: Add GParamSpec array declaration after the enum
-        // For non-typedef enums, end_byte may point AT the semicolon rather than after
-        // it So we need to skip past it if present
-        let insertion_pos = if property_enum.location.end_byte < source.len()
-            && source[property_enum.location.end_byte] == b';'
-        {
-            property_enum.location.end_byte + 1
+        let array_name = existing_array_name.unwrap_or("props").to_string();
+
+        if existing_array_name.is_some() {
+            // Find the declaration and update its size to N_PROPS
+            if let Some(decl) = file
+                .find_typed_arrays("GParamSpec", true, None)
+                .into_iter()
+                .find(|d| d.name == array_name)
+                && let Some(Expression::Identifier(size_id)) = &decl.array_size
+                && size_id.name != n_props_name
+            {
+                fixes.push(Fix::new(
+                    size_id.location.start_byte,
+                    size_id.location.end_byte,
+                    n_props_name.clone(),
+                ));
+            }
         } else {
-            property_enum.location.end_byte
-        };
+            // Add GParamSpec array declaration after the enum
+            let insertion_pos = if property_enum.location.end_byte < source.len()
+                && source[property_enum.location.end_byte] == b';'
+            {
+                property_enum.location.end_byte + 1
+            } else {
+                property_enum.location.end_byte
+            };
 
-        let array_decl = format!(
-            "\n\nstatic GParamSpec *{}[{}] = {{ NULL, }};",
-            array_name, n_props_name
-        );
-        fixes.push(Fix::new(insertion_pos, insertion_pos, array_decl));
+            let array_decl = format!(
+                "\n\nstatic GParamSpec *{}[{}] = {{ NULL, }};",
+                array_name, n_props_name
+            );
+            fixes.push(Fix::new(insertion_pos, insertion_pos, array_decl));
+        }
 
         // Find the GObjectClass declaration to get object_class variable name and
         // indentation
@@ -188,7 +282,8 @@ impl UseGObjectClassInstallProperties {
             .map_or("object_class", |decl| decl.name.as_str());
 
         // Get indentation for the install_properties call
-        let indentation = if let Some(first_call) = install_calls.first() {
+        let all_calls_for_indent = install_calls.first().or(override_calls.first()).copied();
+        let indentation = if let Some(first_call) = all_calls_for_indent {
             if let Some(stmt) = self.find_statement_containing_call(
                 &class_init.body_statements,
                 first_call.location.start_byte,
@@ -313,6 +408,53 @@ impl UseGObjectClassInstallProperties {
             }
         }
 
+        // Convert each g_object_class_override_property call
+        for call in override_calls {
+            let Some(prop_id_arg) = call.get_arg(1) else {
+                continue;
+            };
+            let Some(prop_id) = prop_id_arg.to_source_string(source) else {
+                continue;
+            };
+
+            let Some(prop_name_arg) = call.get_arg(2) else {
+                continue;
+            };
+            let Some(prop_name) = prop_name_arg.to_source_string(source) else {
+                continue;
+            };
+            let prop_name = prop_name.trim_matches('"');
+
+            let Some(stmt) = self.find_statement_containing_call(
+                &class_init.body_statements,
+                call.location.start_byte,
+            ) else {
+                continue;
+            };
+
+            if let Some(iface_gtype) = iface_gtype {
+                let GType::Identifier(iface_type_str) = iface_gtype else {
+                    continue;
+                };
+
+                let iface_ref =
+                    style.format_call("g_type_default_interface_ref", &[iface_type_str]);
+                let find_prop = style.format_call(
+                    "g_object_interface_find_property",
+                    &[&iface_ref, &format!("\"{}\"", prop_name)],
+                );
+                let replacement = format!(
+                    "{}[{}] = g_param_spec_override (\"{}\",\n{}    {});",
+                    array_name, prop_id, prop_name, indentation, find_prop
+                );
+                fixes.push(Fix::new(
+                    stmt.location().start_byte,
+                    stmt.location().find_semicolon_end(source),
+                    replacement,
+                ));
+            }
+        }
+
         // Remove GParamSpec variable declarations
         for var_name in param_spec_vars {
             if let Some(decl) = class_init
@@ -325,8 +467,15 @@ impl UseGObjectClassInstallProperties {
             }
         }
 
-        // Add g_object_class_install_properties call after all assignments
-        if let Some(last_call) = install_calls.last() {
+        // Add g_object_class_install_properties call after all property assignments
+        let last_call = [
+            install_calls.last().copied(),
+            override_calls.last().copied(),
+        ]
+        .into_iter()
+        .flatten()
+        .max_by_key(|c| c.location.start_byte);
+        if let Some(last_call) = last_call {
             let Some(last_stmt) = self.find_statement_containing_call(
                 &class_init.body_statements,
                 last_call.location.start_byte,
@@ -370,20 +519,42 @@ impl UseGObjectClassInstallProperties {
         "N_PROPS".to_string()
     }
 
-    /// Determine the array name, preferring "props" but using "obj_props" if
-    /// "props" exists
-    fn determine_array_name(&self, file: &FileModel, _source: &[u8]) -> String {
-        // Check if "props" is already used as a GParamSpec array
-        for item in &file.top_level_items {
-            if let TopLevelItem::Declaration(decl) = item
-                && decl.name == "props"
-                && decl.type_info.is_base_type("GParamSpec")
+    /// Find a split enum sentinel: an intermediate sentinel like N_REAL_PROPS
+    /// followed by an enum value with `= N_REAL_PROPS` initializer.
+    fn find_split_sentinel<'a>(
+        &self,
+        property_enum: &'a EnumInfo,
+    ) -> Option<(
+        &'a gobject_ast::model::EnumValue,
+        &'a gobject_ast::model::EnumValue,
+    )> {
+        for (i, value) in property_enum.values.iter().enumerate() {
+            if let Some(Expression::Identifier(id)) = &value.value_expr
+                && let Some(sentinel) = property_enum.values[..i].iter().find(|v| v.name == id.name)
             {
-                return "obj_props".to_string();
+                return Some((sentinel, value));
             }
         }
+        None
+    }
 
-        "props".to_string()
+    /// Find the `=` sign before a value expression, including surrounding
+    /// whitespace
+    fn find_equals_before(&self, source: &[u8], value_start: usize) -> usize {
+        let mut pos = value_start;
+        // Skip whitespace before value
+        while pos > 0 && source[pos - 1].is_ascii_whitespace() {
+            pos -= 1;
+        }
+        // Skip the `=`
+        if pos > 0 && source[pos - 1] == b'=' {
+            pos -= 1;
+        }
+        // Skip whitespace before `=`
+        while pos > 0 && source[pos - 1] == b' ' {
+            pos -= 1;
+        }
+        pos
     }
 
     fn find_statement_containing_call<'a>(

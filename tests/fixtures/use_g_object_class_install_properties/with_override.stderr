@@ -1,0 +1,1 @@
+with_override.c:56:3: use_g_object_class_install_properties: Use g_object_class_install_properties() instead of 3 individual property installation calls
