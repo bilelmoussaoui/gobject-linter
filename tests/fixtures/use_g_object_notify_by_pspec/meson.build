@@ -6,6 +6,8 @@ sources = [
   'two_classes.fixed.c',
   'with_props.c',
   'with_props.fixed.c',
+  'with_override.c',
+  'with_override.fixed.c',
 ]
 
 foreach src : sources

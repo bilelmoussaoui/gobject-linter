@@ -197,8 +197,22 @@ impl Property {
     pub(crate) fn from_param_spec_call(call: &CallExpression, source: &[u8]) -> Option<Self> {
         let func_name = call.function_name_str()?;
 
-        // Extract common arguments (name, nick, blurb)
         let args = &call.arguments;
+
+        // g_param_spec_override(name, overridden)
+        if func_name == "g_param_spec_override" {
+            let name = extract_string_arg(args.first()?)?;
+            return Some(Self {
+                name,
+                nick: None,
+                blurb: None,
+                property_type: PropertyType::Override,
+                flags: Vec::new(),
+                doc: None,
+            });
+        }
+
+        // Extract common arguments (name, nick, blurb)
         if args.len() < 3 {
             return None;
         }
