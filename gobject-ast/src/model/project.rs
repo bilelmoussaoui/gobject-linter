@@ -89,9 +89,21 @@ impl Project {
     }
 
     pub fn find_gobject_type_by_gtype(&self, gtype: &GType) -> Option<&GObjectType> {
-        self.iter_all_files()
+        let all_types: Vec<_> = self
+            .iter_all_files()
             .flat_map(|(_, f)| f.iter_all_gobject_types())
-            .find(|gt| gt.type_macro.as_ref() == Some(gtype))
+            .collect();
+
+        let declare = all_types
+            .iter()
+            .copied()
+            .find(|gt| gt.type_macro.as_ref() == Some(gtype))?;
+
+        all_types
+            .iter()
+            .copied()
+            .find(|gt| gt.type_name == declare.type_name && gt.kind.is_define())
+            .or(Some(declare))
     }
 
     /// Given a GObjectType and its overridden property names, find the
@@ -487,10 +499,19 @@ impl FileModel {
         for i in 0..items.len() {
             match &items[i] {
                 TopLevelItem::Preprocessor(PreprocessorDirective::GObjectType(gt)) => {
-                    let class_init_name = gt.class_init_function_name();
                     let type_name = gt.type_name.clone();
+
+                    let init_names = if gt.is_interface() {
+                        vec![
+                            gt.default_init_function_name(),
+                            gt.class_init_function_name(),
+                        ]
+                    } else {
+                        vec![gt.class_init_function_name()]
+                    };
+
                     let func_idx = items.iter().position(|item| {
-                        matches!(item, TopLevelItem::FunctionDefinition(f) if f.name == class_init_name)
+                        matches!(item, TopLevelItem::FunctionDefinition(f) if init_names.contains(&f.name))
                     });
                     if let Some(j) = func_idx {
                         let func = match &items[j] {

@@ -448,38 +448,52 @@ impl FunctionDefItem {
                             }
                         }
                     }
-                    // g_object_class_install_property(class, PROP_X, spec)
-                    else if call.function_contains("install_property", source)
-                        && let Some(spec_expr) = call.get_arg(2)
-                    {
-                        if let Expression::Call(spec_call) = spec_expr
-                            && spec_call.function_contains("_param_spec_", source)
-                            && let Some(enum_arg) = call.get_arg(1)
-                            && let Some(enum_value) = enum_arg.to_source_string(source)
-                            && let Some(mut property) =
-                                Property::from_param_spec_call(spec_call, source)
-                        {
-                            if i > 0
-                                && let Statement::Comment(c) = &self.body_statements[i - 1]
+                    // g_object_class_install_property(class, PROP_X, spec) — 3 args
+                    // g_object_interface_install_property(iface, spec) — 2 args
+                    else if call.function_contains("install_property", source) {
+                        let is_interface =
+                            call.function_contains("interface_install_property", source);
+                        let spec_arg_idx = if is_interface { 1 } else { 2 };
+
+                        if let Some(spec_expr) = call.get_arg(spec_arg_idx) {
+                            if let Expression::Call(spec_call) = spec_expr
+                                && spec_call.function_contains("_param_spec_", source)
+                                && let Some(mut property) =
+                                    Property::from_param_spec_call(spec_call, source)
                             {
-                                property.doc = PropertyDoc::from_comment(c);
-                            }
-                            assignments.push(ParamSpecAssignment::DirectInstall {
-                                enum_value: enum_value.to_owned(),
-                                statement_location: *s.location(),
-                                call: spec_call.clone(),
-                                property,
-                                install_call: call.clone(),
-                            });
-                        } else if let Some(var_name) = spec_expr.to_source_string(source)
-                            && let Some(indices) = variable_assignments.get(var_name)
-                        {
-                            let indices = indices.clone();
-                            for idx in indices {
-                                if let ParamSpecAssignment::Variable { install_call, .. } =
-                                    &mut assignments[idx]
+                                let enum_value = if is_interface {
+                                    String::new()
+                                } else if let Some(enum_arg) = call.get_arg(1)
+                                    && let Some(ev) = enum_arg.to_source_string(source)
                                 {
-                                    *install_call = Some(call.clone());
+                                    ev.to_owned()
+                                } else {
+                                    return;
+                                };
+
+                                if i > 0
+                                    && let Statement::Comment(c) = &self.body_statements[i - 1]
+                                {
+                                    property.doc = PropertyDoc::from_comment(c);
+                                }
+                                assignments.push(ParamSpecAssignment::DirectInstall {
+                                    enum_value,
+                                    statement_location: *s.location(),
+                                    call: spec_call.clone(),
+                                    property,
+                                    install_call: call.clone(),
+                                });
+                            } else if !is_interface
+                                && let Some(var_name) = spec_expr.to_source_string(source)
+                                && let Some(indices) = variable_assignments.get(var_name)
+                            {
+                                let indices = indices.clone();
+                                for idx in indices {
+                                    if let ParamSpecAssignment::Variable { install_call, .. } =
+                                        &mut assignments[idx]
+                                    {
+                                        *install_call = Some(call.clone());
+                                    }
                                 }
                             }
                         }
