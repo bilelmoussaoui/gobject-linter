@@ -225,10 +225,7 @@ impl UseGObjectNotifyByPspec {
             }
         })?;
 
-        // Extract class prefix from type (e.g., "FooObject" -> "foo")
-        let type_prefix = self.extract_type_prefix(param_type);
-
-        // Find candidate that matches this prefix
+        let type_prefix: String = heck::ToSnakeCase::to_snake_case(param_type.as_str());
         candidates
             .iter()
             .find(|(_, _, class_prefix)| *class_prefix == type_prefix)
@@ -246,29 +243,6 @@ impl UseGObjectNotifyByPspec {
         }
 
         trimmed.to_string()
-    }
-
-    /// Extract class prefix from type name
-    /// e.g., "FooObject" -> "foo", "BarClass" -> "bar", "BazThing *" ->
-    /// "baz_thing"
-    fn extract_type_prefix(&self, type_name: &str) -> String {
-        let trimmed = type_name
-            .trim()
-            .trim_end_matches('*')
-            .trim_end_matches("Object")
-            .trim_end_matches("Class")
-            .trim();
-
-        // Convert CamelCase to snake_case
-        let mut result = String::new();
-        for (i, ch) in trimmed.chars().enumerate() {
-            if ch.is_uppercase() && i > 0 {
-                result.push('_');
-            }
-            result.push(ch.to_ascii_lowercase());
-        }
-
-        result
     }
 
     /// Convert property-name to PROP_NAME constant style
