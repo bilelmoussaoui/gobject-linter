@@ -12,6 +12,11 @@ use crate::{
 
 pub struct UseGObjectNotifyByPspec;
 
+struct PropertyEntry<'a> {
+    assignment: &'a ParamSpecAssignment,
+    class_prefix: &'a str,
+}
+
 impl Rule for UseGObjectNotifyByPspec {
     fn name(&self) -> &'static str {
         "use_g_object_notify_by_pspec"
@@ -41,12 +46,8 @@ impl Rule for UseGObjectNotifyByPspec {
     ) {
         for (path, file) in ast_context.iter_all_files() {
             let source = &file.source;
-
-            // Build a map of property names to (enum_value, array_name, class_prefix) for
-            // this file
             let property_map = self.build_property_map(file);
 
-            // Find all g_object_notify calls
             for func in file.iter_function_definitions() {
                 for call in func.find_calls(&["g_object_notify"]) {
                     self.check_call(
@@ -71,152 +72,132 @@ impl UseGObjectNotifyByPspec {
         file_path: &std::path::Path,
         call: &CallExpression,
         source: &[u8],
-        property_map: &HashMap<&str, Vec<(&str, &str, &str)>>,
+        property_map: &HashMap<&str, Vec<PropertyEntry>>,
         func: &FunctionDefItem,
         style: &crate::config::Style,
         violations: &mut Vec<Violation>,
     ) {
-        // Need exactly 2 arguments: object and property name
         if call.arguments.len() != 2 {
             return;
         }
 
-        // Check if second argument is a string literal
         let Some(property_expr) = call.get_arg(1) else {
             return;
         };
-        if !property_expr.is_string_literal() {
-            return;
-        }
-
-        // Get the string literal value
         let Expression::StringLiteral(string_lit) = property_expr else {
-            unreachable!();
+            return;
         };
 
         let property_name = string_lit.value.trim_matches('"');
 
-        // Collect all unique array names from the property map
-        let array_names: Vec<&str> = property_map
-            .values()
-            .flatten()
-            .map(|(_, array_name, _)| *array_name)
-            .collect::<std::collections::HashSet<_>>()
-            .into_iter()
-            .collect();
-
-        // Look up the property in our map
-        if let Some(candidates) = property_map.get(property_name) {
-            // Try to disambiguate by matching object type to class prefix
-            let disambiguated = if candidates.len() > 1 {
-                self.disambiguate_by_type(call, source, func, candidates)
-            } else {
-                Some(&candidates[0])
-            };
-
-            if let Some((enum_value, array_name, _)) = disambiguated {
-                // Get the object expression (first argument)
-                let Some(obj_expr) = call.get_arg(0) else {
-                    return;
-                };
-                let Some(obj_str) = obj_expr.to_source_string(source) else {
-                    return;
-                };
-
-                // Generate fix: replace entire call
-                let pspec = format!("{}[{}]", array_name, enum_value);
-                let replacement = style.format_call("g_object_notify_by_pspec", &[obj_str, &pspec]);
-
-                violations.push(self.violation_with_fix_at(
-                    file_path,
-                    &call.location,
-                    format!(
-                        "Use g_object_notify_by_pspec({}, {}[{}]) instead of g_object_notify({}, \"{}\") for better performance",
-                        obj_str, array_name, enum_value, obj_str, property_name
-                    ),
-                    Fix::new(call.location.start_byte, call.location.end_byte, replacement),
-                ));
-            } else {
-                // Still ambiguous after type checking, just suggest without fix
-                let property_constant = self.property_name_to_constant(property_name);
-                let array_name = &candidates[0].1; // Use first array name as example
-                violations.push(self.violation_at(
-                    file_path,
-                    &call.location,
-                    format!(
-                        "Use g_object_notify_by_pspec(obj, {}[{}]) instead of g_object_notify(obj, \"{}\") for better performance (ambiguous: multiple classes define this property)",
-                        array_name, property_constant, property_name
-                    ),
-                ));
-            }
-        } else {
-            // No GParamSpec array found for this property
+        let Some(candidates) = property_map.get(property_name) else {
+            // Property not found in any GObject type
             let property_constant = self.property_name_to_constant(property_name);
-
-            // Use actual array name if we have any, otherwise generic "properties"
-            let suggested_array = if !array_names.is_empty() {
-                array_names[0]
-            } else {
-                "properties"
-            };
-
             violations.push(self.violation_at(
                 file_path,
                 &call.location,
                 format!(
-                    "Use g_object_notify_by_pspec(obj, {}[{}]) instead of g_object_notify(obj, \"{}\") for better performance",
-                    suggested_array, property_constant, property_name
+                    "Use g_object_notify_by_pspec(obj, properties[{}]) instead of g_object_notify(obj, \"{}\") for better performance",
+                    property_constant, property_name
+                ),
+            ));
+            return;
+        };
+
+        // Filter to only array-subscript candidates (the only ones we can fix)
+        let fixable: Vec<_> = candidates
+            .iter()
+            .filter(|e| matches!(e.assignment, ParamSpecAssignment::ArraySubscript { .. }))
+            .collect();
+
+        if fixable.is_empty() {
+            // Property exists but only as override/direct-install — can't use by_pspec
+            return;
+        }
+
+        let disambiguated = if fixable.len() > 1 {
+            self.disambiguate_by_type(call, source, func, &fixable)
+        } else {
+            Some(fixable[0])
+        };
+
+        if let Some(entry) = disambiguated {
+            let ParamSpecAssignment::ArraySubscript {
+                array_name,
+                enum_value,
+                ..
+            } = entry.assignment
+            else {
+                return;
+            };
+
+            let Some(obj_expr) = call.get_arg(0) else {
+                return;
+            };
+            let Some(obj_str) = obj_expr.to_source_string(source) else {
+                return;
+            };
+
+            let pspec = format!("{}[{}]", array_name, enum_value);
+            let replacement = style.format_call("g_object_notify_by_pspec", &[obj_str, &pspec]);
+
+            violations.push(self.violation_with_fix_at(
+                file_path,
+                &call.location,
+                format!(
+                    "Use g_object_notify_by_pspec({}, {}[{}]) instead of g_object_notify({}, \"{}\") for better performance",
+                    obj_str, array_name, enum_value, obj_str, property_name
+                ),
+                Fix::new(call.location.start_byte, call.location.end_byte, replacement),
+            ));
+        } else {
+            let property_constant = self.property_name_to_constant(property_name);
+            let ParamSpecAssignment::ArraySubscript { array_name, .. } = fixable[0].assignment
+            else {
+                return;
+            };
+            violations.push(self.violation_at(
+                file_path,
+                &call.location,
+                format!(
+                    "Use g_object_notify_by_pspec(obj, {}[{}]) instead of g_object_notify(obj, \"{}\") for better performance (ambiguous: multiple classes define this property)",
+                    array_name, property_constant, property_name
                 ),
             ));
         }
     }
 
-    /// Build a map of property names to Vec<(enum_value, array_name,
-    /// class_prefix)> Multiple entries indicate ambiguity (same property
-    /// name in multiple classes)
     fn build_property_map<'a>(
         &self,
         file: &'a FileModel,
-    ) -> HashMap<&'a str, Vec<(&'a str, &'a str, &'a str)>> {
-        let mut map: HashMap<&str, Vec<(&str, &str, &str)>> = HashMap::new();
+    ) -> HashMap<&'a str, Vec<PropertyEntry<'a>>> {
+        let mut map: HashMap<&str, Vec<PropertyEntry>> = HashMap::new();
 
         for gt in file.iter_all_gobject_types() {
             for assignment in &gt.properties {
-                if let ParamSpecAssignment::ArraySubscript {
-                    array_name,
-                    enum_value,
-                    property,
-                    ..
-                } = assignment
-                {
-                    map.entry(&property.name).or_default().push((
-                        enum_value.as_str(),
-                        array_name.as_str(),
-                        gt.function_prefix.as_str(),
-                    ));
-                }
+                map.entry(assignment.property().name.as_str())
+                    .or_default()
+                    .push(PropertyEntry {
+                        assignment,
+                        class_prefix: &gt.function_prefix,
+                    });
             }
         }
 
         map
     }
 
-    /// Disambiguate by matching the object type to the class prefix
     fn disambiguate_by_type<'a>(
         &self,
         call: &CallExpression,
         source: &[u8],
         func: &FunctionDefItem,
-        candidates: &'a [(&'a str, &'a str, &'a str)],
-    ) -> Option<&'a (&'a str, &'a str, &'a str)> {
-        // Get the object expression (first argument)
+        candidates: &[&'a PropertyEntry<'a>],
+    ) -> Option<&'a PropertyEntry<'a>> {
         let obj_expr = call.get_arg(0)?;
         let obj_str = obj_expr.to_source_string(source)?;
-
-        // Strip casts like G_OBJECT(self) to get the base identifier
         let obj_identifier = self.extract_identifier(obj_str);
 
-        // Find which function parameter matches this identifier
         let param_type = func.get_param_by_name(&obj_identifier).and_then(|p| {
             if let Parameter::Regular { type_info, .. } = p {
                 Some(&type_info.base_type)
@@ -227,21 +208,23 @@ impl UseGObjectNotifyByPspec {
 
         use heck::ToSnakeCase;
         let full = param_type.to_snake_case();
-        if let Some(found) = candidates.iter().find(|(_, _, cp)| *cp == full) {
+        if let Some(found) = candidates.iter().find(|e| e.class_prefix == full) {
             return Some(found);
         }
         let trimmed = param_type
             .trim_end_matches("Object")
             .trim_end_matches("Class")
             .to_snake_case();
-        candidates.iter().find(|(_, _, cp)| *cp == trimmed)
+        candidates
+            .iter()
+            .find(|e| e.class_prefix == trimmed)
+            .copied()
     }
 
     /// Extract identifier from expression like "G_OBJECT(self)" -> "self"
     fn extract_identifier(&self, expr: &str) -> String {
         let trimmed = expr.trim();
 
-        // Handle casts like G_OBJECT(self) or (GObject*)self
         if let Some(start) = trimmed.rfind('(')
             && let Some(end) = trimmed.rfind(')')
         {
@@ -253,7 +236,6 @@ impl UseGObjectNotifyByPspec {
 
     /// Convert property-name to PROP_NAME constant style
     fn property_name_to_constant(&self, property_name: &str) -> String {
-        // Convert kebab-case or camelCase to UPPER_SNAKE_CASE
         let mut result = String::with_capacity(property_name.len() + 5);
         result.push_str("PROP_");
 
