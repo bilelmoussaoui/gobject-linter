@@ -13,9 +13,9 @@ impl Parser {
             .ok()?
             .to_owned();
 
-        // The statement is the named child after the label and ":".
-        // Comments can appear between the colon and the statement, so keep
-        // trying named children until one successfully parses.
+        // The statement is the last named child after the label and ":".
+        // Comments can appear between the colon and the real statement,
+        // so take the last successfully-parsed child rather than the first.
         let mut cursor = node.walk();
         let mut statement = None;
         for child in node.children(&mut cursor) {
@@ -26,7 +26,6 @@ impl Parser {
                 && let Some(s) = self.parse_statement(child, source)
             {
                 statement = Some(s);
-                break;
             }
         }
 
