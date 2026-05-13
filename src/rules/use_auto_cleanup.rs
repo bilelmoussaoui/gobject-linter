@@ -107,7 +107,7 @@ impl UseAutoCleanup {
             .iter_local_declarations()
             .filter(|d| {
                 !d.type_info.uses_auto_cleanup()
-                    && d.type_info.is_pointer()
+                    && d.type_info.pointer_depth == 1
                     && d.is_simple_identifier()
             })
             .map(|d| (d.name.as_str(), (&d.type_info, d.location)))
