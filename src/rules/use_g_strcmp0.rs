@@ -3,8 +3,14 @@ use gobject_ast::model::{FileModel, FunctionDefItem};
 use crate::{
     ast_context::AstContext,
     config::Config,
-    rules::{Fix, Rule, Violation},
+    rules::{FunctionRename, Rule, Violation},
 };
+
+const RENAMES: &[FunctionRename] = &[FunctionRename {
+    from: "strcmp",
+    to: Some("g_strcmp0"),
+    message: "Use g_strcmp0() instead of strcmp() — g_strcmp0 is NULL-safe",
+}];
 
 pub struct UseGStrcmp0;
 
@@ -37,19 +43,6 @@ impl Rule for UseGStrcmp0 {
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        for call in func.find_calls(&["strcmp"]) {
-            let fix = Fix::new(
-                call.location.start_byte,
-                call.location.start_byte + "strcmp".len(),
-                "g_strcmp0".to_string(),
-            );
-
-            violations.push(self.violation_with_fix_at(
-                &file.path,
-                &call.location,
-                "Consider g_strcmp0 instead of strcmp if arguments can be NULL (g_strcmp0 is NULL-safe)".to_string(),
-                fix,
-            ));
-        }
+        self.check_function_renames(func, file, _config, violations, RENAMES);
     }
 }

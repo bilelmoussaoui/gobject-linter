@@ -3,8 +3,26 @@ use gobject_ast::model::{FileModel, FunctionDefItem};
 use crate::{
     ast_context::AstContext,
     config::Config,
-    rules::{Rule, Violation},
+    rules::{FunctionRename, Rule, Violation},
 };
+
+const RENAMES: &[FunctionRename] = &[
+    FunctionRename {
+        from: "strcpy",
+        to: None,
+        message: "Use g_strlcpy(dst, src, sizeof(dst)) instead of strcpy — no bounds checking",
+    },
+    FunctionRename {
+        from: "strcat",
+        to: None,
+        message: "Use g_strlcat(dst, src, sizeof(dst)) instead of strcat — no bounds checking",
+    },
+    FunctionRename {
+        from: "strncat",
+        to: None,
+        message: "Use g_strlcat(dst, src, sizeof(dst)) instead of strncat — strncat's n parameter is the max to append, not the buffer size, which is error-prone",
+    },
+];
 
 pub struct UseGStrlcpy;
 
@@ -29,24 +47,6 @@ impl Rule for UseGStrlcpy {
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        for call in func.find_calls(&["strcpy", "strcat", "strncat"]) {
-            let Some(func_name) = call.function_name_str() else {
-                continue;
-            };
-            let message = match func_name {
-                "strcpy" => {
-                    "Use g_strlcpy(dst, src, sizeof(dst)) instead of strcpy — no bounds checking"
-                }
-                "strcat" => {
-                    "Use g_strlcat(dst, src, sizeof(dst)) instead of strcat — no bounds checking"
-                }
-                "strncat" => {
-                    "Use g_strlcat(dst, src, sizeof(dst)) instead of strncat — strncat's n parameter is the max to append, not the buffer size, which is error-prone"
-                }
-                _ => continue,
-            };
-
-            violations.push(self.violation_at(&file.path, &call.location, message.to_string()));
-        }
+        self.check_function_renames(func, file, _config, violations, RENAMES);
     }
 }

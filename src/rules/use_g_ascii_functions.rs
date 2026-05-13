@@ -3,31 +3,78 @@ use gobject_ast::model::{FileModel, FunctionDefItem};
 use crate::{
     ast_context::AstContext,
     config::Config,
-    rules::{Fix, Rule, Violation},
+    rules::{FunctionRename, Rule, Violation},
 };
 
-pub struct UseGAsciiFunctions;
+const RENAMES: &[FunctionRename] = &[
+    FunctionRename {
+        from: "tolower",
+        to: Some("g_ascii_tolower"),
+        message: "Use g_ascii_tolower() instead of tolower() — C ctype functions are locale-dependent",
+    },
+    FunctionRename {
+        from: "toupper",
+        to: Some("g_ascii_toupper"),
+        message: "Use g_ascii_toupper() instead of toupper() — C ctype functions are locale-dependent",
+    },
+    FunctionRename {
+        from: "isdigit",
+        to: Some("g_ascii_isdigit"),
+        message: "Use g_ascii_isdigit() instead of isdigit() — C ctype functions are locale-dependent",
+    },
+    FunctionRename {
+        from: "isalpha",
+        to: Some("g_ascii_isalpha"),
+        message: "Use g_ascii_isalpha() instead of isalpha() — C ctype functions are locale-dependent",
+    },
+    FunctionRename {
+        from: "isalnum",
+        to: Some("g_ascii_isalnum"),
+        message: "Use g_ascii_isalnum() instead of isalnum() — C ctype functions are locale-dependent",
+    },
+    FunctionRename {
+        from: "isspace",
+        to: Some("g_ascii_isspace"),
+        message: "Use g_ascii_isspace() instead of isspace() — C ctype functions are locale-dependent",
+    },
+    FunctionRename {
+        from: "isupper",
+        to: Some("g_ascii_isupper"),
+        message: "Use g_ascii_isupper() instead of isupper() — C ctype functions are locale-dependent",
+    },
+    FunctionRename {
+        from: "islower",
+        to: Some("g_ascii_islower"),
+        message: "Use g_ascii_islower() instead of islower() — C ctype functions are locale-dependent",
+    },
+    FunctionRename {
+        from: "isxdigit",
+        to: Some("g_ascii_isxdigit"),
+        message: "Use g_ascii_isxdigit() instead of isxdigit() — C ctype functions are locale-dependent",
+    },
+    FunctionRename {
+        from: "ispunct",
+        to: Some("g_ascii_ispunct"),
+        message: "Use g_ascii_ispunct() instead of ispunct() — C ctype functions are locale-dependent",
+    },
+    FunctionRename {
+        from: "isprint",
+        to: Some("g_ascii_isprint"),
+        message: "Use g_ascii_isprint() instead of isprint() — C ctype functions are locale-dependent",
+    },
+    FunctionRename {
+        from: "isgraph",
+        to: Some("g_ascii_isgraph"),
+        message: "Use g_ascii_isgraph() instead of isgraph() — C ctype functions are locale-dependent",
+    },
+    FunctionRename {
+        from: "iscntrl",
+        to: Some("g_ascii_iscntrl"),
+        message: "Use g_ascii_iscntrl() instead of iscntrl() — C ctype functions are locale-dependent",
+    },
+];
 
-/// Maps locale-dependent C ctype/string functions to their GLib ASCII-safe
-/// equivalents
-fn g_ascii_replacement(func_name: &str) -> Option<&'static str> {
-    match func_name {
-        "tolower" => Some("g_ascii_tolower"),
-        "toupper" => Some("g_ascii_toupper"),
-        "isdigit" => Some("g_ascii_isdigit"),
-        "isalpha" => Some("g_ascii_isalpha"),
-        "isalnum" => Some("g_ascii_isalnum"),
-        "isspace" => Some("g_ascii_isspace"),
-        "isupper" => Some("g_ascii_isupper"),
-        "islower" => Some("g_ascii_islower"),
-        "isxdigit" => Some("g_ascii_isxdigit"),
-        "ispunct" => Some("g_ascii_ispunct"),
-        "isprint" => Some("g_ascii_isprint"),
-        "isgraph" => Some("g_ascii_isgraph"),
-        "iscntrl" => Some("g_ascii_iscntrl"),
-        _ => None,
-    }
-}
+pub struct UseGAsciiFunctions;
 
 impl Rule for UseGAsciiFunctions {
     fn name(&self) -> &'static str {
@@ -54,35 +101,6 @@ impl Rule for UseGAsciiFunctions {
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        let source = &file.source;
-        for call in func.find_calls(&[
-            "tolower", "toupper", "isdigit", "isalpha", "isalnum", "isspace", "isupper", "islower",
-            "isxdigit", "ispunct", "isprint", "isgraph", "iscntrl",
-        ]) {
-            if let Some(func_name) = call.function_name_str()
-                && let Some(replacement) = g_ascii_replacement(func_name)
-            {
-                let args: Vec<&str> = call
-                    .arguments
-                    .iter()
-                    .filter_map(|arg| arg.to_source_string(source))
-                    .collect();
-                let fix = Fix::new(
-                    call.location.start_byte,
-                    call.location.end_byte,
-                    config.style.format_call(replacement, &args),
-                );
-
-                violations.push(self.violation_with_fix_at(
-                    &file.path,
-                    &call.location,
-                    format!(
-                        "Use {}() instead of {}() — C ctype functions are locale-dependent",
-                        replacement, func_name
-                    ),
-                    fix,
-                ));
-            }
-        }
+        self.check_function_renames(func, file, config, violations, RENAMES);
     }
 }

@@ -3,8 +3,14 @@ use gobject_ast::model::{FileModel, FunctionDefItem};
 use crate::{
     ast_context::AstContext,
     config::Config,
-    rules::{Rule, Violation},
+    rules::{FunctionRename, Rule, Violation},
 };
+
+const RENAMES: &[FunctionRename] = &[FunctionRename {
+    from: "g_type_class_add_private",
+    to: None,
+    message: "g_type_class_add_private is deprecated since GLib 2.58. Use G_DEFINE_TYPE_WITH_PRIVATE or G_ADD_PRIVATE instead",
+}];
 
 pub struct DeprecatedAddPrivate;
 
@@ -29,12 +35,6 @@ impl Rule for DeprecatedAddPrivate {
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        for call in func.find_calls(&["g_type_class_add_private"]) {
-            violations.push(self.violation_at(
-                &file.path,
-                &call.location,
-                "g_type_class_add_private is deprecated since GLib 2.58. Use G_DEFINE_TYPE_WITH_PRIVATE or G_ADD_PRIVATE instead".to_string(),
-            ));
-        }
+        self.check_function_renames(func, file, _config, violations, RENAMES);
     }
 }

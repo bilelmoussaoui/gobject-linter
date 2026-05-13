@@ -127,6 +127,16 @@ impl Fix {
     }
 }
 
+/// Describes a simple function rename: find calls to `from`, suggest `to`.
+pub struct FunctionRename {
+    /// Function name to search for
+    pub from: &'static str,
+    /// Replacement function name, or `None` for warn-only (no fix)
+    pub to: Option<&'static str>,
+    /// Violation message
+    pub message: &'static str,
+}
+
 /// Configuration option metadata for a rule
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConfigOption {
@@ -404,6 +414,53 @@ pub trait Rule: Send + Sync {
             }
             for enum_info in file.iter_all_enums() {
                 self.check_enum(ast_context, config, enum_info, file, violations);
+            }
+        }
+    }
+
+    /// Find calls to functions listed in `renames` and emit violations.
+    /// When `to` is `Some`, generates a fix that reformats the entire call.
+    fn check_function_renames(
+        &self,
+        func: &FunctionDefItem,
+        file: &FileModel,
+        config: &Config,
+        violations: &mut Vec<Violation>,
+        renames: &[FunctionRename],
+    ) {
+        let names: Vec<&str> = renames.iter().map(|r| r.from).collect();
+        for call in func.find_calls(&names) {
+            let Some(func_name) = call.function_name_str() else {
+                continue;
+            };
+            let Some(rename) = renames.iter().find(|r| r.from == func_name) else {
+                continue;
+            };
+
+            if let Some(new_name) = rename.to {
+                let args: Vec<&str> = call
+                    .arguments
+                    .iter()
+                    .filter_map(|arg| arg.to_source_string(&file.source))
+                    .collect();
+                let replacement = config.style.format_call(new_name, &args);
+                let fix = Fix::new(
+                    call.location.start_byte,
+                    call.location.end_byte,
+                    replacement,
+                );
+                violations.push(self.violation_with_fix_at(
+                    &file.path,
+                    &call.location,
+                    rename.message.to_string(),
+                    fix,
+                ));
+            } else {
+                violations.push(self.violation_at(
+                    &file.path,
+                    &call.location,
+                    rename.message.to_string(),
+                ));
             }
         }
     }
