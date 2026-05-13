@@ -165,16 +165,16 @@ impl UseGObjectClassInstallProperties {
             })
             .collect();
 
-        // Handle split enum: find and remove the intermediate sentinel
+        // Handle split enum: collapse the intermediate sentinel only when we
+        // can convert overrides to g_param_spec_override (i.e. interface found)
         let split_sentinel = self.find_split_sentinel(property_enum);
-        if let Some((sentinel_value, first_override_value)) = &split_sentinel {
-            // Remove the sentinel enum member (e.g., N_REAL_PROPS,\n) and any trailing
-            // blank
+        if iface_gtype.is_some()
+            && let Some((sentinel_value, first_override_value)) = &split_sentinel
+        {
             fixes.push(Fix::delete_line_and_trailing_blank(
                 &sentinel_value.location,
                 source,
             ));
-            // Remove the = N_REAL_PROPS initializer from the first override member
             if let Some(value_loc) = &first_override_value.value_location {
                 let eq_start = self.find_equals_before(source, value_loc.start_byte);
                 fixes.push(Fix::new(eq_start, value_loc.end_byte, String::new()));
@@ -467,14 +467,19 @@ impl UseGObjectClassInstallProperties {
             }
         }
 
-        // Add g_object_class_install_properties call after all property assignments
-        let last_call = [
-            install_calls.last().copied(),
-            override_calls.last().copied(),
-        ]
-        .into_iter()
-        .flatten()
-        .max_by_key(|c| c.location.start_byte);
+        // Add g_object_class_install_properties call after all property assignments.
+        // Only consider override calls when we converted them to g_param_spec_override.
+        let last_call = if iface_gtype.is_some() {
+            [
+                install_calls.last().copied(),
+                override_calls.last().copied(),
+            ]
+            .into_iter()
+            .flatten()
+            .max_by_key(|c| c.location.start_byte)
+        } else {
+            install_calls.last().copied()
+        };
         if let Some(last_call) = last_call {
             let Some(last_stmt) = self.find_statement_containing_call(
                 &class_init.body_statements,
