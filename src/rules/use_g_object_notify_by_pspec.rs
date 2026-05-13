@@ -225,10 +225,16 @@ impl UseGObjectNotifyByPspec {
             }
         })?;
 
-        let type_prefix: String = heck::ToSnakeCase::to_snake_case(param_type.as_str());
-        candidates
-            .iter()
-            .find(|(_, _, class_prefix)| *class_prefix == type_prefix)
+        use heck::ToSnakeCase;
+        let full = param_type.to_snake_case();
+        if let Some(found) = candidates.iter().find(|(_, _, cp)| *cp == full) {
+            return Some(found);
+        }
+        let trimmed = param_type
+            .trim_end_matches("Object")
+            .trim_end_matches("Class")
+            .to_snake_case();
+        candidates.iter().find(|(_, _, cp)| *cp == trimmed)
     }
 
     /// Extract identifier from expression like "G_OBJECT(self)" -> "self"
