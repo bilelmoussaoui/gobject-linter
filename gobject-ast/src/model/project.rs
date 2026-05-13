@@ -6,9 +6,10 @@ use std::{
 use serde::Serialize;
 
 use crate::model::{
-    Comment, EnumInfo, EnumValueDoc, Expression, FunctionDeclItem, FunctionDefItem, FunctionDoc,
-    GObjectType, GType, PreprocessorDirective, SourceLocation, Statement, TopLevelItem,
-    TypeDefItem, TypeDoc, TypeInfo, TypedefTarget, VariableDecl,
+    Comment, DefineKind, EnumInfo, EnumValueDoc, Expression, FunctionDeclItem, FunctionDefItem,
+    FunctionDoc, GObjectType, GObjectTypeKind, GType, InterfaceImplementation,
+    PreprocessorDirective, SourceLocation, Statement, TopLevelItem, TypeDefItem, TypeDoc, TypeInfo,
+    TypedefTarget, UnaryOp, VariableDecl,
 };
 
 /// The complete project model - a map of files to their content
@@ -492,7 +493,187 @@ impl FileModel {
     /// the matching `*_class_init` function and extracting param_spec
     /// assignments and signal registrations from it.
     pub fn resolve_gobject_types(&mut self) {
+        Self::extract_manual_gobject_types(&mut self.top_level_items);
         Self::resolve_items(&mut self.top_level_items, &self.source);
+    }
+
+    /// Scan for `*_get_type` functions that return `GType` and contain a
+    /// `g_type_register_static` or `g_type_register_static_simple` call.
+    /// Synthesize `GObjectType` entries for manual type registrations that
+    /// don't use `G_DEFINE_*` macros.
+    fn extract_manual_gobject_types(items: &mut Vec<TopLevelItem>) {
+        let existing_type_names: Vec<String> = items
+            .iter()
+            .filter_map(|item| match item {
+                TopLevelItem::Preprocessor(PreprocessorDirective::GObjectType(gt)) => {
+                    Some(gt.type_name.clone())
+                }
+                _ => None,
+            })
+            .collect();
+
+        let mut new_types = Vec::new();
+
+        for item in items.iter() {
+            let TopLevelItem::FunctionDefinition(func) = item else {
+                continue;
+            };
+            if !func.name.ends_with("_get_type") || func.return_type.base_type != "GType" {
+                continue;
+            }
+
+            let function_prefix = func.name.strip_suffix("_get_type").unwrap();
+
+            let register_call = func.find_calls_matching(|name| {
+                name == "g_type_register_static" || name == "g_type_register_static_simple"
+            });
+            let Some(call) = register_call.first() else {
+                continue;
+            };
+
+            // arg[0] = parent_type, arg[1] = "TypeName"
+            let Some(parent_expr) = call.get_arg(0) else {
+                continue;
+            };
+            let parent_type = match parent_expr {
+                Expression::Identifier(id) => id.name.clone(),
+                _ => continue,
+            };
+
+            let Some(type_name) = call.extract_string_from_arg(1) else {
+                continue;
+            };
+            let type_name = type_name.trim_matches('"').to_owned();
+
+            if existing_type_names.contains(&type_name) {
+                continue;
+            }
+
+            let flags = call
+                .get_arg(if call.arguments.len() > 4 { 6 } else { 3 })
+                .and_then(|e| match e {
+                    Expression::Identifier(id) => Some(id.name.as_str()),
+                    _ => None,
+                });
+
+            let is_interface = parent_type == "G_TYPE_INTERFACE";
+            let is_abstract = flags.is_some_and(|f| f.contains("ABSTRACT"));
+
+            let has_private = !func.find_calls(&["g_type_add_instance_private"]).is_empty();
+
+            let kind = if is_interface {
+                GObjectTypeKind::Define(DefineKind::Interface)
+            } else if is_abstract {
+                GObjectTypeKind::Define(DefineKind::AbstractType)
+            } else {
+                GObjectTypeKind::Define(DefineKind::Type)
+            };
+
+            let iface_calls = func.find_calls(&["g_type_add_interface_static"]);
+            let mut interfaces = Vec::new();
+            for iface_call in &iface_calls {
+                let Some(iface_type_expr) = iface_call.get_arg(1) else {
+                    continue;
+                };
+                let Expression::Identifier(iface_id) = iface_type_expr else {
+                    continue;
+                };
+                let interface_type = GType::Identifier(iface_id.name.clone());
+
+                // arg[2] is &info_var — extract var name, find its
+                // GInterfaceInfo decl, get init func from initializer[0]
+                let init_function = iface_call
+                    .get_arg(2)
+                    .and_then(|e| match e {
+                        Expression::Unary(u) if u.operator == UnaryOp::AddressOf => {
+                            match u.operand.as_ref() {
+                                Expression::Identifier(id) => Some(id.name.as_str()),
+                                _ => None,
+                            }
+                        }
+                        _ => None,
+                    })
+                    .and_then(|var_name| {
+                        Self::find_init_func_from_iface_info(&func.body_statements, var_name)
+                    })
+                    .unwrap_or_default();
+
+                interfaces.push(InterfaceImplementation {
+                    interface_type,
+                    init_function,
+                });
+            }
+
+            new_types.push(TopLevelItem::Preprocessor(
+                PreprocessorDirective::GObjectType(Box::new(GObjectType {
+                    type_name,
+                    type_macro: None,
+                    function_prefix: function_prefix.to_owned(),
+                    parent_type: Some(parent_type),
+                    flags: flags.map(std::borrow::ToOwned::to_owned),
+                    kind,
+                    interfaces,
+                    has_private,
+                    code_block_statements: Vec::new(),
+                    export_macros: Vec::new(),
+                    doc: None,
+                    properties: Vec::new(),
+                    signals: Vec::new(),
+                    location: func.location,
+                })),
+            ));
+        }
+
+        items.extend(new_types);
+    }
+
+    /// Find the init function name from a `GInterfaceInfo` variable
+    /// declaration. The init function is the first non-comment item in the
+    /// initializer list, possibly wrapped in a cast like
+    /// `(GInterfaceInitFunc) func_name`.
+    fn find_init_func_from_iface_info(stmts: &[Statement], var_name: &str) -> Option<String> {
+        for stmt in stmts {
+            match stmt {
+                Statement::Declaration(decl) if decl.name == var_name => {
+                    let Expression::InitializerList(init) = decl.initializer.as_ref()? else {
+                        return None;
+                    };
+                    let first = init
+                        .items
+                        .iter()
+                        .find(|item| !matches!(&*item.value, Expression::Comment(_)))?;
+                    return Some(Self::unwrap_cast_to_identifier(&first.value)?.to_owned());
+                }
+                Statement::If(if_stmt) => {
+                    if let Some(v) =
+                        Self::find_init_func_from_iface_info(&if_stmt.then_body, var_name)
+                    {
+                        return Some(v);
+                    }
+                    if let Some(else_body) = &if_stmt.else_body
+                        && let Some(v) = Self::find_init_func_from_iface_info(else_body, var_name)
+                    {
+                        return Some(v);
+                    }
+                }
+                Statement::Compound(c) => {
+                    if let Some(v) = Self::find_init_func_from_iface_info(&c.statements, var_name) {
+                        return Some(v);
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+    /// Unwrap `(SomeType) identifier` casts to get the inner identifier name.
+    fn unwrap_cast_to_identifier(expr: &Expression) -> Option<&str> {
+        match expr {
+            Expression::Identifier(id) => Some(&id.name),
+            Expression::Cast(c) => Self::unwrap_cast_to_identifier(&c.operand),
+            _ => None,
+        }
     }
 
     fn resolve_items(items: &mut [TopLevelItem], source: &[u8]) {
