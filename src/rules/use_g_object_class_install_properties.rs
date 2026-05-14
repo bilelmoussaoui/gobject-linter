@@ -218,10 +218,9 @@ impl UseGObjectClassInstallProperties {
                 })
             });
 
-        if n_props_mispositioned
-            && let Some(nv) = n_props_value {
-                fixes.push(Fix::delete_line_and_trailing_blank(&nv.location));
-            }
+        if n_props_mispositioned && let Some(nv) = n_props_value {
+            fixes.push(Fix::delete_line_and_trailing_blank(&nv.location));
+        }
 
         let n_props_name = if let Some(n_props) = n_props_value
             && !n_props_mispositioned
