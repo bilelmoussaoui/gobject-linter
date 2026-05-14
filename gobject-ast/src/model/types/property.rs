@@ -201,7 +201,7 @@ impl Property {
 
         // g_param_spec_override(name, overridden)
         if func_name == "g_param_spec_override" {
-            let name = extract_string_arg(args.first()?)?;
+            let name = args.first()?.extract_string_value()?;
             return Some(Self {
                 name,
                 nick: None,
@@ -217,9 +217,9 @@ impl Property {
             return None;
         }
 
-        let name = extract_string_arg(&args[0])?;
-        let nick = extract_string_arg(&args[1]);
-        let blurb = extract_string_arg(&args[2]);
+        let name = args[0].extract_string_value()?;
+        let nick = args[1].extract_string_value();
+        let blurb = args[2].extract_string_value();
 
         let property_type = match func_name {
             "g_param_spec_string" => {
@@ -538,7 +538,7 @@ impl Property {
         }
 
         // Third argument is the property name
-        let name = extract_string_arg(&args[2])?;
+        let name = args[2].extract_string_value()?;
 
         Some(Self {
             name,
@@ -548,22 +548,6 @@ impl Property {
             flags: Vec::new(),
             doc: None,
         })
-    }
-}
-
-// Helper functions to extract values from expression arguments
-
-fn extract_string_arg(arg: &Argument) -> Option<String> {
-    match arg {
-        Argument::Expression(boxed_expr) => match &**boxed_expr {
-            Expression::StringLiteral(s) => {
-                // Remove quotes
-                let text = s.value.trim_matches('"');
-                Some(text.to_owned())
-            }
-            Expression::Null(_) => None,
-            _ => None,
-        },
     }
 }
 
