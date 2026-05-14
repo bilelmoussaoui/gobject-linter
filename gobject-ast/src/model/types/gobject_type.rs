@@ -39,8 +39,9 @@ pub struct GObjectType {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct InterfaceImplementation {
-    pub interface_type: GType, // e.g., GTK_TYPE_EDITABLE
-    pub init_function: String, // e.g., "mask_entry_editable_init"
+    pub interface_type: GType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub init_function: Option<String>,
 }
 
 impl GObjectType {

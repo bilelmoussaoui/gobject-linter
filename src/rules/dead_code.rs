@@ -352,7 +352,9 @@ fn collect_gobject_implicit_refs(
         }
 
         for iface in &gt.interfaces {
-            func_refs.insert(iface.init_function.clone());
+            if let Some(init_func) = &iface.init_function {
+                func_refs.insert(init_func.clone());
+            }
         }
 
         if let GObjectTypeKind::DefineBoxed {

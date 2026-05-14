@@ -459,7 +459,10 @@ fn test_interface_implementation() {
         gobj.interfaces[0].interface_type,
         GType::Identifier("MY_TYPE_INTERFACE".to_owned())
     );
-    assert_eq!(gobj.interfaces[0].init_function, "my_interface_init");
+    assert_eq!(
+        gobj.interfaces[0].init_function.as_deref(),
+        Some("my_interface_init")
+    );
 
     // Should have the interface init function (definition)
     let has_iface_init_def = file
@@ -501,13 +504,19 @@ fn test_interface_impl_multiple() {
         gobj.interfaces[0].interface_type,
         GType::Identifier("GTK_TYPE_EDITABLE".to_owned())
     );
-    assert_eq!(gobj.interfaces[0].init_function, "my_editable_init");
+    assert_eq!(
+        gobj.interfaces[0].init_function.as_deref(),
+        Some("my_editable_init")
+    );
 
     assert_eq!(
         gobj.interfaces[1].interface_type,
         GType::Identifier("GTK_TYPE_SCROLLABLE".to_owned())
     );
-    assert_eq!(gobj.interfaces[1].init_function, "my_scrollable_init");
+    assert_eq!(
+        gobj.interfaces[1].init_function.as_deref(),
+        Some("my_scrollable_init")
+    );
 }
 
 #[test]

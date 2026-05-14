@@ -467,10 +467,12 @@ impl Parser {
                         if let Some(args) = args_node {
                             let mut iface_args = Vec::new();
                             self.collect_identifiers(args, source, &mut iface_args);
-                            if iface_args.len() >= 2 {
+                            if !iface_args.is_empty() {
                                 interfaces.push(InterfaceImplementation {
                                     interface_type: GType::Identifier(iface_args[0].to_owned()),
-                                    init_function: iface_args[1].to_owned(),
+                                    init_function: iface_args
+                                        .get(1)
+                                        .map(std::string::ToString::to_string),
                                 });
                             }
                         }

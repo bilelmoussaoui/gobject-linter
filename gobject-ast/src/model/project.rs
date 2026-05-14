@@ -778,8 +778,7 @@ impl FileModel {
                     })
                     .and_then(|var_name| {
                         Self::find_init_func_from_iface_info(&func.body_statements, var_name)
-                    })
-                    .unwrap_or_default();
+                    });
 
                 interfaces.push(InterfaceImplementation {
                     interface_type,
