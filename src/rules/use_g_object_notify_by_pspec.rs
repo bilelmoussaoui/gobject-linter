@@ -116,7 +116,7 @@ impl UseGObjectNotifyByPspec {
         }
 
         let disambiguated = if fixable.len() > 1 {
-            self.disambiguate_by_type(call, source, func, &fixable)
+            self.disambiguate_by_type(call, func, &fixable)
         } else {
             Some(fixable[0])
         };
@@ -190,15 +190,13 @@ impl UseGObjectNotifyByPspec {
     fn disambiguate_by_type<'a>(
         &self,
         call: &CallExpression,
-        source: &[u8],
         func: &FunctionDefItem,
         candidates: &[&'a PropertyEntry<'a>],
     ) -> Option<&'a PropertyEntry<'a>> {
         let obj_expr = call.get_arg(0)?;
-        let obj_str = obj_expr.to_source_string(source)?;
-        let obj_identifier = self.extract_identifier(obj_str);
+        let obj_identifier = obj_expr.extract_identifier_name()?;
 
-        let param_type = func.get_param_by_name(&obj_identifier).and_then(|p| {
+        let param_type = func.get_param_by_name(obj_identifier).and_then(|p| {
             if let Parameter::Regular { type_info, .. } = p {
                 Some(&type_info.base_type)
             } else {
@@ -219,19 +217,6 @@ impl UseGObjectNotifyByPspec {
             .iter()
             .find(|e| e.class_prefix == trimmed)
             .copied()
-    }
-
-    /// Extract identifier from expression like "G_OBJECT(self)" -> "self"
-    fn extract_identifier(&self, expr: &str) -> String {
-        let trimmed = expr.trim();
-
-        if let Some(start) = trimmed.rfind('(')
-            && let Some(end) = trimmed.rfind(')')
-        {
-            return trimmed[start + 1..end].trim().to_string();
-        }
-
-        trimmed.to_string()
     }
 
     /// Convert property-name to PROP_NAME constant style

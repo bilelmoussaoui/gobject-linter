@@ -184,6 +184,17 @@ impl Expression {
         }
     }
 
+    /// Extract the identifier name, unwrapping macro calls and casts.
+    /// `G_OBJECT(self)` → `"self"`, `(GSourceFunc) callback` → `"callback"`
+    pub fn extract_identifier_name(&self) -> Option<&str> {
+        match self {
+            Self::Identifier(id) => Some(&id.name),
+            Self::Call(call) => call.get_arg(0)?.extract_identifier_name(),
+            Self::Cast(cast) => cast.operand.extract_identifier_name(),
+            _ => None,
+        }
+    }
+
     /// Check if this expression is NULL
     /// Handles both Expression::Null and the identifier "NULL" (common in C
     /// code)

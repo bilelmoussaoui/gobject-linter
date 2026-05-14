@@ -1,12 +1,24 @@
 use std::collections::HashSet;
 
-use gobject_ast::model::{CallExpression, Expression, Statement};
+use gobject_ast::model::{Expression, Statement};
 
 use crate::{
     ast_context::AstContext,
     config::Config,
     rules::{Fix, Rule, Violation},
 };
+
+fn gsource_callback_arg_index(func_name: &str) -> Option<usize> {
+    match func_name {
+        "g_idle_add" => Some(0),
+        "g_idle_add_full"
+        | "g_timeout_add"
+        | "g_timeout_add_seconds"
+        | "gtk_widget_add_tick_callback" => Some(1),
+        "g_timeout_add_full" | "g_timeout_add_seconds_full" => Some(2),
+        _ => None,
+    }
+}
 
 pub struct UseGSourceConstants;
 
@@ -37,16 +49,13 @@ impl Rule for UseGSourceConstants {
 
         for (_path, file) in ast_context.iter_c_files() {
             for func in file.iter_function_definitions() {
-                for call in func.find_calls(&[
-                    "g_idle_add",
-                    "g_idle_add_full",
-                    "g_timeout_add",
-                    "g_timeout_add_seconds",
-                    "g_timeout_add_full",
-                    "g_timeout_add_seconds_full",
-                    "gtk_widget_add_tick_callback",
-                ]) {
-                    if let Some(name) = self.extract_callback_name(call, &file.source) {
+                for call in
+                    func.find_calls_matching(|name| gsource_callback_arg_index(name).is_some())
+                {
+                    if let Some(idx) = gsource_callback_arg_index(call.function_name_str().unwrap())
+                        && let Some(name) =
+                            call.get_arg(idx).and_then(|a| a.extract_identifier_name())
+                    {
                         callbacks.insert(name);
                     }
                 }
@@ -68,37 +77,6 @@ impl Rule for UseGSourceConstants {
 }
 
 impl UseGSourceConstants {
-    fn extract_callback_name<'a>(
-        &self,
-        call: &'a CallExpression,
-        _source: &[u8],
-    ) -> Option<&'a str> {
-        // Map of source-add function name → zero-based index of the GSourceFunc
-        // argument
-        let func_name = call.function_name_str()?;
-        let callback_arg_index: usize = match func_name {
-            "g_idle_add" => 0,
-            "g_idle_add_full"
-            | "g_timeout_add"
-            | "g_timeout_add_seconds"
-            | "gtk_widget_add_tick_callback" => 1,
-            "g_timeout_add_full" | "g_timeout_add_seconds_full" => 2,
-            _ => return None,
-        };
-
-        if callback_arg_index >= call.arguments.len() {
-            return None;
-        }
-
-        // Get the callback argument (should be an identifier)
-        let arg_expr = call.get_arg(callback_arg_index)?;
-        if let Expression::Identifier(id) = arg_expr {
-            Some(&id.name)
-        } else {
-            None
-        }
-    }
-
     fn check_statements(
         &self,
         file_path: &std::path::Path,
