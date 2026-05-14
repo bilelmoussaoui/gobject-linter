@@ -69,7 +69,7 @@ impl UseGValueSetStaticString {
         let args: Vec<&str> = call
             .arguments
             .iter()
-            .filter_map(|arg| arg.to_source_string())
+            .filter_map(|arg| arg.location().as_str())
             .collect();
         let replacement = config.style.format_call("g_value_set_static_string", &args);
 

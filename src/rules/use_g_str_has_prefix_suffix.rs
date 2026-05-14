@@ -1,6 +1,4 @@
-use gobject_ast::model::{
-    Argument, BinaryOp, Expression, FileModel, FunctionDefItem, SourceLocation,
-};
+use gobject_ast::model::{BinaryOp, Expression, FileModel, FunctionDefItem, SourceLocation};
 
 use crate::{
     ast_context::AstContext,
@@ -219,11 +217,9 @@ impl UseGStrHasPrefixSuffix {
 
     /// Validates that arg is `<str_expr> + strlen(<str_expr>) -
     /// strlen("suffix")` and returns `str_expr` if so.
-    fn extract_suffix_base<'a>(&self, arg: &'a Argument, suffix_text: &str) -> Option<&'a str> {
-        let Argument::Expression(expr) = arg;
-
+    fn extract_suffix_base<'a>(&self, arg: &'a Expression, suffix_text: &str) -> Option<&'a str> {
         // Top level: X - strlen("suffix")
-        let Expression::Binary(top_bin) = &**expr else {
+        let Expression::Binary(top_bin) = arg else {
             return None;
         };
 
@@ -258,10 +254,8 @@ impl UseGStrHasPrefixSuffix {
     }
 
     /// Returns true if arg is strlen(expected_text)
-    fn is_strlen_of(&self, arg: &Argument, expected_text: &str) -> bool {
-        let Argument::Expression(expr) = arg;
-
-        let Expression::Call(call) = &**expr else {
+    fn is_strlen_of(&self, arg: &Expression, expected_text: &str) -> bool {
+        let Expression::Call(call) = arg else {
             return false;
         };
 

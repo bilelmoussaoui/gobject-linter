@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::LazyLock};
 
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use gobject_ast::model::{
-    Argument, Expression, FileModel, FunctionDefItem, SourceLocation, Statement, TypeInfo,
+    Expression, FileModel, FunctionDefItem, SourceLocation, Statement, TypeInfo,
 };
 
 use crate::{
@@ -220,11 +220,9 @@ impl UseAutoCleanup {
                 .get_arg(0)
                 .is_some_and(|arg| matches!(arg, Expression::Identifier(id) if id.name == var_name))
                 && call.arguments.len() >= 2
+                && call.arguments[1].is_falsy()
             {
-                let Argument::Expression(expr) = &call.arguments[1];
-                if expr.is_falsy() {
-                    return true;
-                }
+                return true;
             }
         }
 
@@ -235,16 +233,14 @@ impl UseAutoCleanup {
         let calls = func.find_calls(&[free_func]);
 
         for call in calls {
-            if call.arguments.len() >= 2 {
-                let Argument::Expression(expr) = &call.arguments[1];
-                if let Expression::Identifier(destructor) = expr.as_ref()
-                    && matches!(
-                        destructor.name.as_str(),
-                        "g_free" | "free" | "g_slice_free" | "g_slice_free1"
-                    )
-                {
-                    return true;
-                }
+            if call.arguments.len() >= 2
+                && let Expression::Identifier(destructor) = call.arguments[1].as_ref()
+                && matches!(
+                    destructor.name.as_str(),
+                    "g_free" | "free" | "g_slice_free" | "g_slice_free1"
+                )
+            {
+                return true;
             }
         }
 

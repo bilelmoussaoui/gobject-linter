@@ -1,6 +1,4 @@
-use gobject_ast::model::{
-    Argument, Expression, FileModel, FunctionDefItem, IfStatement, Statement,
-};
+use gobject_ast::model::{Expression, FileModel, FunctionDefItem, IfStatement, Statement};
 
 use crate::{
     ast_context::AstContext,
@@ -91,7 +89,7 @@ impl UnnecessaryNullCheck {
         let references_var = call
             .arguments
             .iter()
-            .any(|Argument::Expression(e)| e.contains_identifier(checked_var));
+            .any(|e| e.contains_identifier(checked_var));
 
         if !references_var {
             return;

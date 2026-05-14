@@ -4,9 +4,9 @@ use crate::model::{Expression, SourceLocation};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct CallExpression {
-    pub function: Box<Expression>, // Can be Identifier or FieldAccess
+    pub function: Box<Expression>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub arguments: Vec<Argument>,
+    pub arguments: Vec<Box<Expression>>,
     pub location: SourceLocation,
 }
 
@@ -46,18 +46,13 @@ impl CallExpression {
     }
 
     /// Get the expression for the argument at the given index
-    /// Automatically unwraps Argument::Expression
     pub fn get_arg(&self, index: usize) -> Option<&Expression> {
-        match self.arguments.get(index)? {
-            Argument::Expression(expr) => Some(expr.as_ref()),
-        }
+        self.arguments.get(index).map(std::convert::AsRef::as_ref)
     }
 
     /// Get argument as source text
     pub fn get_arg_text(&self, index: usize) -> Option<&str> {
-        match self.arguments.get(index)? {
-            Argument::Expression(expr) => expr.location().as_str(),
-        }
+        self.arguments.get(index)?.location().as_str()
     }
 
     /// Check if the argument at the given index exists and matches the
@@ -90,8 +85,7 @@ impl CallExpression {
     /// I_("string") This is useful for g_param_spec calls where the name
     /// might be I_("property-name")
     pub fn extract_string_from_arg(&self, index: usize) -> Option<String> {
-        let Argument::Expression(expr) = self.arguments.get(index)?;
-        expr.extract_string_value()
+        self.arguments.get(index)?.extract_string_value()
     }
 
     /// Check if this call is a GObject allocation function
@@ -165,38 +159,5 @@ impl CallExpression {
         } else {
             false
         }
-    }
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(untagged)]
-pub enum Argument {
-    Expression(Box<Expression>),
-}
-
-impl Argument {
-    /// Convert this argument back to source text
-    pub fn to_source_string(&self) -> Option<&str> {
-        match self {
-            Self::Expression(expr) => expr.location().as_str(),
-        }
-    }
-
-    /// Check if this argument is a string literal or macro wrapping a string
-    pub fn is_string_or_macro_string(&self) -> bool {
-        let Self::Expression(expr) = self;
-        expr.is_string_or_macro_string()
-    }
-
-    /// Check if this argument is NULL
-    pub fn is_null(&self) -> bool {
-        let Self::Expression(expr) = self;
-        expr.is_null()
-    }
-
-    /// Extract string value from this argument, unwrapping macros
-    pub fn extract_string_value(&self) -> Option<String> {
-        let Self::Expression(expr) = self;
-        expr.extract_string_value()
     }
 }

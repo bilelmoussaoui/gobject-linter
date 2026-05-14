@@ -15,7 +15,7 @@ mod update;
 
 pub use assignment::Assignment;
 pub use binary::BinaryExpression;
-pub use call::{Argument, CallExpression};
+pub use call::CallExpression;
 pub use cast::CastExpression;
 pub use conditional::ConditionalExpression;
 pub use field_access::FieldAccessExpression;
@@ -115,8 +115,7 @@ impl Expression {
             Self::Call(call) => {
                 call.function.walk(f);
                 for arg in &call.arguments {
-                    let Argument::Expression(e) = arg;
-                    e.walk(f);
+                    arg.walk(f);
                 }
             }
             Self::Assignment(assign) => {

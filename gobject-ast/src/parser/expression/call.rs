@@ -1,9 +1,6 @@
 use tree_sitter::Node;
 
-use crate::{
-    model::{Argument, CallExpression},
-    parser::Parser,
-};
+use crate::{model::CallExpression, parser::Parser};
 
 impl Parser {
     pub(crate) fn parse_call_expression(
@@ -23,7 +20,7 @@ impl Parser {
                     && Self::is_expression_node(&child)
                     && let Some(expr) = self.parse_expression(child, source)
                 {
-                    arguments.push(Argument::Expression(Box::new(expr)));
+                    arguments.push(Box::new(expr));
                 }
             }
         }

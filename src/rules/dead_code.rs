@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use gobject_ast::model::{
-    Argument, AssignmentOp, Designator, Expression, FileModel, GObjectTypeKind, Parameter,
+    AssignmentOp, Designator, Expression, FileModel, GObjectTypeKind, Parameter,
     PreprocessorDirective, SourceLocation, Statement, StructField, TopLevelItem, TypeDefItem,
     TypeInfo, VariableDecl,
 };
@@ -623,8 +623,7 @@ fn collect_field_reads_impl(
                 unqualified,
             );
             for arg in &call.arguments {
-                let Argument::Expression(e) = arg;
-                collect_field_reads_impl(ast_context, e, false, type_map, qualified, unqualified);
+                collect_field_reads_impl(ast_context, arg, false, type_map, qualified, unqualified);
             }
         }
         Expression::Binary(b) => {

@@ -1,6 +1,6 @@
 use gobject_ast::model::{
-    Argument, AssignmentOp, BinaryOp, Expression, FileModel, FunctionDefItem, IfStatement,
-    SourceLocation, Statement, UnaryOp,
+    AssignmentOp, BinaryOp, Expression, FileModel, FunctionDefItem, IfStatement, SourceLocation,
+    Statement, UnaryOp,
 };
 
 use crate::{
@@ -324,8 +324,7 @@ impl UseClearFunctions {
 
             let var_name = match mapping.replacement {
                 ClearReplacement::WeakPointer => {
-                    let Argument::Expression(arg_expr) = call.arguments.get(1)?;
-                    self.extract_weak_pointer_var(arg_expr)?
+                    self.extract_weak_pointer_var(call.arguments.get(1)?)?
                 }
                 _ => call.get_arg(0)?.location().as_str()?,
             };
@@ -455,7 +454,7 @@ impl UseClearFunctions {
                     }
                     if call.is_function(mapping.source_func) {
                         for arg in &call.arguments {
-                            if let Some(arg_text) = arg.to_source_string()
+                            if let Some(arg_text) = arg.location().as_str()
                                 && arg_text.contains(var_name)
                             {
                                 return Some(*mapping);
@@ -813,11 +812,9 @@ impl UseClearFunctions {
         false
     }
 
-    fn arg_references(&self, arg: &Argument, target: &str) -> bool {
-        let Argument::Expression(expr) = arg;
-
+    fn arg_references(&self, arg: &Expression, target: &str) -> bool {
         let mut found = false;
-        expr.walk(&mut |e| match e {
+        arg.walk(&mut |e| match e {
             Expression::Identifier(id) if id.name == target => {
                 found = true;
             }

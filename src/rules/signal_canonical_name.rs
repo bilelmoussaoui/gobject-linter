@@ -1,4 +1,4 @@
-use gobject_ast::model::{Argument, Expression, FileModel, FunctionDefItem};
+use gobject_ast::model::{Expression, FileModel, FunctionDefItem};
 
 use crate::{
     ast_context::AstContext,
@@ -58,7 +58,7 @@ impl Rule for SignalCanonicalName {
         }) {
             let name = call.function_name_str().unwrap();
             let arg_index = if NAME_ARG_FIRST.contains(&name) { 0 } else { 1 };
-            if let Some(Argument::Expression(arg_expr)) = call.arguments.get(arg_index) {
+            if let Some(arg_expr) = call.arguments.get(arg_index) {
                 self.check_signal_name_arg(arg_expr, file, violations);
             }
         }

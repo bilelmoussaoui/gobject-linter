@@ -17,7 +17,7 @@ pub use doc::{
     TypeDoc, Version,
 };
 pub use expression::{
-    Argument, Assignment, BinaryExpression, BooleanExpression, CallExpression, CastExpression,
+    Assignment, BinaryExpression, BooleanExpression, CallExpression, CastExpression,
     CharLiteralExpression, CommentExpression, ConditionalExpression, Designator, Expression,
     FieldAccessExpression, GenericExpression, IdentifierExpression, InitializerItem,
     InitializerListExpression, NullExpression, NumberLiteralExpression, OffsetField,

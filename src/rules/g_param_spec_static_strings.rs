@@ -1,6 +1,6 @@
 use std::sync::LazyLock;
 
-use gobject_ast::model::{Argument, CallExpression, FileModel, GObjectType, ParamFlag, Property};
+use gobject_ast::model::{CallExpression, FileModel, GObjectType, ParamFlag, Property};
 
 use crate::{
     ast_context::AstContext,
@@ -113,7 +113,7 @@ impl GParamSpecStaticStrings {
             .collect::<Vec<_>>()
             .join(" | ");
 
-        let Argument::Expression(flags_expr) = call.arguments.last().unwrap();
+        let flags_expr = call.arguments.last().unwrap();
         let fix = Fix::new(
             flags_expr.location().start_byte,
             flags_expr.location().end_byte,

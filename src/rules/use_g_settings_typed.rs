@@ -228,7 +228,7 @@ impl UseGSettingsTyped {
         // Collect remaining arguments (after format string)
         let rest_args: Vec<&str> = variant_call.arguments[1..]
             .iter()
-            .filter_map(|arg| arg.to_source_string())
+            .filter_map(|arg| arg.location().as_str())
             .collect();
 
         Some((format_str.to_string(), typed_func, rest_args))

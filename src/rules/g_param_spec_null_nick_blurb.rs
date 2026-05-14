@@ -1,4 +1,4 @@
-use gobject_ast::model::{Argument, CallExpression, FileModel, GObjectType, ParamFlag, Property};
+use gobject_ast::model::{CallExpression, FileModel, GObjectType, ParamFlag, Property};
 
 use crate::{
     ast_context::AstContext,
@@ -114,7 +114,7 @@ impl GParamSpecNullNickBlurb {
         let mut fixes = vec![string_fix];
 
         if let Some(new_flags) = self.compute_new_flags(&property.flags) {
-            let Argument::Expression(flags_expr) = call.arguments.last().unwrap();
+            let flags_expr = call.arguments.last().unwrap();
             fixes.push(Fix::new(
                 flags_expr.location().start_byte,
                 flags_expr.location().end_byte,

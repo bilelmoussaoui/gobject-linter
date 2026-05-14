@@ -1,6 +1,6 @@
 use std::sync::LazyLock;
 
-use gobject_ast::model::{Argument, Expression, FileModel, FunctionDefItem, Statement, UnaryOp};
+use gobject_ast::model::{Expression, FileModel, FunctionDefItem, Statement, UnaryOp};
 
 use crate::{
     ast_context::AstContext,
@@ -179,8 +179,7 @@ fn is_error_propagated(statements: &[Statement], var_name: &str, extra: &[String
                     || func_name.contains("_set_g_error"))
             {
                 for arg in &call.arguments {
-                    let Argument::Expression(arg_expr) = arg;
-                    if arg_expr.contains_identifier(var_name) {
+                    if arg.contains_identifier(var_name) {
                         return true;
                     }
                 }
@@ -202,8 +201,7 @@ fn check_error_handled<S: AsRef<str>>(
                 && functions.iter().any(|f| f.as_ref() == func_name)
             {
                 for arg in &call.arguments {
-                    let Argument::Expression(arg_expr) = arg;
-                    if arg_expr.contains_identifier(var_name) {
+                    if arg.contains_identifier(var_name) {
                         return true;
                     }
                 }

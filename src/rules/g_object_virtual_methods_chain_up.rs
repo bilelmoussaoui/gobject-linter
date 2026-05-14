@@ -1,4 +1,4 @@
-use gobject_ast::model::{Argument, Expression, FileModel, FunctionDefItem, Parameter, Statement};
+use gobject_ast::model::{Expression, FileModel, FunctionDefItem, Parameter, Statement};
 
 use crate::{
     ast_context::AstContext,
@@ -145,8 +145,7 @@ impl GObjectVirtualMethodsChainUp {
                 }
                 // At least one argument must look like a parent class identifier
                 call.arguments.iter().any(|arg| {
-                    let Argument::Expression(e) = arg;
-                    matches!(&**e, Expression::Identifier(id) if self.is_parent_class_name(&id.name))
+                    matches!(&**arg, Expression::Identifier(id) if self.is_parent_class_name(&id.name))
                 })
             }
             _ => false,

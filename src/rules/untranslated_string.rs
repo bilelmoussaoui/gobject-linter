@@ -1,4 +1,4 @@
-use gobject_ast::model::{Argument, Expression, FileModel, FunctionDefItem};
+use gobject_ast::model::{Expression, FileModel, FunctionDefItem};
 
 use crate::{
     ast_context::AstContext,
@@ -47,14 +47,12 @@ impl Rule for UntranslatedString {
 impl UntranslatedString {
     fn check_argument(
         &self,
-        arg: &Argument,
+        arg: &Expression,
         func_name: &str,
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        let Argument::Expression(arg_expr) = arg;
-
-        if let Expression::Call(call) = &**arg_expr
+        if let Expression::Call(call) = arg
             && let Some(name) = call.function_name_str()
             && matches!(name, "_" | "gettext" | "N_" | "g_dgettext" | "g_dpgettext2")
         {
@@ -62,9 +60,9 @@ impl UntranslatedString {
         }
 
         // Check if it's a raw string literal
-        if let Expression::StringLiteral(_) = &**arg_expr {
+        if let Expression::StringLiteral(_) = arg {
             // Extract the string value without quotes
-            if let Some(string_value) = arg_expr.extract_string_value() {
+            if let Some(string_value) = arg.extract_string_value() {
                 if string_value.trim().is_empty() {
                     return;
                 }
@@ -75,7 +73,7 @@ impl UntranslatedString {
                 }
             }
 
-            let location = arg_expr.location();
+            let location = arg.location();
             violations.push(self.violation_at(
                 &file.path,
                 location,

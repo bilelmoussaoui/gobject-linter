@@ -429,7 +429,7 @@ pub trait Rule: Send + Sync {
                 let args: Vec<&str> = call
                     .arguments
                     .iter()
-                    .filter_map(|arg| arg.to_source_string())
+                    .filter_map(|arg| arg.location().as_str())
                     .collect();
                 let replacement = config.style.format_call(new_name, &args);
                 let fix = Fix::new(

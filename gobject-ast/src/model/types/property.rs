@@ -5,7 +5,7 @@ use serde::Serialize;
 use crate::model::{
     SourceLocation,
     doc::PropertyDoc,
-    expression::{Argument, CallExpression, Expression},
+    expression::{CallExpression, Expression},
     operators::UnaryOp,
     types::GType,
 };
@@ -313,7 +313,7 @@ impl Property {
             }
             "g_param_spec_enum" => {
                 // (name, nick, blurb, enum_type, default, flags)
-                let enum_type = args.get(3).and_then(extract_gtype_arg)?;
+                let enum_type = args.get(3).and_then(|e| extract_gtype_arg(e))?;
                 let default = if args.len() > 4 {
                     extract_int_arg::<i32>(&args[4]).unwrap_or(0)
                 } else {
@@ -323,7 +323,7 @@ impl Property {
             }
             "g_param_spec_flags" => {
                 // (name, nick, blurb, flags_type, default, flags)
-                let flags_type = args.get(3).and_then(extract_gtype_arg)?;
+                let flags_type = args.get(3).and_then(|e| extract_gtype_arg(e))?;
                 let default = if args.len() > 4 {
                     extract_uint_arg::<u32>(&args[4]).unwrap_or(0)
                 } else {
@@ -336,18 +336,18 @@ impl Property {
             }
             "g_param_spec_object" => {
                 // (name, nick, blurb, object_type, flags)
-                let object_type = args.get(3).and_then(extract_gtype_arg)?;
+                let object_type = args.get(3).and_then(|e| extract_gtype_arg(e))?;
                 PropertyType::Object { object_type }
             }
             "g_param_spec_boxed" => {
                 // (name, nick, blurb, boxed_type, flags)
-                let boxed_type = args.get(3).and_then(extract_gtype_arg)?;
+                let boxed_type = args.get(3).and_then(|e| extract_gtype_arg(e))?;
                 PropertyType::Boxed { boxed_type }
             }
             "g_param_spec_pointer" => PropertyType::Pointer,
             "g_param_spec_gtype" => {
                 // (name, nick, blurb, is_a_type, flags)
-                let is_a_type = args.get(3).and_then(extract_gtype_arg)?;
+                let is_a_type = args.get(3).and_then(|e| extract_gtype_arg(e))?;
                 PropertyType::GType { is_a_type }
             }
             "g_param_spec_int64" => {
@@ -475,25 +475,21 @@ impl Property {
             }
             "g_param_spec_param" => {
                 // (name, nick, blurb, param_type, flags)
-                let param_type = args.get(3).and_then(extract_gtype_arg)?;
+                let param_type = args.get(3).and_then(|e| extract_gtype_arg(e))?;
                 PropertyType::Param { param_type }
             }
             "g_param_spec_variant" => {
                 // (name, nick, blurb, type, default_value, flags)
-                let variant_type = args.get(3).and_then(|arg| {
-                    let Argument::Expression(expr) = arg;
-                    match expr.as_ref() {
-                        Expression::Identifier(id) => Some(id.name.as_str()),
-                        Expression::Call(call) => Some(call.function_name()),
-                        _ => None,
-                    }
+                let variant_type = args.get(3).and_then(|arg| match arg.as_ref() {
+                    Expression::Identifier(id) => Some(id.name.as_str()),
+                    Expression::Call(call) => Some(call.function_name()),
+                    _ => None,
                 });
                 let default_value = args.get(4).and_then(|arg| {
-                    let Argument::Expression(e) = arg;
-                    if matches!(e.as_ref(), Expression::Null(_)) {
+                    if matches!(arg.as_ref(), Expression::Null(_)) {
                         None
                     } else {
-                        Some(*e.clone())
+                        Some(*arg.clone())
                     }
                 });
                 PropertyType::Variant {
@@ -551,81 +547,68 @@ impl Property {
     }
 }
 
-fn extract_int_arg<T>(arg: &Argument) -> Option<T>
+fn extract_int_arg<T>(arg: &Expression) -> Option<T>
 where
     T: std::str::FromStr + std::ops::Neg<Output = T>,
 {
     match arg {
-        Argument::Expression(boxed_expr) => match &**boxed_expr {
-            Expression::NumberLiteral(num) => num.value.parse().ok(),
-            Expression::Unary(unary) => {
-                if matches!(unary.operator, UnaryOp::Negate)
-                    && let Expression::NumberLiteral(num) = &*unary.operand
-                {
-                    return num.value.parse::<T>().ok().map(|v| -v);
-                }
-                None
+        Expression::NumberLiteral(num) => num.value.parse().ok(),
+        Expression::Unary(unary) => {
+            if matches!(unary.operator, UnaryOp::Negate)
+                && let Expression::NumberLiteral(num) = &*unary.operand
+            {
+                return num.value.parse::<T>().ok().map(|v| -v);
             }
-            _ => None,
-        },
+            None
+        }
+        _ => None,
     }
 }
 
-fn extract_uint_arg<T: std::str::FromStr>(arg: &Argument) -> Option<T> {
+fn extract_uint_arg<T: std::str::FromStr>(arg: &Expression) -> Option<T> {
     match arg {
-        Argument::Expression(boxed_expr) => match &**boxed_expr {
-            Expression::NumberLiteral(num) => num.value.parse().ok(),
-            _ => None,
-        },
+        Expression::NumberLiteral(num) => num.value.parse().ok(),
+        _ => None,
     }
 }
 
-fn extract_float_arg<T>(arg: &Argument) -> Option<T>
+fn extract_float_arg<T>(arg: &Expression) -> Option<T>
 where
     T: std::str::FromStr + std::ops::Neg<Output = T>,
 {
     match arg {
-        Argument::Expression(boxed_expr) => match &**boxed_expr {
-            Expression::NumberLiteral(num) => num.value.parse().ok(),
-            Expression::Unary(unary) => {
-                if matches!(unary.operator, UnaryOp::Negate)
-                    && let Expression::NumberLiteral(num) = &*unary.operand
-                {
-                    return num.value.parse::<T>().ok().map(|v| -v);
-                }
-                None
+        Expression::NumberLiteral(num) => num.value.parse().ok(),
+        Expression::Unary(unary) => {
+            if matches!(unary.operator, UnaryOp::Negate)
+                && let Expression::NumberLiteral(num) = &*unary.operand
+            {
+                return num.value.parse::<T>().ok().map(|v| -v);
             }
-            _ => None,
-        },
+            None
+        }
+        _ => None,
     }
 }
 
-fn extract_boolean_arg(arg: &Argument) -> Option<bool> {
+fn extract_boolean_arg(arg: &Expression) -> Option<bool> {
     match arg {
-        Argument::Expression(boxed_expr) => match &**boxed_expr {
-            Expression::Boolean(b) => Some(b.value),
-            Expression::Identifier(id) => {
-                // TRUE/FALSE macros
-                match id.name.as_str() {
-                    "TRUE" | "true" => Some(true),
-                    "FALSE" | "false" => Some(false),
-                    _ => None,
-                }
-            }
+        Expression::Boolean(b) => Some(b.value),
+        Expression::Identifier(id) => match id.name.as_str() {
+            "TRUE" | "true" => Some(true),
+            "FALSE" | "false" => Some(false),
             _ => None,
         },
+        _ => None,
     }
 }
 
-fn extract_gtype_arg(arg: &Argument) -> Option<GType> {
-    let Argument::Expression(expr) = arg;
-    GType::from_expression(expr)
+fn extract_gtype_arg(arg: &Expression) -> Option<GType> {
+    GType::from_expression(arg)
 }
 
-fn extract_flags_arg(arg: &Argument) -> Vec<ParamFlag> {
-    let Argument::Expression(expr) = arg;
+fn extract_flags_arg(arg: &Expression) -> Vec<ParamFlag> {
     let mut flags = Vec::new();
-    expr.walk(&mut |e| {
+    arg.walk(&mut |e| {
         if let Expression::Identifier(id) = e {
             flags.push(ParamFlag::from_identifier(&id.name));
         }

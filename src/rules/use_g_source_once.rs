@@ -1,5 +1,5 @@
 use gobject_ast::model::{
-    Argument, BasicType, Expression, FileModel, FunctionDeclItem, FunctionDefItem, Statement,
+    BasicType, Expression, FileModel, FunctionDeclItem, FunctionDefItem, Statement,
 };
 
 use crate::{
@@ -76,8 +76,7 @@ impl Rule for UseGSourceOnce {
                             .filter_map(|(i, arg)| {
                                 if i == idx {
                                     // Callback argument - replace cast type if present
-                                    let Argument::Expression(expr) = arg;
-                                    if let Expression::Cast(cast) = &**expr
+                                    if let Expression::Cast(cast) = &**arg
                                         && let Some(callback_name) =
                                             cast.operand.location().as_str()
                                     {
@@ -87,7 +86,7 @@ impl Rule for UseGSourceOnce {
                                         ));
                                     }
                                 }
-                                arg.to_source_string().map(ToOwned::to_owned)
+                                arg.location().as_str().map(ToOwned::to_owned)
                             })
                             .collect::<Vec<_>>()
                             .join(", ");

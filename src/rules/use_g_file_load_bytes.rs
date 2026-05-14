@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use gobject_ast::model::{Argument, Expression, FileModel, FunctionDefItem, Statement, UnaryOp};
+use gobject_ast::model::{Expression, FileModel, FunctionDefItem, Statement, UnaryOp};
 
 use crate::{
     ast_context::AstContext,
@@ -150,11 +150,9 @@ impl UseGFileLoadBytes {
     }
 
     /// Extract variable name from &var argument
-    fn extract_pointer_var<'a>(&self, arg: &'a Argument) -> Option<&'a str> {
-        let Argument::Expression(expr) = arg;
-
+    fn extract_pointer_var<'a>(&self, arg: &'a Expression) -> Option<&'a str> {
         // Handle &var
-        if let Expression::Unary(unary) = expr.as_ref()
+        if let Expression::Unary(unary) = arg
             && unary.operator == UnaryOp::AddressOf
         {
             return unary.operand.extract_variable_name();
@@ -165,10 +163,8 @@ impl UseGFileLoadBytes {
 
     /// Extract variable name from first argument of g_bytes_new_take
     /// Handles: contents, g_steal_pointer(&contents)
-    fn extract_contents_var<'a>(&self, arg: &'a Argument) -> Option<&'a str> {
-        let Argument::Expression(expr) = arg;
-
-        match expr.as_ref() {
+    fn extract_contents_var<'a>(&self, arg: &'a Expression) -> Option<&'a str> {
+        match arg {
             // Direct variable: contents
             Expression::Identifier(id) => Some(id.name.as_str()),
             Expression::FieldAccess(f) => f.location.as_str(),
