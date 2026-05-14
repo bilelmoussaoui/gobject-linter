@@ -19,7 +19,7 @@ impl BinaryExpression {
 
     /// Extract the variable being compared in expressions like `x != 0`, `x >
     /// 0`, `0 < x`, `x != NULL`, `NULL != x`
-    pub fn extract_compared_variable<'a>(&self, source: &'a [u8]) -> Option<&'a str> {
+    pub fn extract_compared_variable(&self) -> Option<&str> {
         let left_is_zero = self.left.is_zero();
         let right_is_zero = self.right.is_zero();
         let left_is_null = self.left.is_null();
@@ -28,18 +28,18 @@ impl BinaryExpression {
         match self.operator {
             BinaryOp::NotEqual | BinaryOp::Equal | BinaryOp::Greater | BinaryOp::GreaterEqual => {
                 if right_is_zero || right_is_null {
-                    self.left.extract_variable_name(source)
+                    self.left.extract_variable_name()
                 } else if left_is_zero || left_is_null {
-                    self.right.extract_variable_name(source)
+                    self.right.extract_variable_name()
                 } else {
                     None
                 }
             }
             BinaryOp::Less | BinaryOp::LessEqual => {
                 if left_is_zero {
-                    self.right.extract_variable_name(source)
+                    self.right.extract_variable_name()
                 } else if right_is_zero {
-                    self.left.extract_variable_name(source)
+                    self.left.extract_variable_name()
                 } else {
                     None
                 }

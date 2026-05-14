@@ -40,8 +40,12 @@ impl Rule for MissingAutoptrCleanup {
         _config: &Config,
         violations: &mut Vec<Violation>,
     ) {
-        let mut types_needing_cleanup: Vec<(&std::path::Path, &str, SourceLocation, &'static str)> =
-            Vec::new();
+        let mut types_needing_cleanup: Vec<(
+            &std::path::Path,
+            &str,
+            &SourceLocation,
+            &'static str,
+        )> = Vec::new();
         let mut declared_types: HashSet<&str> = HashSet::new();
         let mut autoptr_cleanups: HashSet<&str> = HashSet::new();
 
@@ -53,7 +57,7 @@ impl Rule for MissingAutoptrCleanup {
                         types_needing_cleanup.push((
                             path,
                             &gobject_type.type_name,
-                            gobject_type.location,
+                            &gobject_type.location,
                             "boxed",
                         ));
                     }
@@ -61,7 +65,7 @@ impl Rule for MissingAutoptrCleanup {
                         types_needing_cleanup.push((
                             path,
                             &gobject_type.type_name,
-                            gobject_type.location,
+                            &gobject_type.location,
                             "old-style",
                         ));
                     }
@@ -105,7 +109,7 @@ impl Rule for MissingAutoptrCleanup {
                 _ => unreachable!(),
             };
 
-            violations.push(self.violation_at(path, &location, message));
+            violations.push(self.violation_at(path, location, message));
         }
     }
 }

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use tree_sitter::Node;
 
 use crate::{
@@ -17,7 +19,7 @@ impl Parser {
         // `macro_modifier` sibling of the declarator rather than as an
         // identifier inside the array_declarator. Capture it as a fallback.
         let mut macro_modifier_name: Option<&str> = None;
-        let mut macro_modifier_location = SourceLocation::default();
+        let mut macro_modifier_location: Option<SourceLocation> = None;
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
@@ -56,7 +58,7 @@ impl Parser {
                 "macro_modifier" => {
                     if let Ok(text) = std::str::from_utf8(&source[child.byte_range()]) {
                         macro_modifier_name = Some(text);
-                        macro_modifier_location = self.node_location(child);
+                        macro_modifier_location = Some(self.node_location(child));
                     }
                 }
                 // Declarations with initializer: int x = 5;
@@ -77,7 +79,7 @@ impl Parser {
 
         // Get variable name and its location from declarator
         let mut var_name = None;
-        let mut var_name_location = SourceLocation::default();
+        let mut var_name_location: Option<SourceLocation> = None;
         let mut initializer = None;
 
         // Count pointer depth from declarator
@@ -105,7 +107,7 @@ impl Parser {
                     | "parenthesized_declarator" => {
                         if let Some((id, loc)) = self.find_identifier_with_location(child, source) {
                             var_name = Some(id);
-                            var_name_location = loc;
+                            var_name_location = Some(loc);
                         }
                     }
                     _ => {}
@@ -124,7 +126,7 @@ impl Parser {
             && let Some(name) = macro_modifier_name
         {
             var_name = Some(name);
-            var_name_location = macro_modifier_location;
+            var_name_location = macro_modifier_location.take();
         }
 
         // When the declarator is a bare identifier leaf its .children() is
@@ -140,8 +142,7 @@ impl Parser {
         //
         // Distinguish the two by checking for an auto-cleanup macro in type_parts.
         if var_name.is_none() && declarator.kind() == "identifier" {
-            let tentative = TypeInfo::new(&type_parts.join(" "), SourceLocation::default());
-            if tentative.auto_cleanup.is_some() {
+            if TypeInfo::parse_auto_cleanup(&type_parts.join(" ")).is_some() {
                 // Pattern (b): move identifier into type so base_type is correct.
                 // Use an empty placeholder for the variable name since it is
                 // unrecoverable from this node alone.
@@ -150,7 +151,7 @@ impl Parser {
             } else {
                 // Pattern (a): identifier is the variable name.
                 var_name = Some(declarator_text);
-                var_name_location = self.node_location(declarator);
+                var_name_location = Some(self.node_location(declarator));
             }
         }
 
@@ -161,23 +162,22 @@ impl Parser {
         }
 
         // TypeInfo::new() will automatically filter out storage class specifiers
-        let type_location = if let (Some(first), Some(last)) = (first_type_node, last_type_node) {
-            SourceLocation::new(
-                first.start_position().row + 1,
-                first.start_position().column,
-                first.start_byte(),
-                last.end_byte(),
-            )
-        } else {
-            SourceLocation::default()
-        };
+        let first = first_type_node?;
+        let last = last_type_node?;
+        let type_location = SourceLocation::new(
+            first.start_position().row + 1,
+            first.start_position().column + 1,
+            first.start_byte(),
+            last.end_byte(),
+            Arc::clone(&self.current_source),
+        );
         let type_info = TypeInfo::new(&full_text, type_location);
 
         Some(VariableDecl {
             type_info,
             name: var_name?.to_owned(),
             is_static,
-            name_location: var_name_location,
+            name_location: var_name_location?,
             initializer,
             array_size,
             location: self.node_location(node),

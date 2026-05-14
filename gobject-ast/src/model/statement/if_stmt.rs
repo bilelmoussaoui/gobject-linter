@@ -17,25 +17,25 @@ pub struct IfStatement {
 impl IfStatement {
     /// Extract variable from NULL check patterns: (ptr != NULL), (NULL != ptr),
     /// (ptr)
-    pub fn extract_null_check_variable<'a>(&self, source: &'a [u8]) -> Option<&'a str> {
+    pub fn extract_null_check_variable(&self) -> Option<&str> {
         match &self.condition {
-            Expression::Binary(bin) if bin.is_null_check() => bin.extract_compared_variable(source),
-            expr => expr.extract_variable_name(source),
+            Expression::Binary(bin) if bin.is_null_check() => bin.extract_compared_variable(),
+            expr => expr.extract_variable_name(),
         }
     }
 
     /// Extract variable from non-zero check patterns: (id > 0), (id != 0),
     /// (id), (self->id)
-    pub fn extract_nonzero_check_variable<'a>(&self, source: &'a [u8]) -> Option<&'a str> {
+    pub fn extract_nonzero_check_variable(&self) -> Option<&str> {
         match &self.condition {
             Expression::Binary(bin) => {
                 if is_nonzero_comparison(bin) {
-                    bin.extract_compared_variable(source)
+                    bin.extract_compared_variable()
                 } else {
                     None
                 }
             }
-            expr => expr.extract_variable_name(source),
+            expr => expr.extract_variable_name(),
         }
     }
 

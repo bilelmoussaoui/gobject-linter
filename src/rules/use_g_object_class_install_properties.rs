@@ -73,7 +73,6 @@ impl Rule for UseGObjectClassInstallProperties {
             ctx.gobject_type,
             &individual_properties,
             enum_info,
-            &file.source,
             &config.style,
         );
 
@@ -107,7 +106,6 @@ impl UseGObjectClassInstallProperties {
         gobject_type: &gobject_ast::model::GObjectType,
         assignments: &[&ParamSpecAssignment],
         property_enum: &EnumInfo,
-        source: &[u8],
         style: &crate::config::Style,
     ) -> Vec<Fix> {
         let mut fixes = Vec::new();
@@ -173,10 +171,9 @@ impl UseGObjectClassInstallProperties {
         {
             fixes.push(Fix::delete_line_and_trailing_blank(
                 &sentinel_value.location,
-                source,
             ));
             if let Some(value_loc) = &first_override_value.value_location {
-                let eq_start = self.find_equals_before(source, value_loc.start_byte);
+                let eq_start = value_loc.find_before(b'=');
                 fixes.push(Fix::new(eq_start, value_loc.end_byte, String::new()));
             }
         }
@@ -192,16 +189,13 @@ impl UseGObjectClassInstallProperties {
             // Insert N_PROPS after the last enum value
             let last_value = property_enum.values.last().unwrap();
             // Use the same indentation as the last enum value
-            let value_indentation = last_value.location.extract_indentation(source);
+            let value_indentation = last_value.location.extract_indentation();
 
-            // Check if there's a comma at end_byte (some parsers include it, some don't)
-            let (insertion_pos, needs_comma) = if last_value.location.end_byte < source.len()
-                && source[last_value.location.end_byte] == b','
-            {
-                // Comma is at end_byte, insert after it
-                (last_value.location.end_byte + 1, false)
+            // Check if there's a comma after end_byte
+            let comma_end = last_value.location.find_after(b',');
+            let (insertion_pos, needs_comma) = if comma_end > last_value.location.end_byte {
+                (comma_end, false)
             } else {
-                // No comma at end_byte, we need to add one
                 (last_value.location.end_byte, true)
             };
 
@@ -259,10 +253,9 @@ impl UseGObjectClassInstallProperties {
             }
         } else {
             // Add GParamSpec array declaration after the enum
-            let insertion_pos = if property_enum.location.end_byte < source.len()
-                && source[property_enum.location.end_byte] == b';'
-            {
-                property_enum.location.end_byte + 1
+            let semicolon_end = property_enum.location.find_after(b';');
+            let insertion_pos = if semicolon_end > property_enum.location.end_byte {
+                semicolon_end
             } else {
                 property_enum.location.end_byte
             };
@@ -288,7 +281,7 @@ impl UseGObjectClassInstallProperties {
                 &class_init.body_statements,
                 first_call.location.start_byte,
             ) {
-                stmt.location().extract_indentation(source)
+                stmt.location().extract_indentation()
             } else {
                 "  ".to_string()
             }
@@ -305,7 +298,7 @@ impl UseGObjectClassInstallProperties {
             let Some(prop_id_arg) = call.get_arg(1) else {
                 continue;
             };
-            let Some(prop_id) = prop_id_arg.to_source_string(source) else {
+            let Some(prop_id) = prop_id_arg.location().as_str() else {
                 continue;
             };
 
@@ -320,11 +313,11 @@ impl UseGObjectClassInstallProperties {
             {
                 // Direct call pattern: g_object_class_install_property(...,
                 // g_param_spec_xxx(...))
-                let func_name = param_spec_call.function_name(source);
+                let func_name = param_spec_call.function_name();
                 let new_line_prefix = format!("{}[{}] = {} (", array_name, prop_id, func_name);
                 let target_column = indentation.len() + new_line_prefix.len();
 
-                let Some(param_spec_text) = param_spec_arg.to_source_string(source) else {
+                let Some(param_spec_text) = param_spec_arg.location().as_str() else {
                     continue;
                 };
                 (
@@ -334,7 +327,7 @@ impl UseGObjectClassInstallProperties {
             } else {
                 // Variable pattern: param_spec = g_param_spec_xxx(...);
                 // g_object_class_install_property(..., param_spec);
-                let Some(var_name) = param_spec_arg.to_source_string(source) else {
+                let Some(var_name) = param_spec_arg.location().as_str() else {
                     continue;
                 };
 
@@ -350,16 +343,14 @@ impl UseGObjectClassInstallProperties {
                     param_spec_vars.insert(var_name);
 
                     // Use the g_param_spec call from the assignment
-                    let func_name = g_param_spec_call.function_name(source);
+                    let func_name = g_param_spec_call.function_name();
                     let new_line_prefix = format!("{}[{}] = {} (", array_name, prop_id, func_name);
                     // Note: indentation is not included because it stays in place during
                     // replacement
-                    let assignment_indent = statement_location.extract_indentation(source);
+                    let assignment_indent = statement_location.extract_indentation();
                     let target_column = assignment_indent.len() + new_line_prefix.len();
 
-                    let Some(param_spec_text) =
-                        Expression::Call((*g_param_spec_call).clone()).to_source_string(source)
-                    else {
+                    let Some(param_spec_text) = g_param_spec_call.location.as_str() else {
                         continue;
                     };
 
@@ -372,14 +363,14 @@ impl UseGObjectClassInstallProperties {
                     );
                     fixes.push(Fix::new(
                         statement_location.start_byte,
-                        statement_location.find_semicolon_end(source),
+                        statement_location.find_semicolon_end(),
                         replacement,
                     ));
 
                     (String::new(), true) // Mark to delete install_property call
                 } else {
                     // Fallback - just use the variable name as-is
-                    let Some(param_spec_text) = param_spec_arg.to_source_string(source) else {
+                    let Some(param_spec_text) = param_spec_arg.location().as_str() else {
                         continue;
                     };
                     (param_spec_text.to_owned(), false)
@@ -396,13 +387,13 @@ impl UseGObjectClassInstallProperties {
 
             if delete_install_call {
                 // Delete the entire install_property call statement
-                fixes.push(Fix::delete_line(stmt.location(), source));
+                fixes.push(Fix::delete_line(stmt.location()));
             } else {
                 // Replace the statement with array assignment
                 let replacement = format!("{}[{}] = {};", array_name, prop_id, param_spec);
                 fixes.push(Fix::new(
                     stmt.location().start_byte,
-                    stmt.location().find_semicolon_end(source),
+                    stmt.location().find_semicolon_end(),
                     replacement,
                 ));
             }
@@ -413,14 +404,14 @@ impl UseGObjectClassInstallProperties {
             let Some(prop_id_arg) = call.get_arg(1) else {
                 continue;
             };
-            let Some(prop_id) = prop_id_arg.to_source_string(source) else {
+            let Some(prop_id) = prop_id_arg.location().as_str() else {
                 continue;
             };
 
             let Some(prop_name_arg) = call.get_arg(2) else {
                 continue;
             };
-            let Some(prop_name) = prop_name_arg.to_source_string(source) else {
+            let Some(prop_name) = prop_name_arg.location().as_str() else {
                 continue;
             };
             let prop_name = prop_name.trim_matches('"');
@@ -449,7 +440,7 @@ impl UseGObjectClassInstallProperties {
                 );
                 fixes.push(Fix::new(
                     stmt.location().start_byte,
-                    stmt.location().find_semicolon_end(source),
+                    stmt.location().find_semicolon_end(),
                     replacement,
                 ));
             }
@@ -463,7 +454,7 @@ impl UseGObjectClassInstallProperties {
                 .flat_map(Statement::iter_declarations)
                 .find(|decl| decl.name == var_name && decl.type_info.base_type == "GParamSpec")
             {
-                fixes.push(Fix::delete_line(&decl.location, source));
+                fixes.push(Fix::delete_line(&decl.location));
             }
         }
 
@@ -493,7 +484,7 @@ impl UseGObjectClassInstallProperties {
                 &[object_class_var, &n_props_name, &array_name],
             );
             let install_properties_call = format!("\n\n{}{}", indentation, call);
-            let last_stmt_end = last_stmt.location().find_semicolon_end(source);
+            let last_stmt_end = last_stmt.location().find_semicolon_end();
             fixes.push(Fix::new(
                 last_stmt_end,
                 last_stmt_end,
@@ -541,25 +532,6 @@ impl UseGObjectClassInstallProperties {
             }
         }
         None
-    }
-
-    /// Find the `=` sign before a value expression, including surrounding
-    /// whitespace
-    fn find_equals_before(&self, source: &[u8], value_start: usize) -> usize {
-        let mut pos = value_start;
-        // Skip whitespace before value
-        while pos > 0 && source[pos - 1].is_ascii_whitespace() {
-            pos -= 1;
-        }
-        // Skip the `=`
-        if pos > 0 && source[pos - 1] == b'=' {
-            pos -= 1;
-        }
-        // Skip whitespace before `=`
-        while pos > 0 && source[pos - 1] == b' ' {
-            pos -= 1;
-        }
-        pos
     }
 
     fn find_statement_containing_call<'a>(

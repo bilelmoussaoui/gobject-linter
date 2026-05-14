@@ -100,11 +100,11 @@ impl GObjectType {
     }
 
     /// Extract signals from a class_init function
-    pub fn extract_signals(&self, class_init_func: &FunctionDefItem, source: &[u8]) -> Vec<Signal> {
+    pub fn extract_signals(&self, class_init_func: &FunctionDefItem) -> Vec<Signal> {
         class_init_func
             .find_calls_matching(|name| name.starts_with("g_signal_new"))
             .iter()
-            .filter_map(|call| Signal::from_g_signal_new_call(call, source))
+            .filter_map(|call| Signal::from_g_signal_new_call(call))
             .collect()
     }
 }

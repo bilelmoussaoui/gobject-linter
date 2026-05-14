@@ -39,7 +39,7 @@ impl Rule for UnnecessaryNullCheck {
 
         for stmt in &func.body_statements {
             for if_stmt in stmt.iter_if_statements() {
-                self.check_if_statement(if_stmt, file, &file.source, violations);
+                self.check_if_statement(if_stmt, file, violations);
             }
         }
     }
@@ -50,7 +50,6 @@ impl UnnecessaryNullCheck {
         &self,
         if_stmt: &IfStatement,
         file: &FileModel,
-        source: &[u8],
         violations: &mut Vec<Violation>,
     ) {
         // Don't flag if there's an else branch — removing the if would also drop the
@@ -60,7 +59,7 @@ impl UnnecessaryNullCheck {
         }
 
         // Extract variable being checked (e.g., "ptr" from "ptr != NULL")
-        let Some(checked_var) = if_stmt.extract_null_check_variable(source) else {
+        let Some(checked_var) = if_stmt.extract_null_check_variable() else {
             return;
         };
 
@@ -101,8 +100,9 @@ impl UnnecessaryNullCheck {
         // Create a fix: replace the if statement with the call statement
         // Extract the statement text from the source (including the semicolon)
         let loc = expr_stmt.location();
-        let stmt_end = loc.find_semicolon_end(source);
-        let stmt_text = std::str::from_utf8(&source[loc.start_byte..stmt_end]).unwrap_or_default();
+        let stmt_end = loc.find_semicolon_end();
+        let stmt_loc = loc.with_byte_range(loc.start_byte, stmt_end);
+        let stmt_text = stmt_loc.as_str().unwrap_or_default();
 
         let fix = Fix::new(
             if_stmt.location.start_byte,

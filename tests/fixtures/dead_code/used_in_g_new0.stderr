@@ -1,1 +1,2 @@
+used_in_g_new0.c:3:1: dead_code: Type 'FuZipFirmwareWriteItem' is defined but never used
 used_in_g_new0.c:9:1: dead_code: Static function 'foo' is never used

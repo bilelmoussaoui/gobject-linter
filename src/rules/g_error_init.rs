@@ -70,7 +70,7 @@ impl GErrorInit {
             return;
         }
 
-        if self.first_use_is_assignment(&decl.name, following, &file.source) {
+        if self.first_use_is_assignment(&decl.name, following) {
             return;
         }
 
@@ -86,7 +86,7 @@ impl GErrorInit {
         ));
     }
 
-    fn first_use_is_assignment(&self, var: &str, stmts: &[Statement], source: &[u8]) -> bool {
+    fn first_use_is_assignment(&self, var: &str, stmts: &[Statement]) -> bool {
         for stmt in stmts {
             let mut references_var = false;
             stmt.visit_expressions(&mut |expr| {
@@ -97,7 +97,7 @@ impl GErrorInit {
             if !references_var {
                 continue;
             }
-            return stmt.is_assignment_to(var, |_| true, source);
+            return stmt.is_assignment_to(var, |_| true);
         }
         true
     }

@@ -60,7 +60,7 @@ impl Rule for UseGSourceOnce {
                     // Find the callback function definition and check if all returns are
                     // FALSE/G_SOURCE_REMOVE
                     if let Some(callback_fixes) = self.get_callback_fixes(callback_name, file) {
-                        let func_name = call.function_name(&file.source);
+                        let func_name = call.function_name();
                         let replacement = match func_name {
                             "g_idle_add" => "g_idle_add_once",
                             "g_timeout_add_seconds" => "g_timeout_add_seconds_once",
@@ -79,7 +79,7 @@ impl Rule for UseGSourceOnce {
                                     let Argument::Expression(expr) = arg;
                                     if let Expression::Cast(cast) = &**expr
                                         && let Some(callback_name) =
-                                            cast.operand.to_source_string(&file.source)
+                                            cast.operand.location().as_str()
                                     {
                                         return Some(format!(
                                             "(GSourceOnceFunc) {}",
@@ -87,7 +87,7 @@ impl Rule for UseGSourceOnce {
                                         ));
                                     }
                                 }
-                                arg.to_source_string(&file.source).map(ToOwned::to_owned)
+                                arg.to_source_string().map(ToOwned::to_owned)
                             })
                             .collect::<Vec<_>>()
                             .join(", ");
@@ -146,10 +146,7 @@ impl UseGSourceOnce {
             }
 
             for ret_expr in return_exprs {
-                fixes.push(Fix::delete_line_and_leading_blank(
-                    ret_expr.location(),
-                    &file.source,
-                ));
+                fixes.push(Fix::delete_line_and_leading_blank(ret_expr.location()));
             }
 
             found_definition = true;

@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use serde::Serialize;
@@ -189,7 +190,7 @@ pub struct FileModel {
     /// The raw source code of this file - available for detailed pattern
     /// matching
     #[serde(skip)]
-    pub source: Vec<u8>,
+    pub source: Arc<Vec<u8>>,
 }
 
 impl FileModel {
@@ -197,7 +198,7 @@ impl FileModel {
         Self {
             path,
             top_level_items: Vec::new(),
-            source: Vec::new(),
+            source: Arc::new(Vec::new()),
         }
     }
 
@@ -210,7 +211,7 @@ impl FileModel {
                     path,
                     is_system,
                     location,
-                }) => Some((path.as_str(), *is_system, *location)),
+                }) => Some((path.as_str(), *is_system, location.clone())),
                 _ => None,
             })
     }
@@ -374,7 +375,7 @@ impl FileModel {
                         && let Expression::Identifier(index_id) = &*sub.index
                         && signal_names.contains(&index_id.name.as_str())
                         && let Expression::Call(call) = &*a.rhs
-                        && call.function_contains("g_signal_new", &self.source)
+                        && call.function_contains("g_signal_new")
                     {
                         true
                     } else {
@@ -446,7 +447,7 @@ impl FileModel {
         self.iter_all_gobject_types().find(|gt| {
             // Match by property enum values in assignments
             let has_matching_property = gt.properties.iter().any(|a| {
-                a.get_installed_enum_value(&self.source)
+                a.get_installed_enum_value()
                     .is_some_and(|ev| property_names.contains(&ev))
             });
             if has_matching_property {
@@ -464,7 +465,7 @@ impl FileModel {
                     let install_calls = func.find_install_properties_calls();
                     return install_calls.iter().any(|call| {
                         call.get_arg(1)
-                            .and_then(|arg| arg.to_source_string(&self.source))
+                            .and_then(|arg| arg.location().as_str())
                             .is_some_and(|name| name == sentinel)
                     });
                 }
@@ -551,7 +552,7 @@ impl FileModel {
     pub fn resolve_gobject_types(&mut self) {
         self.extract_manual_declare_types();
         Self::extract_manual_gobject_types(&mut self.top_level_items);
-        Self::resolve_items(&mut self.top_level_items, &self.source);
+        Self::resolve_items(&mut self.top_level_items);
     }
 
     /// Scan for manual `#define TYPE_MACRO (prefix_get_type ())` patterns
@@ -584,7 +585,7 @@ impl FileModel {
                 }) => Some(DefineInfo {
                     name: name.clone(),
                     value: value.clone(),
-                    location: *location,
+                    location: location.clone(),
                 }),
                 _ => None,
             })
@@ -670,7 +671,7 @@ impl FileModel {
                     doc: None,
                     properties: Vec::new(),
                     signals: Vec::new(),
-                    location: define.location,
+                    location: define.location.clone(),
                 })),
             ));
         }
@@ -800,7 +801,7 @@ impl FileModel {
                     doc: None,
                     properties: Vec::new(),
                     signals: Vec::new(),
-                    location: func.location,
+                    location: func.location.clone(),
                 })),
             ));
         }
@@ -857,7 +858,7 @@ impl FileModel {
         }
     }
 
-    fn resolve_items(items: &mut [TopLevelItem], source: &[u8]) {
+    fn resolve_items(items: &mut [TopLevelItem]) {
         for i in 0..items.len() {
             match &items[i] {
                 TopLevelItem::Preprocessor(PreprocessorDirective::GObjectType(gt)) => {
@@ -881,8 +882,8 @@ impl FileModel {
                             _ => unreachable!(),
                         };
 
-                        let properties = func.find_param_spec_assignments(source, &type_name);
-                        let signals = func.find_signal_registrations(source, &type_name);
+                        let properties = func.find_param_spec_assignments(&type_name);
+                        let signals = func.find_signal_registrations(&type_name);
                         if let TopLevelItem::Preprocessor(PreprocessorDirective::GObjectType(gt)) =
                             &mut items[i]
                         {
@@ -913,7 +914,7 @@ impl FileModel {
                     body,
                     ..
                 }) => {
-                    Self::resolve_items(body, source);
+                    Self::resolve_items(body);
                 }
                 _ => {}
             }

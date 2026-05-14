@@ -81,7 +81,7 @@ impl StrcmpExplicitComparison {
                     .function_name_str()
                     .is_some_and(|name| self.is_str_compare(name)) =>
             {
-                let func_name = call.function_name(&file.source);
+                let func_name = call.function_name();
                 // Fix: add "!= 0" after the call
                 let fix = Fix::new(
                     call.location.end_byte,
@@ -106,7 +106,7 @@ impl StrcmpExplicitComparison {
                         .function_name_str()
                         .is_some_and(|name| self.is_str_compare(name))
                 {
-                    let func_name = call.function_name(&file.source);
+                    let func_name = call.function_name();
                     // Fix: remove the '!' and add ' == 0' after the call
                     let fixes = vec![
                         // Remove the '!' operator

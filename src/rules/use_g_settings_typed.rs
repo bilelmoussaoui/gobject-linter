@@ -88,15 +88,15 @@ impl UseGSettingsTyped {
 
         // Extract the pattern from g_variant_new
         let Some((_format_str, typed_func, value_args)) =
-            self.extract_variant_pattern(variant_call, file)
+            self.extract_variant_pattern(variant_call)
         else {
             return;
         };
 
-        let Some(settings_arg) = call.get_arg_text(0, &file.source) else {
+        let Some(settings_arg) = call.get_arg_text(0) else {
             return;
         };
-        let Some(key_arg) = call.get_arg_text(1, &file.source) else {
+        let Some(key_arg) = call.get_arg_text(1) else {
             return;
         };
 
@@ -147,10 +147,10 @@ impl UseGSettingsTyped {
             return;
         }
 
-        let Some(settings_arg) = inner_call.get_arg_text(0, &file.source) else {
+        let Some(settings_arg) = inner_call.get_arg_text(0) else {
             return;
         };
-        let Some(key_arg) = inner_call.get_arg_text(1, &file.source) else {
+        let Some(key_arg) = inner_call.get_arg_text(1) else {
             return;
         };
 
@@ -195,7 +195,6 @@ impl UseGSettingsTyped {
     fn extract_variant_pattern<'a>(
         &self,
         variant_call: &'a CallExpression,
-        file: &'a FileModel,
     ) -> Option<(String, &'static str, Vec<&'a str>)> {
         // Need at least 1 argument (the format string)
         if variant_call.arguments.is_empty() {
@@ -229,7 +228,7 @@ impl UseGSettingsTyped {
         // Collect remaining arguments (after format string)
         let rest_args: Vec<&str> = variant_call.arguments[1..]
             .iter()
-            .filter_map(|arg| arg.to_source_string(&file.source))
+            .filter_map(|arg| arg.to_source_string())
             .collect();
 
         Some((format_str.to_string(), typed_func, rest_args))

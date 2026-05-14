@@ -64,7 +64,7 @@ impl Rule for GErrorLeak {
                     && decl.type_info.is_pointer()
                     && decl.initializer.as_ref().is_some_and(Expression::is_null)
                 {
-                    gerror_vars.push((decl.name.as_str(), decl.location));
+                    gerror_vars.push((decl.name.as_str(), &decl.location));
                 }
             }
         }
@@ -84,7 +84,7 @@ impl Rule for GErrorLeak {
             if !is_freed && !is_propagated && !has_noreturn {
                 violations.push(self.violation_at(
                     &file.path,
-                    &loc,
+                    loc,
                     format!(
                         "GError variable '{}' may be leaked; it should be freed with g_error_free/g_clear_error or propagated with g_propagate_error/g_task_return_error/g_steal_pointer",
                         var_name

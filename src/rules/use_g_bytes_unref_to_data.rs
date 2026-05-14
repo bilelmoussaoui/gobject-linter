@@ -57,16 +57,13 @@ impl UseGBytesUnrefToData {
     ) {
         // First statement: dest = g_bytes_get_data(bytes, &size)
         let Some((dest, bytes_var, size_arg, assignment, _call1)) =
-            self.extract_bytes_get_data(stmt1, &file.source)
+            self.extract_bytes_get_data(stmt1)
         else {
             return;
         };
 
         // Second statement: g_bytes_unref(bytes)
-        if self
-            .extract_bytes_unref(stmt2, bytes_var, &file.source)
-            .is_none()
-        {
+        if self.extract_bytes_unref(stmt2, bytes_var).is_none() {
             return;
         };
 
@@ -80,12 +77,12 @@ impl UseGBytesUnrefToData {
             bytes_var, size_arg
         );
         // Use two separate fixes to preserve comments between statements
-        let stmt1_end = stmt1.location().find_semicolon_end(&file.source);
+        let stmt1_end = stmt1.location().find_semicolon_end();
         let fixes = vec![
             // Replace the first statement with the new call
             Fix::new(stmt1.location().start_byte, stmt1_end, replacement),
             // Delete the entire second line
-            Fix::delete_line(stmt2.location(), &file.source),
+            Fix::delete_line(stmt2.location()),
         ];
 
         violations.push(self.violation_with_fixes_at(
@@ -101,7 +98,6 @@ impl UseGBytesUnrefToData {
     fn extract_bytes_get_data<'a>(
         &self,
         stmt: &'a Statement,
-        source: &'a [u8],
     ) -> Option<(
         &'a str,
         &'a str,
@@ -136,10 +132,10 @@ impl UseGBytesUnrefToData {
         }
 
         // Extract argument text from source
-        let bytes_var = call.get_arg_text(0, source)?;
-        let size_arg = call.get_arg_text(1, source)?;
+        let bytes_var = call.get_arg_text(0)?;
+        let size_arg = call.get_arg_text(1)?;
 
-        let dest_var = assignment.lhs_as_text(source);
+        let dest_var = assignment.lhs_as_text();
         if dest_var.is_empty() {
             return None;
         }
@@ -149,12 +145,7 @@ impl UseGBytesUnrefToData {
 
     /// Extract call from: g_bytes_unref(expected_var)
     /// Returns the end_byte of the statement (including semicolon)
-    fn extract_bytes_unref(
-        &self,
-        stmt: &Statement,
-        expected_var: &str,
-        source: &[u8],
-    ) -> Option<usize> {
+    fn extract_bytes_unref(&self, stmt: &Statement, expected_var: &str) -> Option<usize> {
         let Statement::Expression(expr_stmt) = stmt else {
             return None;
         };
@@ -173,11 +164,11 @@ impl UseGBytesUnrefToData {
         }
 
         // Check argument matches expected variable
-        let arg_text = call.get_arg_text(0, source)?;
+        let arg_text = call.get_arg_text(0)?;
         if arg_text != expected_var {
             return None;
         }
 
-        Some(expr_stmt.location().find_semicolon_end(source))
+        Some(expr_stmt.location().find_semicolon_end())
     }
 }

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use tree_sitter::Node;
 
 use crate::{
@@ -68,6 +70,7 @@ impl Parser {
             node.start_position().column + 1,
             start_byte,
             end_byte,
+            Arc::clone(&self.current_source),
         );
 
         let mut type_info = TypeInfo::new(&full_text, location);

@@ -59,17 +59,16 @@ impl Rule for UsePragmaOnce {
                 let mut fixes = Vec::new();
 
                 // Fix 1: Delete #ifndef line (with following blank line if any)
-                fixes.push(Fix::delete_line_and_trailing_blank(
-                    &ifndef_loc,
-                    &file.source,
-                ));
+                let ifndef_fix_loc =
+                    ifndef_loc.with_byte_range(ifndef_loc.start_byte, ifndef_loc.start_byte);
+                fixes.push(Fix::delete_line_and_trailing_blank(&ifndef_fix_loc));
 
                 // Fix 2: Replace #define line with #pragma once
-                let (define_start, define_end) = define_loc.find_line_bounds(&file.source);
+                let (define_start, define_end) = define_loc.find_line_bounds();
                 fixes.push(Fix::new(define_start, define_end, "#pragma once\n"));
 
                 // Fix 3: Remove the entire #endif line (with preceding blank line if any)
-                fixes.push(Fix::delete_line_and_leading_blank(&endif_loc, &file.source));
+                fixes.push(Fix::delete_line_and_leading_blank(&endif_loc));
 
                 violations.push(self.violation_with_fixes_at(
                     path,
@@ -103,22 +102,8 @@ impl UsePragmaOnce {
                     // Found #ifndef - check it contains matching #define as first item
                     let define_loc = self.find_matching_define(body, name)?;
 
-                    // Create location for #endif - it's at the end of the conditional
-                    // The location.end_byte points to after the #endif directive
-                    let endif_loc = SourceLocation::new(
-                        0, // Line/column don't matter for our use case
-                        0,
-                        location.end_byte,
-                        location.end_byte,
-                    );
-
-                    // Create location for #ifndef - it's at the start
-                    let ifndef_loc = SourceLocation::new(
-                        location.line,
-                        location.column,
-                        location.start_byte,
-                        location.start_byte,
-                    );
+                    let endif_loc = location.with_byte_range(location.end_byte, location.end_byte);
+                    let ifndef_loc = location.clone();
 
                     Some((ifndef_loc, define_loc, endif_loc, name.as_str()))
                 }
@@ -143,19 +128,22 @@ impl UsePragmaOnce {
             return None;
         }
 
-        non_comment_items.first().and_then(|item| match item {
-            TopLevelItem::Preprocessor(PreprocessorDirective::Define {
-                name,
-                value,
-                location,
-            }) => {
-                if name == guard_name && value.is_none() {
-                    Some(*location)
-                } else {
-                    None
+        non_comment_items
+            .first()
+            .and_then(|item| match item {
+                TopLevelItem::Preprocessor(PreprocessorDirective::Define {
+                    name,
+                    value,
+                    location,
+                }) => {
+                    if name == guard_name && value.is_none() {
+                        Some(location)
+                    } else {
+                        None
+                    }
                 }
-            }
-            _ => None,
-        })
+                _ => None,
+            })
+            .cloned()
     }
 }

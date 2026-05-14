@@ -127,7 +127,7 @@ impl GParamSpecNullNickBlurb {
             &call.location,
             format!(
                 "{} should have NULL for {}",
-                call.function_name(&file.source),
+                call.function_name(),
                 issues.join(" and ")
             ),
             fixes,

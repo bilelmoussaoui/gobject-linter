@@ -49,8 +49,7 @@ impl Rule for UseGGnucFlagEnum {
             return;
         }
 
-        let source = &file.source;
-        let fix = self.generate_fix(enum_info, source, enum_name);
+        let fix = self.generate_fix(enum_info, enum_name);
 
         violations.push(self.violation_with_fix_at(
             &file.path,
@@ -65,8 +64,8 @@ impl Rule for UseGGnucFlagEnum {
 }
 
 impl UseGGnucFlagEnum {
-    fn generate_fix(&self, enum_info: &EnumInfo, source: &[u8], enum_name: &str) -> Fix {
-        let typedef_text = enum_info.location.as_str(source).unwrap_or("");
+    fn generate_fix(&self, enum_info: &EnumInfo, enum_name: &str) -> Fix {
+        let typedef_text = enum_info.location.as_str().unwrap_or("");
 
         if let Some(closing_brace_pos) = typedef_text.rfind('}') {
             let after_brace = &typedef_text[closing_brace_pos + 1..];

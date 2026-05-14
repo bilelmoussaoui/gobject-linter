@@ -45,20 +45,11 @@ impl Rule for UseGObjectNotifyByPspec {
         violations: &mut Vec<Violation>,
     ) {
         for (path, file) in ast_context.iter_all_files() {
-            let source = &file.source;
             let property_map = self.build_property_map(file);
 
             for func in file.iter_function_definitions() {
                 for call in func.find_calls(&["g_object_notify"]) {
-                    self.check_call(
-                        path,
-                        call,
-                        source,
-                        &property_map,
-                        func,
-                        &config.style,
-                        violations,
-                    );
+                    self.check_call(path, call, &property_map, func, &config.style, violations);
                 }
             }
         }
@@ -71,7 +62,6 @@ impl UseGObjectNotifyByPspec {
         &self,
         file_path: &std::path::Path,
         call: &CallExpression,
-        source: &[u8],
         property_map: &HashMap<&str, Vec<PropertyEntry>>,
         func: &FunctionDefItem,
         style: &crate::config::Style,
@@ -134,7 +124,7 @@ impl UseGObjectNotifyByPspec {
             let Some(obj_expr) = call.get_arg(0) else {
                 return;
             };
-            let Some(obj_str) = obj_expr.to_source_string(source) else {
+            let Some(obj_str) = obj_expr.location().as_str() else {
                 return;
             };
 

@@ -69,7 +69,7 @@ impl Rule for UseGSourceConstants {
         for (path, file) in ast_context.iter_c_files() {
             for func in file.iter_function_definitions() {
                 if callbacks.contains(func.name.as_str()) {
-                    self.check_statements(path, &func.body_statements, &file.source, violations);
+                    self.check_statements(path, &func.body_statements, violations);
                 }
             }
         }
@@ -81,13 +81,12 @@ impl UseGSourceConstants {
         &self,
         file_path: &std::path::Path,
         statements: &[Statement],
-        source: &[u8],
         violations: &mut Vec<Violation>,
     ) {
         for stmt in statements {
             for ret_stmt in stmt.iter_returns() {
                 if let Some(value) = &ret_stmt.value {
-                    self.check_return_value(file_path, value, source, violations);
+                    self.check_return_value(file_path, value, violations);
                 }
             }
         }
@@ -97,7 +96,6 @@ impl UseGSourceConstants {
         &self,
         file_path: &std::path::Path,
         expr: &Expression,
-        _source: &[u8],
         violations: &mut Vec<Violation>,
     ) {
         expr.walk(&mut |e| {

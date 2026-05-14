@@ -54,13 +54,7 @@ impl Rule for IncludeOrder {
             .unwrap_or("config.h");
 
         for (path, file) in ast_context.iter_all_files() {
-            self.check_include_groups(
-                &file.top_level_items,
-                path,
-                &file.source,
-                config_header,
-                violations,
-            );
+            self.check_include_groups(&file.top_level_items, path, config_header, violations);
         }
     }
 }
@@ -73,7 +67,6 @@ impl IncludeOrder {
         &self,
         items: &[TopLevelItem],
         file_path: &Path,
-        source: &[u8],
         config_header: &str,
         violations: &mut Vec<Violation>,
     ) {
@@ -90,12 +83,12 @@ impl IncludeOrder {
                     top_level_includes.push(Include {
                         path: path.clone(),
                         is_system: *is_system,
-                        location: *location,
+                        location: location.clone(),
                     });
                 }
                 TopLevelItem::Preprocessor(PreprocessorDirective::Conditional { body, .. }) => {
                     // Recursively check includes within the conditional block
-                    self.check_include_groups(body, file_path, source, config_header, violations);
+                    self.check_include_groups(body, file_path, config_header, violations);
                 }
                 _ => {}
             }
@@ -106,7 +99,6 @@ impl IncludeOrder {
             self.check_and_fix_group_scattered(
                 &top_level_includes,
                 file_path,
-                source,
                 config_header,
                 violations,
             );
@@ -119,7 +111,6 @@ impl IncludeOrder {
         &self,
         includes: &[Include],
         file_path: &Path,
-        source: &[u8],
         config_header: &str,
         violations: &mut Vec<Violation>,
     ) {
@@ -144,16 +135,7 @@ impl IncludeOrder {
 
         // Step 3: Determine spacing after the last include (to preserve it)
         // The last include's end_byte points right after its newline
-        let pos_after_last = last_inc.location.end_byte;
-        let trailing_newlines = {
-            let mut count = 0;
-            let mut check_pos = pos_after_last;
-            while check_pos < source.len() && source[check_pos] == b'\n' {
-                count += 1;
-                check_pos += 1;
-            }
-            count
-        };
+        let trailing_newlines = last_inc.location.count_trailing_newlines();
 
         // Step 4: Generate sorted includes with preserved trailing spacing
         let sorted_text = self.generate_sorted_includes_text(
@@ -169,10 +151,7 @@ impl IncludeOrder {
 
         // Replace first include with all sorted includes (including trailing newlines)
         // Also consume any blank lines immediately after the first include
-        let mut first_end = first_inc.location.end_byte;
-        while first_end < source.len() && source[first_end] == b'\n' {
-            first_end += 1;
-        }
+        let first_end = first_inc.location.end_byte + first_inc.location.count_trailing_newlines();
         fixes.push(Fix::new(
             first_inc.location.start_byte,
             first_end,
@@ -182,11 +161,7 @@ impl IncludeOrder {
         // Delete all other includes
         // Consume any blank lines immediately after each deleted include
         for inc in includes.iter().skip(1) {
-            let mut end = inc.location.end_byte;
-            // Consume blank lines after this include
-            while end < source.len() && source[end] == b'\n' {
-                end += 1;
-            }
+            let end = inc.location.end_byte + inc.location.count_trailing_newlines();
             fixes.push(Fix::delete(inc.location.start_byte, end));
         }
 

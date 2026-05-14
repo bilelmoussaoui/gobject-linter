@@ -214,8 +214,6 @@ impl UseClearFunctions {
         statements: &[Statement],
         violations: &mut Vec<Violation>,
     ) {
-        let source = &file.source;
-
         // Check consecutive pairs
         let mut i = 0;
         while i < statements.len() {
@@ -296,7 +294,7 @@ impl UseClearFunctions {
         // handle_id: check for unnecessary braces around single g_clear_handle_id
         for stmt in statements {
             if let Statement::If(if_stmt) = stmt {
-                self.check_unnecessary_braces(if_stmt, file, source, violations);
+                self.check_unnecessary_braces(if_stmt, file, violations);
             }
         }
     }
@@ -309,7 +307,6 @@ impl UseClearFunctions {
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) -> Option<bool> {
-        let source = &file.source;
         let call = stmt1.extract_call()?;
 
         for mapping in CLEAR_MAPPINGS {
@@ -328,12 +325,12 @@ impl UseClearFunctions {
             let var_name = match mapping.replacement {
                 ClearReplacement::WeakPointer => {
                     let Argument::Expression(arg_expr) = call.arguments.get(1)?;
-                    self.extract_weak_pointer_var(arg_expr, source)?
+                    self.extract_weak_pointer_var(arg_expr)?
                 }
-                _ => call.get_arg(0)?.to_source_string(source)?,
+                _ => call.get_arg(0)?.location().as_str()?,
             };
 
-            if !stmt2.is_assignment_to(var_name, |expr| mapping.null_check.matches(expr), source) {
+            if !stmt2.is_assignment_to(var_name, |expr| mapping.null_check.matches(expr)) {
                 continue;
             }
 
@@ -344,10 +341,10 @@ impl UseClearFunctions {
                 mapping.source_func
             );
 
-            let stmt1_end = stmt1.location().find_semicolon_end(source);
+            let stmt1_end = stmt1.location().find_semicolon_end();
             let fixes = vec![
                 Fix::new(stmt1.location().start_byte, stmt1_end, replacement),
-                Fix::delete_line(stmt2.location(), source),
+                Fix::delete_line(stmt2.location()),
             ];
 
             violations.push(self.violation_with_fixes_at(
@@ -369,13 +366,11 @@ impl UseClearFunctions {
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) -> bool {
-        let source = &file.source;
-
         if self.has_logical_operators(&if_stmt.condition) {
             return false;
         }
 
-        let Some(checked_var) = self.find_variable_in_condition(&if_stmt.condition, source) else {
+        let Some(checked_var) = self.find_variable_in_condition(&if_stmt.condition) else {
             return false;
         };
 
@@ -383,13 +378,11 @@ impl UseClearFunctions {
             return false;
         }
 
-        let Some(mapping) =
-            self.find_unref_in_body(&if_stmt.then_body, checked_var, config, source)
-        else {
+        let Some(mapping) = self.find_unref_in_body(&if_stmt.then_body, checked_var, config) else {
             return false;
         };
 
-        if !self.has_null_assignment(&if_stmt.then_body, checked_var, source, mapping.null_check) {
+        if !self.has_null_assignment(&if_stmt.then_body, checked_var, mapping.null_check) {
             return false;
         }
 
@@ -410,24 +403,20 @@ impl UseClearFunctions {
         true
     }
 
-    fn find_variable_in_condition<'a>(
-        &self,
-        expr: &Expression,
-        source: &'a [u8],
-    ) -> Option<&'a str> {
-        if let Some(var) = expr.extract_variable_name(source) {
+    fn find_variable_in_condition<'a>(&self, expr: &'a Expression) -> Option<&'a str> {
+        if let Some(var) = expr.extract_variable_name() {
             return Some(var);
         }
 
         match expr {
             Expression::Binary(bin) => {
-                if let Some(var) = self.find_variable_in_condition(&bin.left, source) {
+                if let Some(var) = self.find_variable_in_condition(&bin.left) {
                     return Some(var);
                 }
-                self.find_variable_in_condition(&bin.right, source)
+                self.find_variable_in_condition(&bin.right)
             }
-            Expression::Unary(unary) => self.find_variable_in_condition(&unary.operand, source),
-            _ => expr.to_source_string(source),
+            Expression::Unary(unary) => self.find_variable_in_condition(&unary.operand),
+            _ => expr.location().as_str(),
         }
     }
 
@@ -448,7 +437,6 @@ impl UseClearFunctions {
         statements: &[Statement],
         var_name: &str,
         config: &Config,
-        source: &[u8],
     ) -> Option<ClearMapping> {
         for stmt in statements {
             if let Some(call) = stmt.extract_call() {
@@ -467,7 +455,7 @@ impl UseClearFunctions {
                     }
                     if call.is_function(mapping.source_func) {
                         for arg in &call.arguments {
-                            if let Some(arg_text) = arg.to_source_string(source)
+                            if let Some(arg_text) = arg.to_source_string()
                                 && arg_text.contains(var_name)
                             {
                                 return Some(*mapping);
@@ -484,12 +472,11 @@ impl UseClearFunctions {
         &self,
         statements: &[Statement],
         var_name: &str,
-        source: &[u8],
         null_check: NullCheck,
     ) -> bool {
         statements
             .iter()
-            .any(|stmt| stmt.is_assignment_to(var_name, |expr| null_check.matches(expr), source))
+            .any(|stmt| stmt.is_assignment_to(var_name, |expr| null_check.matches(expr)))
     }
 
     fn try_handle_id_if_pattern(
@@ -502,9 +489,7 @@ impl UseClearFunctions {
         let Statement::If(if_stmt) = stmt else {
             return false;
         };
-        let source = &file.source;
-
-        let conversions = self.check_handle_cleanup_then_zero(config, file, &if_stmt.then_body);
+        let conversions = self.check_handle_cleanup_then_zero(config, &if_stmt.then_body);
 
         if conversions.is_empty() {
             return false;
@@ -512,16 +497,16 @@ impl UseClearFunctions {
 
         let stmt_count = if_stmt.then_body.len();
         let has_else = if_stmt.else_body.is_some();
-        let cond_id = if_stmt.extract_nonzero_check_variable(source);
+        let cond_id = if_stmt.extract_nonzero_check_variable();
 
         for (var_name, mapping, first_loc, second_loc) in conversions {
-            let replacement = format_replacement(&mapping, var_name, None, &config.style);
+            let replacement = format_replacement(&mapping, &var_name, None, &config.style);
             let message = format!(
                 "Use {} instead of {} and zero assignment",
                 replacement.trim_end_matches(';'),
                 mapping.source_func
             );
-            let can_remove_if = !has_else && cond_id == Some(var_name) && stmt_count == 2;
+            let can_remove_if = !has_else && cond_id == Some(var_name.as_str()) && stmt_count == 2;
 
             let fix = if can_remove_if {
                 Fix::new(
@@ -530,24 +515,19 @@ impl UseClearFunctions {
                     replacement,
                 )
             } else if stmt_count == 2 {
-                let first_start = if_stmt.then_body[0].location().start_byte;
-                let (mut brace_start, brace_end) =
-                    SourceLocation::find_braces_around(first_start, source);
-
-                while brace_start > 0 && source[brace_start - 1] != b'\n' {
-                    brace_start -= 1;
-                }
-                brace_start = brace_start.saturating_sub(1);
-
-                let brace_location = SourceLocation::new(0, 0, brace_start + 1, brace_start + 1);
-                let indent = brace_location.extract_line_indentation(source);
+                let first_loc = if_stmt.then_body[0].location();
+                let (brace_start, brace_end) = first_loc.find_braces_around();
+                let brace_loc = first_loc.with_byte_range(brace_start, brace_start);
+                let (line_start, _) = brace_loc.find_line_bounds();
+                let indent = brace_loc.extract_line_indentation();
+                let fix_start = line_start.saturating_sub(1);
                 let formatted_replacement = format!("\n{}{}", indent, replacement);
 
-                Fix::new(brace_start, brace_end, formatted_replacement)
+                Fix::new(fix_start, brace_end, formatted_replacement)
             } else {
                 Fix::new(
                     first_loc.start_byte,
-                    second_loc.find_semicolon_end(source),
+                    second_loc.find_semicolon_end(),
                     replacement,
                 )
             };
@@ -557,32 +537,34 @@ impl UseClearFunctions {
         true
     }
 
-    fn check_handle_cleanup_then_zero<'a>(
+    fn check_handle_cleanup_then_zero(
         &self,
         config: &Config,
-        file: &'a FileModel,
         statements: &[Statement],
-    ) -> Vec<(&'a str, ClearMapping, SourceLocation, SourceLocation)> {
+    ) -> Vec<(String, ClearMapping, SourceLocation, SourceLocation)> {
         let mut results = Vec::new();
 
         Statement::for_each_pair(statements, |first, second| {
-            if let Some((var_name, mapping)) =
-                self.extract_handle_cleanup(first, config, &file.source)
-                && second.is_assignment_to(var_name, Expression::is_zero, &file.source)
+            if let Some((var_name, mapping)) = self.extract_handle_cleanup(first, config)
+                && second.is_assignment_to(&var_name, Expression::is_zero)
             {
-                results.push((var_name, mapping, *first.location(), *second.location()));
+                results.push((
+                    var_name,
+                    mapping,
+                    first.location().clone(),
+                    second.location().clone(),
+                ));
             }
         });
 
         results
     }
 
-    fn extract_handle_cleanup<'a>(
+    fn extract_handle_cleanup(
         &self,
         stmt: &Statement,
         config: &Config,
-        source: &'a [u8],
-    ) -> Option<(&'a str, ClearMapping)> {
+    ) -> Option<(String, ClearMapping)> {
         let call = stmt.extract_call()?;
         let func_name = call.function_name_str()?;
 
@@ -593,7 +575,7 @@ impl UseClearFunctions {
         })?;
 
         let arg_expr = call.get_arg(0)?;
-        let var_name = arg_expr.location().as_str(source)?.trim();
+        let var_name = arg_expr.location().as_str()?.trim().to_owned();
 
         Some((var_name, *mapping))
     }
@@ -602,7 +584,6 @@ impl UseClearFunctions {
         &self,
         if_stmt: &IfStatement,
         file: &FileModel,
-        source: &[u8],
         violations: &mut Vec<Violation>,
     ) {
         if if_stmt.then_body.len() == 1
@@ -610,17 +591,15 @@ impl UseClearFunctions {
             && let Statement::Expression(expr_stmt) = &if_stmt.then_body[0]
             && let Expression::Call(call) = expr_stmt.as_ref()
             && call.is_function("g_clear_handle_id")
-            && let Some(cond_var) = if_stmt.extract_nonzero_check_variable(source)
-            && let Some(cleared_var) = call
-                .get_arg_text(0, source)
-                .and_then(|s| s.strip_prefix('&'))
+            && let Some(cond_var) = if_stmt.extract_nonzero_check_variable()
+            && let Some(cleared_var) = call.get_arg_text(0).and_then(|s| s.strip_prefix('&'))
             && cond_var == cleared_var
         {
-            let call_text = call.location.as_str(source).unwrap_or("");
+            let call_text = call.location.as_str().unwrap_or("");
             let loc = if_stmt.then_body[0].location();
             let fix = Fix::new(
                 loc.start_byte,
-                loc.find_semicolon_end(source),
+                loc.find_semicolon_end(),
                 format!("{};", call_text),
             );
 
@@ -653,7 +632,7 @@ impl UseClearFunctions {
             return false;
         }
 
-        let Some(guarded_id) = if_stmt.extract_nonzero_check_variable(&file.source) else {
+        let Some(guarded_id) = if_stmt.extract_nonzero_check_variable() else {
             return false;
         };
 
@@ -661,9 +640,7 @@ impl UseClearFunctions {
             return false;
         }
 
-        let Some((obj, handler_id)) =
-            self.extract_disconnect_args(&if_stmt.then_body[0], &file.source)
-        else {
+        let Some((obj, handler_id)) = self.extract_disconnect_args(&if_stmt.then_body[0]) else {
             return false;
         };
 
@@ -671,7 +648,7 @@ impl UseClearFunctions {
             return false;
         }
 
-        if !self.is_zero_assign(&if_stmt.then_body[1], handler_id, &file.source) {
+        if !self.is_zero_assign(&if_stmt.then_body[1], handler_id) {
             return false;
         }
 
@@ -703,11 +680,11 @@ impl UseClearFunctions {
             None => return false,
         };
 
-        let Some((obj, handler_id)) = self.extract_disconnect_args(s1, &file.source) else {
+        let Some((obj, handler_id)) = self.extract_disconnect_args(s1) else {
             return false;
         };
 
-        if !self.is_zero_assign(s2, handler_id, &file.source) {
+        if !self.is_zero_assign(s2, handler_id) {
             return false;
         }
 
@@ -716,11 +693,11 @@ impl UseClearFunctions {
             "Use {} instead of g_signal_handler_disconnect and zeroing the ID",
             replacement.trim_end_matches(';')
         );
-        let s1_end = s1.location().find_semicolon_end(&file.source);
+        let s1_end = s1.location().find_semicolon_end();
 
         let fixes = vec![
             Fix::new(s1.location().start_byte, s1_end, replacement),
-            Fix::delete_line(s2.location(), &file.source),
+            Fix::delete_line(s2.location()),
         ];
 
         violations.push(self.violation_with_fixes_at(&file.path, s1.location(), message, fixes));
@@ -740,7 +717,7 @@ impl UseClearFunctions {
             None => return false,
         };
 
-        let Some((obj, handler_id)) = self.extract_disconnect_args(stmt, &file.source) else {
+        let Some((obj, handler_id)) = self.extract_disconnect_args(stmt) else {
             return false;
         };
 
@@ -753,9 +730,7 @@ impl UseClearFunctions {
             return false;
         }
 
-        if self.is_freed_in_stmts(all_stmts, base, &file.source)
-            || self.is_freed_in_stmts(all_stmts, obj, &file.source)
-        {
+        if self.is_freed_in_stmts(all_stmts, base) || self.is_freed_in_stmts(all_stmts, obj) {
             return false;
         }
 
@@ -764,7 +739,7 @@ impl UseClearFunctions {
             "Use {} instead of g_signal_handler_disconnect (also zeroes the stored ID)",
             replacement.trim_end_matches(';')
         );
-        let stmt_end = stmt.location().find_semicolon_end(&file.source);
+        let stmt_end = stmt.location().find_semicolon_end();
         let fix = Fix::new(stmt.location().start_byte, stmt_end, replacement);
 
         violations.push(self.violation_with_fix_at(&file.path, stmt.location(), message, fix));
@@ -780,11 +755,7 @@ impl UseClearFunctions {
             .copied()
     }
 
-    fn extract_disconnect_args<'a>(
-        &self,
-        stmt: &Statement,
-        source: &'a [u8],
-    ) -> Option<(&'a str, &'a str)> {
+    fn extract_disconnect_args<'a>(&self, stmt: &'a Statement) -> Option<(&'a str, &'a str)> {
         let call = stmt.extract_call()?;
 
         if !call.is_function("g_signal_handler_disconnect") {
@@ -795,13 +766,13 @@ impl UseClearFunctions {
             return None;
         }
 
-        let obj = call.get_arg(0)?.extract_variable_name(source)?;
-        let handler_id = call.get_arg(1)?.extract_variable_name(source)?;
+        let obj = call.get_arg(0)?.extract_variable_name()?;
+        let handler_id = call.get_arg(1)?.extract_variable_name()?;
 
         Some((obj, handler_id))
     }
 
-    fn is_zero_assign(&self, stmt: &Statement, expected_id: &str, source: &[u8]) -> bool {
+    fn is_zero_assign(&self, stmt: &Statement, expected_id: &str) -> bool {
         let Statement::Expression(expr_stmt) = stmt else {
             return false;
         };
@@ -810,12 +781,12 @@ impl UseClearFunctions {
             return false;
         };
 
-        assign.lhs_as_text(source) == expected_id
+        assign.lhs_as_text() == expected_id
             && assign.operator == AssignmentOp::Assign
             && assign.rhs.is_zero()
     }
 
-    fn is_freed_in_stmts(&self, stmts: &[Statement], target: &str, source: &[u8]) -> bool {
+    fn is_freed_in_stmts(&self, stmts: &[Statement], target: &str) -> bool {
         for stmt in stmts {
             let Statement::Expression(expr_stmt) = stmt else {
                 continue;
@@ -825,16 +796,16 @@ impl UseClearFunctions {
                 continue;
             };
 
-            if !call.function_contains("free", source)
-                && !call.function_contains("unref", source)
-                && !call.function_contains("destroy", source)
-                && !call.function_contains("clear", source)
+            if !call.function_contains("free")
+                && !call.function_contains("unref")
+                && !call.function_contains("destroy")
+                && !call.function_contains("clear")
             {
                 continue;
             }
 
             for arg in &call.arguments {
-                if self.arg_references(arg, target, source) {
+                if self.arg_references(arg, target) {
                     return true;
                 }
             }
@@ -842,7 +813,7 @@ impl UseClearFunctions {
         false
     }
 
-    fn arg_references(&self, arg: &Argument, target: &str, source: &[u8]) -> bool {
+    fn arg_references(&self, arg: &Argument, target: &str) -> bool {
         let Argument::Expression(expr) = arg;
 
         let mut found = false;
@@ -850,7 +821,7 @@ impl UseClearFunctions {
             Expression::Identifier(id) if id.name == target => {
                 found = true;
             }
-            Expression::FieldAccess(f) if f.location.as_str(source) == Some(target) => {
+            Expression::FieldAccess(f) if f.location.as_str() == Some(target) => {
                 found = true;
             }
             _ => {}
@@ -858,7 +829,7 @@ impl UseClearFunctions {
         found
     }
 
-    fn extract_weak_pointer_var<'a>(&self, expr: &Expression, source: &'a [u8]) -> Option<&'a str> {
+    fn extract_weak_pointer_var<'a>(&self, expr: &'a Expression) -> Option<&'a str> {
         // Handle cast expressions: (gpointer*)&var
         let inner_expr = match expr {
             Expression::Cast(cast) => &*cast.operand,
@@ -868,7 +839,7 @@ impl UseClearFunctions {
         if let Expression::Unary(unary) = inner_expr
             && unary.operator == UnaryOp::AddressOf
         {
-            return unary.operand.extract_variable_name(source);
+            return unary.operand.extract_variable_name();
         }
 
         None

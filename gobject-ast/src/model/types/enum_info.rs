@@ -181,10 +181,10 @@ impl EnumValue {
 
     /// Extract the value text from source (e.g., for `N_PROPS =
     /// PROP_ORIENTATION`, returns "PROP_ORIENTATION")
-    pub fn value_text<'a>(&self, source: &'a [u8]) -> Option<&'a str> {
+    pub fn value_text(&self) -> Option<&str> {
         self.value_location
             .as_ref()
-            .and_then(|loc| loc.as_str(source))
+            .and_then(|loc| loc.as_str())
             .map(str::trim)
     }
 }

@@ -103,12 +103,6 @@ impl Expression {
         }
     }
 
-    /// Convert this expression back to source text
-    pub fn to_source_string<'a>(&self, source: &'a [u8]) -> Option<&'a str> {
-        let loc = self.location();
-        std::str::from_utf8(&source[loc.start_byte..loc.end_byte]).ok()
-    }
-
     /// Recursively walk all nested expressions. The closure receives a
     /// `&'s Expression` tied to `self`'s lifetime, so references extracted
     /// inside the closure can be stored in an outer `Vec<&'s T>`.
@@ -177,9 +171,9 @@ impl Expression {
 
     /// Extract variable name from simple expressions (Identifier or
     /// FieldAccess)
-    pub fn extract_variable_name<'a>(&self, source: &'a [u8]) -> Option<&'a str> {
+    pub fn extract_variable_name(&self) -> Option<&str> {
         match self {
-            Self::Identifier(_) | Self::FieldAccess(_) => self.location().as_str(source),
+            Self::Identifier(_) | Self::FieldAccess(_) => self.location().as_str(),
             _ => None,
         }
     }

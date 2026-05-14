@@ -1,6 +1,4 @@
-use gobject_ast::model::{
-    AssignmentOp, Expression, FileModel, FunctionDefItem, SourceLocation, Statement,
-};
+use gobject_ast::model::{AssignmentOp, Expression, FileModel, FunctionDefItem, Statement};
 
 use crate::{
     ast_context::AstContext,
@@ -108,7 +106,7 @@ impl UseGStealPointer {
         }
 
         // Get the variable name from the initializer
-        let Some(ptr_expr) = init_expr.extract_variable_name(&file.source) else {
+        let Some(ptr_expr) = init_expr.extract_variable_name() else {
             return false;
         };
 
@@ -120,7 +118,7 @@ impl UseGStealPointer {
         let tmp_name = &decl.name;
 
         // s2: ptr_expr = NULL
-        if !s2.is_null_assignment_to(ptr_expr, &file.source) {
+        if !s2.is_null_assignment_to(ptr_expr) {
             return false;
         }
 
@@ -143,8 +141,8 @@ impl UseGStealPointer {
             format!("Use {replacement} instead of copying {ptr_expr} and setting it to NULL");
 
         let fixes = vec![
-            Fix::delete_line(s1.location(), &file.source),
-            Fix::delete_line(s2.location(), &file.source),
+            Fix::delete_line(s1.location()),
+            Fix::delete_line(s2.location()),
             Fix::new(
                 s3.location().start_byte,
                 s3.location().end_byte,
@@ -165,7 +163,7 @@ impl UseGStealPointer {
         style: &Style,
         violations: &mut Vec<Violation>,
     ) -> bool {
-        let Some((other_expr, ptr_expr)) = self.extract_assignment(s1, &file.source) else {
+        let Some((other_expr, ptr_expr)) = self.extract_assignment(s1) else {
             return false;
         };
 
@@ -173,7 +171,7 @@ impl UseGStealPointer {
             return false;
         }
 
-        if !s2.is_null_assignment_to(ptr_expr, &file.source) {
+        if !s2.is_null_assignment_to(ptr_expr) {
             return false;
         }
 
@@ -182,10 +180,10 @@ impl UseGStealPointer {
         let message = format!("Use {steal} instead of copying and setting to NULL");
 
         // Use two separate fixes to preserve comments between statements
-        let s2_end = s2.location().find_semicolon_end(&file.source);
+        let s2_end = s2.location().find_semicolon_end();
         let fixes = vec![
             // Delete the entire first line
-            Fix::delete_line(s1.location(), &file.source),
+            Fix::delete_line(s1.location()),
             // Replace the second statement
             Fix::new(s2.location().start_byte, s2_end, replacement),
         ];
@@ -212,7 +210,7 @@ impl UseGStealPointer {
         };
 
         // Extract tested expression from condition
-        let Some(expr_text) = if_stmt.extract_null_check_variable(&file.source) else {
+        let Some(expr_text) = if_stmt.extract_null_check_variable() else {
             return false;
         };
 
@@ -227,8 +225,7 @@ impl UseGStealPointer {
         }
 
         // then_body[0]: dest = expr
-        let Some((dest_expr, rhs)) = self.extract_assignment(&if_stmt.then_body[0], &file.source)
-        else {
+        let Some((dest_expr, rhs)) = self.extract_assignment(&if_stmt.then_body[0]) else {
             return false;
         };
         if rhs != expr_text {
@@ -236,7 +233,7 @@ impl UseGStealPointer {
         }
 
         // then_body[1]: expr = NULL
-        if !if_stmt.then_body[1].is_null_assignment_to(expr_text, &file.source) {
+        if !if_stmt.then_body[1].is_null_assignment_to(expr_text) {
             return false;
         }
 
@@ -244,7 +241,7 @@ impl UseGStealPointer {
         if else_body.len() != 1 {
             return false;
         }
-        if !else_body[0].is_null_assignment_to(dest_expr, &file.source) {
+        if !else_body[0].is_null_assignment_to(dest_expr) {
             return false;
         }
 
@@ -280,13 +277,11 @@ impl UseGStealPointer {
         }
 
         // Try to extract condition expression
-        let condition_expr = if_stmt.extract_null_check_variable(&file.source);
+        let condition_expr = if_stmt.extract_null_check_variable();
 
         // Pattern 1: 2 statements - dest = ptr; ptr = NULL;
         if if_stmt.then_body.len() == 2 {
-            let Some((dest_expr, ptr_expr)) =
-                self.extract_assignment(&if_stmt.then_body[0], &file.source)
-            else {
+            let Some((dest_expr, ptr_expr)) = self.extract_assignment(&if_stmt.then_body[0]) else {
                 return false;
             };
 
@@ -295,7 +290,7 @@ impl UseGStealPointer {
                 return false;
             }
 
-            if !if_stmt.then_body[1].is_null_assignment_to(ptr_expr, &file.source) {
+            if !if_stmt.then_body[1].is_null_assignment_to(ptr_expr) {
                 return false;
             }
 
@@ -312,9 +307,8 @@ impl UseGStealPointer {
                     replacement,
                 )
             } else if if_stmt.then_has_braces {
-                let body_start = if_stmt.then_body[0].location().start_byte;
                 let (open_brace, close_brace) =
-                    SourceLocation::find_braces_around(body_start, &file.source);
+                    if_stmt.then_body[0].location().find_braces_around();
                 Fix::new(open_brace, close_brace, replacement)
             } else {
                 let body_start = if_stmt.then_body[0].location().start_byte;
@@ -346,7 +340,7 @@ impl UseGStealPointer {
                 return false;
             }
 
-            let Some(ptr_expr) = init_expr.extract_variable_name(&file.source) else {
+            let Some(ptr_expr) = init_expr.extract_variable_name() else {
                 return false;
             };
 
@@ -357,7 +351,7 @@ impl UseGStealPointer {
 
             let tmp_name = &decl.name;
 
-            if !if_stmt.then_body[1].is_null_assignment_to(ptr_expr, &file.source) {
+            if !if_stmt.then_body[1].is_null_assignment_to(ptr_expr) {
                 return false;
             }
 
@@ -387,9 +381,8 @@ impl UseGStealPointer {
                     replacement,
                 )
             } else if if_stmt.then_has_braces {
-                let body_start = if_stmt.then_body[0].location().start_byte;
                 let (open_brace, close_brace) =
-                    SourceLocation::find_braces_around(body_start, &file.source);
+                    if_stmt.then_body[0].location().find_braces_around();
                 Fix::new(open_brace, close_brace, replacement)
             } else {
                 let body_start = if_stmt.then_body[0].location().start_byte;
@@ -410,11 +403,7 @@ impl UseGStealPointer {
     }
 
     /// Extract (lhs, rhs) from assignment statement
-    fn extract_assignment<'a>(
-        &self,
-        stmt: &'a Statement,
-        source: &'a [u8],
-    ) -> Option<(&'a str, &'a str)> {
+    fn extract_assignment<'a>(&self, stmt: &'a Statement) -> Option<(&'a str, &'a str)> {
         let Statement::Expression(expr_stmt) = stmt else {
             return None;
         };
@@ -430,7 +419,7 @@ impl UseGStealPointer {
         // Get rhs as string - handle various expression types
         let rhs = match &*assign.rhs {
             Expression::Identifier(id) => id.name.as_str(),
-            Expression::FieldAccess(f) => f.location.as_str(source).unwrap_or(""),
+            Expression::FieldAccess(f) => f.location.as_str().unwrap_or(""),
             Expression::Null(_) | Expression::Call(_) => {
                 // For NULL or function calls like g_strdup(), we don't want to suggest
                 // g_steal_pointer
@@ -441,7 +430,7 @@ impl UseGStealPointer {
             }
         };
 
-        let lhs = assign.lhs_as_text(source);
+        let lhs = assign.lhs_as_text();
         if lhs.is_empty() {
             return None;
         }

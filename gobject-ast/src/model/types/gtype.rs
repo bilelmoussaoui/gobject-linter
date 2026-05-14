@@ -20,11 +20,11 @@ impl GType {
         matches!(self, Self::None)
     }
 
-    pub fn from_expression(expr: &Expression, source: &[u8]) -> Option<Self> {
+    pub fn from_expression(expr: &Expression) -> Option<Self> {
         match expr {
             Expression::Identifier(id) if id.name == "G_TYPE_NONE" => Some(Self::None),
             Expression::Identifier(id) => Some(Self::Identifier(id.name.clone())),
-            Expression::Call(call) => Some(Self::Call(call.function_name(source).to_owned())),
+            Expression::Call(call) => Some(Self::Call(call.function_name().to_owned())),
             _ => None,
         }
     }

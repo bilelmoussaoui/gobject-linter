@@ -51,7 +51,7 @@ impl UseGFileLoadBytes {
         violations: &mut Vec<Violation>,
     ) {
         // Find all g_file_load_contents calls and track their output variables
-        let load_contents_vars = self.find_load_contents_vars(func, &file.source);
+        let load_contents_vars = self.find_load_contents_vars(func);
 
         // Find all g_bytes_new_take calls that use those variables
         self.find_bytes_new_take_violations(
@@ -64,11 +64,7 @@ impl UseGFileLoadBytes {
 
     /// Find all g_file_load_contents calls and return the set of variables they
     /// populate
-    fn find_load_contents_vars<'a>(
-        &self,
-        func: &FunctionDefItem,
-        source: &'a [u8],
-    ) -> HashSet<&'a str> {
+    fn find_load_contents_vars<'a>(&self, func: &'a FunctionDefItem) -> HashSet<&'a str> {
         let mut result = HashSet::new();
 
         // Find all g_file_load_contents or g_file_load_contents_finish calls
@@ -77,7 +73,7 @@ impl UseGFileLoadBytes {
             //                      0     1            2          3         4       5
             if call.arguments.len() >= 6 {
                 // Extract the contents variable from argument 2 (&contents)
-                if let Some(contents_var) = self.extract_pointer_var(&call.arguments[2], source) {
+                if let Some(contents_var) = self.extract_pointer_var(&call.arguments[2]) {
                     result.insert(contents_var);
                 }
             }
@@ -140,8 +136,7 @@ impl UseGFileLoadBytes {
             && call.arguments.len() >= 2
         {
             // Extract the first argument (contents variable)
-            if let Some(contents_var) = self.extract_contents_var(&call.arguments[0], &file.source)
-            {
+            if let Some(contents_var) = self.extract_contents_var(&call.arguments[0]) {
                 // Check if this contents variable came from g_file_load_contents
                 if load_contents_vars.contains(&contents_var) {
                     violations.push(self.violation_at(
@@ -155,14 +150,14 @@ impl UseGFileLoadBytes {
     }
 
     /// Extract variable name from &var argument
-    fn extract_pointer_var<'a>(&self, arg: &Argument, source: &'a [u8]) -> Option<&'a str> {
+    fn extract_pointer_var<'a>(&self, arg: &'a Argument) -> Option<&'a str> {
         let Argument::Expression(expr) = arg;
 
         // Handle &var
         if let Expression::Unary(unary) = expr.as_ref()
             && unary.operator == UnaryOp::AddressOf
         {
-            return unary.operand.extract_variable_name(source);
+            return unary.operand.extract_variable_name();
         }
 
         None
@@ -170,17 +165,17 @@ impl UseGFileLoadBytes {
 
     /// Extract variable name from first argument of g_bytes_new_take
     /// Handles: contents, g_steal_pointer(&contents)
-    fn extract_contents_var<'a>(&self, arg: &'a Argument, source: &'a [u8]) -> Option<&'a str> {
+    fn extract_contents_var<'a>(&self, arg: &'a Argument) -> Option<&'a str> {
         let Argument::Expression(expr) = arg;
 
         match expr.as_ref() {
             // Direct variable: contents
             Expression::Identifier(id) => Some(id.name.as_str()),
-            Expression::FieldAccess(f) => f.location.as_str(source),
+            Expression::FieldAccess(f) => f.location.as_str(),
             // g_steal_pointer(&contents)
             Expression::Call(call) => {
                 if call.is_function("g_steal_pointer") && !call.arguments.is_empty() {
-                    self.extract_pointer_var(&call.arguments[0], source)
+                    self.extract_pointer_var(&call.arguments[0])
                 } else {
                     None
                 }

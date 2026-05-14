@@ -159,7 +159,7 @@ impl PropertyEnumConvention {
                         && n_props_value.value.is_none()
                     {
                         n_props_value
-                            .value_text(&file.source)
+                            .value_text()
                             .and_then(|value_text| property_map.get(value_text).copied())
                             .unwrap_or(false)
                     } else {
@@ -203,10 +203,7 @@ impl PropertyEnumConvention {
                 // Fix 1: Remove PROP_0 line entirely (including any blank line after it)
                 if has_prop_0 && enum_info.values.len() >= 2 {
                     let prop_0 = &enum_info.values[0];
-                    fixes.push(Fix::delete_line_and_trailing_blank(
-                        &prop_0.location,
-                        &file.source,
-                    ));
+                    fixes.push(Fix::delete_line_and_trailing_blank(&prop_0.location));
                 }
 
                 // Fix 2: Add " = 1" to the first real property (second value)
@@ -236,10 +233,7 @@ impl PropertyEnumConvention {
                 // Fix 3: Remove N_PROPS line entirely (including any blank line before it)
                 if has_n_props && enum_info.values.len() >= 2 {
                     let n_props = enum_info.values.last().unwrap();
-                    fixes.push(Fix::delete_line_and_leading_blank(
-                        &n_props.location,
-                        &file.source,
-                    ));
+                    fixes.push(Fix::delete_line_and_leading_blank(&n_props.location));
                 }
 
                 // Fix 4 & 5: Find GParamSpec arrays and fix both their declarations and
@@ -258,13 +252,12 @@ impl PropertyEnumConvention {
                         for call in func.find_install_properties_calls() {
                             // Second argument (index 1) should be N_PROPS
                             if let Some(arg) = call.get_arg(1)
-                                && let Some(arg_str) = arg.to_source_string(&file.source)
+                                && let Some(arg_str) = arg.location().as_str()
                                 && arg_str == n_props_name
                             {
                                 // Get the array name from third argument
                                 if let Some(array_arg) = call.get_arg(2)
-                                    && let Some(array_name) =
-                                        array_arg.to_source_string(&file.source)
+                                    && let Some(array_name) = array_arg.location().as_str()
                                     && array_names.contains(&array_name)
                                 {
                                     let replacement =
@@ -421,7 +414,7 @@ impl PropertyEnumConvention {
                     violation_line = enum_info.location.line;
 
                     // Get indentation from the source
-                    let indent = first_val.location.extract_line_indentation(&file.source);
+                    let indent = first_val.location.extract_line_indentation();
 
                     let prop_zero_name = if let Some(ref p) = prefix {
                         format!("{}PROP_0", p)
@@ -464,7 +457,7 @@ impl PropertyEnumConvention {
                 {
                     has_violations = true;
 
-                    let indent = last.location.extract_line_indentation(&file.source);
+                    let indent = last.location.extract_line_indentation();
 
                     let n_props_name = if let Some(ref p) = prefix {
                         format!("{}N_PROPS", p)
@@ -707,7 +700,7 @@ impl PropertyEnumConvention {
     /// Create fixes to convert an anonymous enum to a typedef enum
     fn create_typedef_fixes(
         &self,
-        file: &FileModel,
+        _file: &FileModel,
         enum_info: &EnumInfo,
         enum_name: &str,
     ) -> Vec<Fix> {
@@ -721,16 +714,12 @@ impl PropertyEnumConvention {
         ));
 
         // Add enum name and semicolon after the closing brace
-        let mut semicolon_pos = enum_info.body_location.end_byte;
-        while semicolon_pos < file.source.len() && file.source[semicolon_pos] != b';' {
-            semicolon_pos += 1;
-        }
-
-        if semicolon_pos < file.source.len() {
+        let semicolon_end = enum_info.body_location.find_after(b';');
+        if semicolon_end > enum_info.body_location.end_byte {
             // Replace the semicolon with " EnumName;"
             fixes.push(Fix::new(
-                semicolon_pos,
-                semicolon_pos + 1,
+                semicolon_end - 1,
+                semicolon_end,
                 format!(" {};", enum_name),
             ));
         }

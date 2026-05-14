@@ -93,7 +93,7 @@ impl UseGVariantNewTyped {
         // Collect remaining arguments (after format string)
         let rest_args: Vec<&str> = call.arguments[1..]
             .iter()
-            .filter_map(|arg| arg.to_source_string(&file.source))
+            .filter_map(|arg| arg.to_source_string())
             .collect();
 
         // Build replacement

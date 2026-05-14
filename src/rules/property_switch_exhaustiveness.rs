@@ -94,7 +94,6 @@ impl Rule for PropertySwitchExhaustiveness {
 
                 let property_access = self.build_property_access_map(
                     &ctx.gobject_type.properties,
-                    &file.source,
                     &readable_flags,
                     &writable_flags,
                 );
@@ -167,14 +166,13 @@ impl PropertySwitchExhaustiveness {
     fn build_property_access_map<'a>(
         &self,
         assignments: &'a [ParamSpecAssignment],
-        source: &'a [u8],
         readable_flags: &[ParamFlag],
         writable_flags: &[ParamFlag],
     ) -> HashMap<&'a str, Option<(bool, bool)>> {
         let mut access_map = HashMap::new();
 
         for assignment in assignments {
-            if let Some(enum_val) = assignment.get_installed_enum_value(source) {
+            if let Some(enum_val) = assignment.get_installed_enum_value() {
                 let access =
                     self.get_property_access(assignment.property(), readable_flags, writable_flags);
                 access_map.insert(enum_val, access);
@@ -325,14 +323,12 @@ impl PropertySwitchExhaustiveness {
                     self.generate_replace_default_with_cases_fix(
                         &auto_fixable_properties,
                         switch_stmt,
-                        &file.source,
                         call_style,
                     )
                 } else {
                     self.generate_insert_cases_fix(
                         &auto_fixable_properties,
                         switch_stmt,
-                        &file.source,
                         call_style,
                     )
                 };
@@ -363,7 +359,7 @@ impl PropertySwitchExhaustiveness {
                 && matches!(switch_stmt.condition, Expression::Cast(_))
                 && switch_stmt.has_default_case()
             {
-                let (start, end) = self.find_default_case_range(switch_stmt, &file.source);
+                let (start, end) = self.find_default_case_range(switch_stmt);
                 let fix = Fix::delete(start, end);
                 violations.push(self.violation_with_fixes(
                     &file.path,
@@ -395,11 +391,10 @@ impl PropertySwitchExhaustiveness {
         &self,
         prop_names: &[&str],
         switch_stmt: &SwitchStatement,
-        source: &[u8],
         call_style: &crate::config::Style,
     ) -> Fix {
-        let insertion_point = self.find_case_insertion_point(switch_stmt, source);
-        let (case_indent, body_indent) = self.detect_indentation(switch_stmt, source);
+        let insertion_point = self.find_case_insertion_point(switch_stmt);
+        let (case_indent, body_indent) = self.detect_indentation(switch_stmt);
         let assert_call = call_style.format_call_stmt("g_assert_not_reached", &[]);
 
         let mut replacement = String::new();
@@ -423,14 +418,13 @@ impl PropertySwitchExhaustiveness {
         &self,
         prop_names: &[&str],
         switch_stmt: &SwitchStatement,
-        source: &[u8],
         call_style: &crate::config::Style,
     ) -> Fix {
-        let (case_indent, body_indent) = self.detect_indentation(switch_stmt, source);
+        let (case_indent, body_indent) = self.detect_indentation(switch_stmt);
         let assert_call = call_style.format_call_stmt("g_assert_not_reached", &[]);
 
         // Find the range of the default case to replace
-        let (start, end) = self.find_default_case_range(switch_stmt, source);
+        let (start, end) = self.find_default_case_range(switch_stmt);
 
         let mut replacement = String::new();
         for (i, prop_name) in prop_names.iter().enumerate() {
@@ -448,11 +442,7 @@ impl PropertySwitchExhaustiveness {
     }
 
     /// Find the range to delete for the default case (used when replacing it)
-    fn find_default_case_range(
-        &self,
-        switch_stmt: &SwitchStatement,
-        source: &[u8],
-    ) -> (usize, usize) {
+    fn find_default_case_range(&self, switch_stmt: &SwitchStatement) -> (usize, usize) {
         let default_case = switch_stmt
             .cases
             .iter()
@@ -460,27 +450,27 @@ impl PropertySwitchExhaustiveness {
             .unwrap();
 
         // Start from line beginning
-        let (line_start, _) = default_case.label.location.find_line_bounds(source);
+        let (line_start, _) = default_case.label.location.find_line_bounds();
 
         // Find the last statement in the default case body
         let end_location = if let Some(last_stmt) = default_case.body.last() {
-            *last_stmt.location()
+            last_stmt.location()
         } else {
             // No statements in default case body, just use the case label location
-            default_case.label.location
+            &default_case.label.location
         };
 
         // Use the helper to get line bounds with following blank
-        let (_, line_end) = end_location.find_line_bounds_with_following_blank(source);
+        let (_, line_end) = end_location.find_line_bounds_with_following_blank();
 
         (line_start, line_end)
     }
 
     /// Find the byte position where a new case should be inserted
-    fn find_case_insertion_point(&self, switch_stmt: &SwitchStatement, source: &[u8]) -> usize {
+    fn find_case_insertion_point(&self, switch_stmt: &SwitchStatement) -> usize {
         // If there's a default case, insert before it
         if let Some(default_case) = switch_stmt.default_case() {
-            let (line_start, _) = default_case.label.location.find_line_bounds(source);
+            let (line_start, _) = default_case.label.location.find_line_bounds();
             return line_start;
         }
 
@@ -490,13 +480,11 @@ impl PropertySwitchExhaustiveness {
         if let Some(last_case) = last_case {
             // Insert after the last statement in the case
             if let Some(last_stmt) = last_case.body.last() {
-                let (_, line_end) = last_stmt
-                    .location()
-                    .find_line_bounds_with_following_blank(source);
+                let (_, line_end) = last_stmt.location().find_line_bounds_with_following_blank();
                 line_end
             } else {
                 // No statements in case, insert right after the case label
-                let (_, line_end) = last_case.label.location.find_line_bounds(source);
+                let (_, line_end) = last_case.label.location.find_line_bounds();
                 line_end
             }
         } else {
@@ -508,19 +496,19 @@ impl PropertySwitchExhaustiveness {
     /// Detect indentation levels from existing cases
     /// Returns (case_indent, body_indent) where body_indent is for statements
     /// inside the case
-    fn detect_indentation(&self, switch_stmt: &SwitchStatement, source: &[u8]) -> (String, String) {
+    fn detect_indentation(&self, switch_stmt: &SwitchStatement) -> (String, String) {
         // Try to find a case with at least one statement in its body
         for case in &switch_stmt.cases {
             if let Some(first_stmt) = case.body.first() {
-                let case_indent = case.label.location.extract_indentation(source);
-                let body_indent = first_stmt.location().extract_indentation(source);
+                let case_indent = case.label.location.extract_indentation();
+                let body_indent = first_stmt.location().extract_indentation();
                 return (case_indent, body_indent);
             }
         }
 
         // If no case has body statements, try to get case label indentation
         if let Some(case) = switch_stmt.cases.first() {
-            let case_indent = case.label.location.extract_indentation(source);
+            let case_indent = case.label.location.extract_indentation();
             // Assume body is indented 2 more spaces than case
             let body_indent = format!("{}  ", case_indent);
             return (case_indent, body_indent);

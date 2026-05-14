@@ -110,8 +110,8 @@ impl Signal {
     ///               G_TYPE_NONE,
     ///               0);
     /// ```
-    pub fn from_g_signal_new_call(call: &CallExpression, source: &[u8]) -> Option<Self> {
-        if !call.function_name(source).starts_with("g_signal_new") {
+    pub fn from_g_signal_new_call(call: &CallExpression) -> Option<Self> {
+        if !call.function_name().starts_with("g_signal_new") {
             return None;
         }
 
@@ -119,7 +119,7 @@ impl Signal {
         let name = call.extract_string_from_arg(0)?;
 
         // Argument 1: itype (GType expression) - use source text
-        let itype = call.get_arg_text(1, source).map(ToOwned::to_owned);
+        let itype = call.get_arg_text(1).map(ToOwned::to_owned);
 
         // Argument 2: signal_flags (can be bitwise OR of multiple flags)
         let flags = call
@@ -129,9 +129,7 @@ impl Signal {
 
         // Argument 3: class_offset — G_STRUCT_OFFSET(StructType, field) or 0
         let class_offset = call.get_arg(3).and_then(|expr| match expr {
-            Expression::Call(offset_call)
-                if offset_call.function_name(source) == "G_STRUCT_OFFSET" =>
-            {
+            Expression::Call(offset_call) if offset_call.function_name() == "G_STRUCT_OFFSET" => {
                 let struct_type = offset_call.get_arg(0).and_then(|e| {
                     if let Expression::Identifier(id) = e {
                         Some(id.name.clone())
@@ -152,18 +150,16 @@ impl Signal {
         });
 
         // Argument 4: accumulator (function pointer or NULL)
-        let accumulator = call.get_arg_text(4, source).map(ToOwned::to_owned);
+        let accumulator = call.get_arg_text(4).map(ToOwned::to_owned);
 
         // Argument 5: accu_data (gpointer or NULL)
-        let accu_data = call.get_arg_text(5, source).map(ToOwned::to_owned);
+        let accu_data = call.get_arg_text(5).map(ToOwned::to_owned);
 
         // Argument 6: c_marshaller (function pointer or NULL)
-        let c_marshaller = call.get_arg_text(6, source).map(ToOwned::to_owned);
+        let c_marshaller = call.get_arg_text(6).map(ToOwned::to_owned);
 
         // Argument 7: return_type (GType)
-        let return_type = call
-            .get_arg(7)
-            .and_then(|e| GType::from_expression(e, source));
+        let return_type = call.get_arg(7).and_then(GType::from_expression);
 
         // Argument 8: n_params (guint)
         let n_params = call.get_arg(8).and_then(|expr| match expr {
@@ -173,10 +169,7 @@ impl Signal {
 
         // Arguments 9+: parameter types (variadic)
         let param_types = (9..call.arguments.len())
-            .filter_map(|i| {
-                call.get_arg(i)
-                    .and_then(|e| GType::from_expression(e, source))
-            })
+            .filter_map(|i| call.get_arg(i).and_then(GType::from_expression))
             .collect();
 
         Some(Self {

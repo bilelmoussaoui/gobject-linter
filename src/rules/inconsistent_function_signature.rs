@@ -82,7 +82,7 @@ impl Rule for InconsistentFunctionSignature {
                                 &func.return_type,
                                 &func.parameters,
                                 path,
-                                func.location,
+                                &func.location,
                                 &mut static_violations,
                             );
                         }
@@ -91,7 +91,7 @@ impl Rule for InconsistentFunctionSignature {
                             .entry(func.name.as_str())
                             .or_default()
                             .push(DefInfo {
-                                location: func.location,
+                                location: func.location.clone(),
                                 path,
                                 return_type: &func.return_type,
                                 parameters: &func.parameters,
@@ -123,7 +123,7 @@ impl Rule for InconsistentFunctionSignature {
                     def.return_type,
                     def.parameters,
                     def.path,
-                    def.location,
+                    &def.location,
                     violations,
                 );
             }
@@ -174,13 +174,13 @@ impl InconsistentFunctionSignature {
         def_ret: &TypeInfo,
         def_params: &[Parameter],
         path: &Path,
-        location: SourceLocation,
+        location: &SourceLocation,
         violations: &mut Vec<Violation>,
     ) {
         if !decl_ret.matches(def_ret) {
             violations.push(self.violation_at(
                 path,
-                &location,
+                location,
                 format!(
                     "'{}' declared as returning '{}' but defined as returning '{}'",
                     name,
@@ -196,7 +196,7 @@ impl InconsistentFunctionSignature {
         if decl_params.len() != def_params.len() {
             violations.push(self.violation_at(
                 path,
-                &location,
+                location,
                 format!(
                     "'{}' declared with {} parameter(s) but defined with {}",
                     name,
@@ -229,7 +229,7 @@ impl InconsistentFunctionSignature {
                             .map_or_else(|| format!("{}", i + 1), |n| format!("'{n}'"));
                         violations.push(self.violation_at(
                             path,
-                            &location,
+                            location,
                             format!(
                                 "'{}' parameter {} declared as '{}' but defined as '{}'",
                                 name,
@@ -243,7 +243,7 @@ impl InconsistentFunctionSignature {
                 _ => {
                     violations.push(self.violation_at(
                         path,
-                        &location,
+                        location,
                         format!("'{}' parameter {} variadic mismatch between declaration and definition", name, i + 1),
                     ));
                 }

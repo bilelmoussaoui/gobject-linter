@@ -51,7 +51,7 @@ impl Rule for PropertyEnumCoverage {
         let installed_properties: Vec<_> = gobject_type
             .properties
             .iter()
-            .filter_map(|assignment| assignment.get_installed_enum_value(&file.source))
+            .filter_map(|assignment| assignment.get_installed_enum_value())
             .collect();
 
         for prop_name in property_values {

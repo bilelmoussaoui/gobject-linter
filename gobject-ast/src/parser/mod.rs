@@ -6,6 +6,7 @@ mod top_level;
 use std::{
     fs,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use anyhow::{Context, Result};
@@ -17,6 +18,7 @@ use crate::model::*;
 pub struct Parser {
     parser: TSParser,
     current_file: Option<std::path::PathBuf>,
+    current_source: Arc<Vec<u8>>,
 }
 
 impl Parser {
@@ -29,6 +31,7 @@ impl Parser {
         Ok(Self {
             parser,
             current_file: None,
+            current_source: Arc::new(Vec::new()),
         })
     }
 
@@ -39,6 +42,7 @@ impl Parser {
             node.start_position().column + 1,
             node.start_byte(),
             node.end_byte(),
+            Arc::clone(&self.current_source),
         )
     }
 
@@ -116,15 +120,16 @@ impl Parser {
     pub fn parse_file_to_model(&mut self, path: &Path) -> Result<(PathBuf, FileModel)> {
         let _file_span = tracing::warn_span!("file", path = %path.display()).entered();
         self.current_file = Some(path.to_path_buf());
-        let source = fs::read(path)?;
+        let source = Arc::new(fs::read(path)?);
+        self.current_source = Arc::clone(&source);
         let tree = self
             .parser
-            .parse(&source, None)
+            .parse(source.as_slice(), None)
             .context("Failed to parse file")?;
 
         let mut file_model = FileModel::new(path.to_path_buf());
 
-        self.visit_node(tree.root_node(), &source, &mut file_model);
+        self.visit_node(tree.root_node(), source.as_slice(), &mut file_model);
 
         file_model.source = source;
         file_model.resolve_gobject_types();

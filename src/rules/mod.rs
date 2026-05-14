@@ -97,32 +97,20 @@ impl Fix {
     }
 
     /// Delete an entire line (including indentation and newline)
-    pub fn delete_line(location: &SourceLocation, source: &[u8]) -> Self {
-        let mut line_start = location.start_byte;
-        while line_start > 0 && source[line_start - 1] != b'\n' {
-            line_start -= 1;
-        }
-
-        let mut line_end = location.end_byte;
-        while line_end < source.len() && source[line_end] != b'\n' {
-            line_end += 1;
-        }
-        if line_end < source.len() && source[line_end] == b'\n' {
-            line_end += 1;
-        }
-
-        Self::delete(line_start, line_end)
+    pub fn delete_line(location: &SourceLocation) -> Self {
+        let (start, end) = location.find_line_range();
+        Self::delete(start, end)
     }
 
     /// Delete a line and any preceding blank line
-    pub fn delete_line_and_leading_blank(location: &SourceLocation, source: &[u8]) -> Self {
-        let (start, end) = location.find_line_bounds(source);
+    pub fn delete_line_and_leading_blank(location: &SourceLocation) -> Self {
+        let (start, end) = location.find_line_bounds();
         Self::delete(start, end)
     }
 
     /// Delete a line and any following blank line
-    pub fn delete_line_and_trailing_blank(location: &SourceLocation, source: &[u8]) -> Self {
-        let (start, end) = location.find_line_bounds_with_following_blank(source);
+    pub fn delete_line_and_trailing_blank(location: &SourceLocation) -> Self {
+        let (start, end) = location.find_line_bounds_with_following_blank();
         Self::delete(start, end)
     }
 }
@@ -441,7 +429,7 @@ pub trait Rule: Send + Sync {
                 let args: Vec<&str> = call
                     .arguments
                     .iter()
-                    .filter_map(|arg| arg.to_source_string(&file.source))
+                    .filter_map(|arg| arg.to_source_string())
                     .collect();
                 let replacement = config.style.format_call(new_name, &args);
                 let fix = Fix::new(

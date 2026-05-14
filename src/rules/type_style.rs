@@ -179,8 +179,7 @@ impl TypeStyle {
         }
 
         let loc = &type_info.location;
-        let source_text =
-            std::str::from_utf8(&file.source[loc.start_byte..loc.end_byte]).unwrap_or("");
+        let source_text = loc.as_str().unwrap_or("");
         let new_text = source_text.replacen(&type_info.base_type, canonical, 1);
         let fix = Fix::new(loc.start_byte, loc.end_byte, new_text);
 

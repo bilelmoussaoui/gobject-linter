@@ -58,13 +58,13 @@ impl UseGObjectNewWithProperties {
         for i in 0..statements.len() {
             // Check if this statement contains one of our empty g_object_new calls
             if let Some((var_name, location)) =
-                self.find_empty_new_in_statement(&statements[i], empty_new_calls, &file.source)
+                self.find_empty_new_in_statement(&statements[i], empty_new_calls)
             {
                 // Count consecutive g_object_set calls on the same variable
                 let mut set_count = 0;
 
                 for next_stmt in statements.iter().skip(i + 1) {
-                    if let Some(set_var) = self.extract_g_object_set(next_stmt, &file.source)
+                    if let Some(set_var) = self.extract_g_object_set(next_stmt)
                         && set_var == var_name
                     {
                         set_count += 1;
@@ -79,7 +79,7 @@ impl UseGObjectNewWithProperties {
                 if set_count > 0 {
                     violations.push(self.violation_at(
                         &file.path,
-                        &location,
+                        location,
                         format!(
                             "Set properties in g_object_new() instead of {} separate g_object_set() call{}",
                             set_count,
@@ -101,8 +101,7 @@ impl UseGObjectNewWithProperties {
         &self,
         stmt: &'a Statement,
         empty_new_calls: &[&CallExpression],
-        source: &'a [u8],
-    ) -> Option<(&'a str, SourceLocation)> {
+    ) -> Option<(&'a str, &'a SourceLocation)> {
         match stmt {
             // Declaration: FooObject *obj = g_object_new(TYPE, NULL);
             Statement::Declaration(decl) => {
@@ -110,7 +109,7 @@ impl UseGObjectNewWithProperties {
                     // Check if this call is one of our empty g_object_new calls
                     for empty_call in empty_new_calls {
                         if call.location.start_byte == empty_call.location.start_byte {
-                            return Some((decl.name.as_str(), decl.location));
+                            return Some((decl.name.as_str(), &decl.location));
                         }
                     }
                 }
@@ -122,9 +121,9 @@ impl UseGObjectNewWithProperties {
                 {
                     for empty_call in empty_new_calls {
                         if call.location.start_byte == empty_call.location.start_byte {
-                            let var_name = assign.lhs_as_text(source);
+                            let var_name = assign.lhs_as_text();
                             if !var_name.is_empty() {
-                                return Some((var_name, *expr_stmt.location()));
+                                return Some((var_name, expr_stmt.location()));
                             }
                         }
                     }
@@ -154,7 +153,7 @@ impl UseGObjectNewWithProperties {
     }
 
     /// Extract g_object_set call, return the object variable
-    fn extract_g_object_set(&self, stmt: &Statement, source: &[u8]) -> Option<String> {
+    fn extract_g_object_set(&self, stmt: &Statement) -> Option<String> {
         let Statement::Expression(expr_stmt) = stmt else {
             return None;
         };
@@ -169,7 +168,7 @@ impl UseGObjectNewWithProperties {
 
         // Get the first argument (the object)
         let expr = call.get_arg(0)?;
-        expr.extract_variable_name(source)
+        expr.extract_variable_name()
             .map(std::string::ToString::to_string)
     }
 }

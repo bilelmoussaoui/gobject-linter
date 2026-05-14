@@ -412,7 +412,7 @@ fn test_signal_extraction() {
         .expect("No class_init found");
 
     // Extract signals using the helper
-    let signals = gobject_type.extract_signals(class_init, &file.source);
+    let signals = gobject_type.extract_signals(class_init);
 
     assert_eq!(signals.len(), 2, "Expected 2 signals");
 

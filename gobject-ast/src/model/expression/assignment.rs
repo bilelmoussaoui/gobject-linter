@@ -11,7 +11,7 @@ pub struct Assignment {
 }
 
 impl Assignment {
-    pub fn lhs_as_text<'a>(&self, source: &'a [u8]) -> &'a str {
-        self.lhs.location().as_str(source).unwrap_or("")
+    pub fn lhs_as_text(&self) -> &str {
+        self.lhs.location().as_str().unwrap_or("")
     }
 }

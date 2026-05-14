@@ -55,12 +55,12 @@ impl UseGSetStr {
         violations: &mut Vec<Violation>,
     ) -> bool {
         // First statement: g_free(var) or g_clear_pointer(&var, g_free)
-        let Some(var_name) = self.extract_gfree_var(s1, &file.source) else {
+        let Some(var_name) = self.extract_gfree_var(s1) else {
             return false;
         };
 
         // Second statement: var = g_strdup(...)
-        let Some((assign_var, new_val)) = self.extract_strdup_assignment(s2, &file.source) else {
+        let Some((assign_var, new_val)) = self.extract_strdup_assignment(s2) else {
             return false;
         };
 
@@ -73,10 +73,10 @@ impl UseGSetStr {
             .format_addr_call_stmt("g_set_str", var_name, &[new_val]);
         let message = format!("Use {replacement} instead of g_free and g_strdup");
         // Use two separate fixes to preserve comments between statements
-        let s2_end = s2.location().find_semicolon_end(&file.source);
+        let s2_end = s2.location().find_semicolon_end();
         let fixes = vec![
             // Delete the entire first line (g_free/g_clear_pointer)
-            Fix::delete_line(s1.location(), &file.source),
+            Fix::delete_line(s1.location()),
             // Replace the second statement with g_set_str
             Fix::new(s2.location().start_byte, s2_end, replacement),
         ];
@@ -86,7 +86,7 @@ impl UseGSetStr {
     }
 
     /// Extract variable from g_free(var) or g_clear_pointer(&var, g_free)
-    fn extract_gfree_var<'a>(&self, stmt: &Statement, source: &'a [u8]) -> Option<&'a str> {
+    fn extract_gfree_var<'a>(&'a self, stmt: &'a Statement) -> Option<&'a str> {
         let Statement::Expression(expr_stmt) = stmt else {
             return None;
         };
@@ -96,7 +96,7 @@ impl UseGSetStr {
         };
 
         if call.is_function("g_free") {
-            return call.get_arg(0)?.to_source_string(source);
+            return call.get_arg(0)?.location().as_str();
         } else if call.is_function("g_clear_pointer") {
             // g_clear_pointer(&var, g_free)
             if call.arguments.len() != 2 {
@@ -119,7 +119,7 @@ impl UseGSetStr {
             if let Expression::Unary(unary) = first_arg
                 && unary.operator == UnaryOp::AddressOf
             {
-                return unary.operand.to_source_string(source);
+                return unary.operand.location().as_str();
             }
         }
 
@@ -128,11 +128,7 @@ impl UseGSetStr {
 
     /// Extract (var, new_val) from var = g_strdup(new_val) or var = cond ?
     /// g_strdup(...) : NULL
-    fn extract_strdup_assignment<'a>(
-        &self,
-        stmt: &Statement,
-        source: &'a [u8],
-    ) -> Option<(&'a str, &'a str)> {
+    fn extract_strdup_assignment<'a>(&self, stmt: &'a Statement) -> Option<(&'a str, &'a str)> {
         let Statement::Expression(expr_stmt) = stmt else {
             return None;
         };
@@ -150,8 +146,8 @@ impl UseGSetStr {
             && call.is_function("g_strdup")
             && !call.arguments.is_empty()
         {
-            let new_val = call.get_arg(0)?.to_source_string(source)?;
-            let var_name = assign.lhs_as_text(source);
+            let new_val = call.get_arg(0)?.location().as_str()?;
+            let var_name = assign.lhs_as_text();
             if !var_name.is_empty() {
                 return Some((var_name, new_val));
             }
@@ -162,8 +158,8 @@ impl UseGSetStr {
             && cond.then_expr.is_call_to_any(&["g_strdup", "g_strndup"])
         {
             // Use the condition variable as the value
-            let cond_text = cond.condition.to_source_string(source)?;
-            let var_name = assign.lhs_as_text(source);
+            let cond_text = cond.condition.location().as_str()?;
+            let var_name = assign.lhs_as_text();
             if !var_name.is_empty() {
                 return Some((var_name, cond_text));
             }

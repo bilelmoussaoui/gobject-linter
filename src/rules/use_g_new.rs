@@ -66,7 +66,7 @@ impl UseGNew {
             return;
         };
 
-        let func_name = call.function_name(&file.source);
+        let func_name = call.function_name();
         let suggested_func = if call.is_function("g_malloc0") {
             "g_new0"
         } else {

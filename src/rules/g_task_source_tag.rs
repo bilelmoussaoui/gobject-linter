@@ -37,14 +37,7 @@ impl Rule for GTaskSourceTag {
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        self.check_statements(
-            file,
-            func,
-            &func.body_statements,
-            &file.source,
-            &config.style,
-            violations,
-        );
+        self.check_statements(file, func, &func.body_statements, &config.style, violations);
     }
 }
 
@@ -54,26 +47,25 @@ impl GTaskSourceTag {
         file: &FileModel,
         func: &FunctionDefItem,
         statements: &[Statement],
-        source: &[u8],
         style: &crate::config::Style,
         violations: &mut Vec<Violation>,
     ) {
         // Find all g_task_new calls and their variables
-        let task_vars = self.find_gtask_new_vars(statements, source);
+        let task_vars = self.find_gtask_new_vars(statements);
 
         // For each task variable, check if there's a set_source_tag call
         for (var_name, name_location, stmt_location) in task_vars {
-            if !self.has_set_source_tag_call(statements, var_name, source) {
+            if !self.has_set_source_tag_call(statements, var_name) {
                 // Extract indentation from the statement
-                let indentation = stmt_location.extract_indentation(source);
+                let indentation = stmt_location.extract_indentation();
 
-                let stmt_end = stmt_location.find_semicolon_end(source);
+                let stmt_end = stmt_location.find_semicolon_end();
                 let call = style.format_call_stmt("g_task_set_source_tag", &[var_name, &func.name]);
                 let fix = Fix::new(stmt_end, stmt_end, format!("\n{}{}", indentation, call));
 
                 violations.push(self.violation_with_fix_at(
                     &file.path,
-                    &name_location,
+                    name_location,
                     format!("GTask '{}' created without g_task_set_source_tag", var_name),
                     fix,
                 ));
@@ -84,8 +76,7 @@ impl GTaskSourceTag {
     fn find_gtask_new_vars<'a>(
         &self,
         statements: &'a [Statement],
-        source: &'a [u8],
-    ) -> Vec<(&'a str, SourceLocation, SourceLocation)> {
+    ) -> Vec<(&'a str, &'a SourceLocation, &'a SourceLocation)> {
         let mut results = Vec::new();
 
         for stmt in statements {
@@ -96,7 +87,7 @@ impl GTaskSourceTag {
                         if let Some(Expression::Call(call)) = &decl.initializer
                             && call.is_function("g_task_new")
                         {
-                            results.push((decl.name.as_str(), decl.name_location, decl.location));
+                            results.push((decl.name.as_str(), &decl.name_location, &decl.location));
                         }
                     }
                     // Check assignments: task = g_task_new(...)
@@ -105,12 +96,12 @@ impl GTaskSourceTag {
                             && let Expression::Call(call) = assignment.rhs.as_ref()
                             && call.is_function("g_task_new")
                         {
-                            let var_name = assignment.lhs_as_text(source);
+                            let var_name = assignment.lhs_as_text();
                             if !var_name.is_empty() {
                                 results.push((
                                     var_name,
-                                    assignment.location,
-                                    *expr_stmt.location(),
+                                    &assignment.location,
+                                    expr_stmt.location(),
                                 ));
                             }
                         }
@@ -123,12 +114,7 @@ impl GTaskSourceTag {
         results
     }
 
-    fn has_set_source_tag_call(
-        &self,
-        statements: &[Statement],
-        var_name: &str,
-        source: &[u8],
-    ) -> bool {
+    fn has_set_source_tag_call(&self, statements: &[Statement], var_name: &str) -> bool {
         for stmt in statements {
             let mut found = false;
             stmt.walk(&mut |s| {
@@ -137,7 +123,7 @@ impl GTaskSourceTag {
                     && !call.arguments.is_empty()
                 {
                     // Check if first argument contains our variable
-                    if let Some(arg_text) = call.get_arg_text(0, source)
+                    if let Some(arg_text) = call.get_arg_text(0)
                         && arg_text.contains(var_name)
                     {
                         found = true;

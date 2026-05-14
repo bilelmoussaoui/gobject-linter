@@ -65,10 +65,10 @@ impl UseGStringFreeAndSteal {
         }
 
         // Get argument text for the fix
-        let Some(first_text) = call.get_arg_text(0, &file.source) else {
+        let Some(first_text) = call.get_arg_text(0) else {
             return;
         };
-        let Some(second_text) = call.get_arg_text(1, &file.source) else {
+        let Some(second_text) = call.get_arg_text(1) else {
             return;
         };
 

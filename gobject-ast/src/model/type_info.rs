@@ -162,7 +162,7 @@ impl TypeInfo {
         }
     }
 
-    fn parse_auto_cleanup(type_str: &str) -> Option<AutoCleanupMacro> {
+    pub(crate) fn parse_auto_cleanup(type_str: &str) -> Option<AutoCleanupMacro> {
         let try_with_arg = |macro_name: &str| -> Option<String> {
             let pos = type_str.find(macro_name)?;
             let after_name = type_str[pos + macro_name.len()..].trim_start();

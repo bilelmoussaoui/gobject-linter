@@ -196,8 +196,8 @@ fn collect_all_refs(ast_context: &AstContext) -> AllRefs {
     }
 }
 
-type FuncDefMap<'a> = HashMap<&'a str, Vec<(&'a std::path::Path, bool, SourceLocation)>>;
-type FuncDeclMap<'a> = HashMap<&'a str, Vec<(&'a std::path::Path, SourceLocation)>>;
+type FuncDefMap<'a> = HashMap<&'a str, Vec<(&'a std::path::Path, bool, &'a SourceLocation)>>;
+type FuncDeclMap<'a> = HashMap<&'a str, Vec<(&'a std::path::Path, &'a SourceLocation)>>;
 
 fn collect_function_maps<'a>(ast_context: &'a AstContext) -> (FuncDefMap<'a>, FuncDeclMap<'a>) {
     let mut defs: FuncDefMap = HashMap::new();
@@ -210,7 +210,7 @@ fn collect_function_maps<'a>(ast_context: &'a AstContext) -> (FuncDefMap<'a>, Fu
                 defs.entry(func.name.as_str()).or_default().push((
                     path,
                     func.is_static,
-                    func.location,
+                    &func.location,
                 ));
             }
         }
@@ -219,7 +219,7 @@ fn collect_function_maps<'a>(ast_context: &'a AstContext) -> (FuncDefMap<'a>, Fu
                 decls
                     .entry(func.name.as_str())
                     .or_default()
-                    .push((path, func.location));
+                    .push((path, &func.location));
             }
         }
     }
@@ -234,11 +234,11 @@ struct AllRefs {
     field_unqualified: HashSet<String>,
 }
 
-type TypeDefMap<'a> = HashMap<&'a str, Vec<(&'a std::path::Path, SourceLocation)>>;
+type TypeDefMap<'a> = HashMap<&'a str, Vec<(&'a std::path::Path, &'a SourceLocation)>>;
 
-type EnumValueDefMap<'a> = HashMap<&'a str, Vec<(&'a std::path::Path, SourceLocation)>>;
+type EnumValueDefMap<'a> = HashMap<&'a str, Vec<(&'a std::path::Path, &'a SourceLocation)>>;
 
-type FieldDefMap<'a> = HashMap<&'a str, Vec<(&'a std::path::Path, SourceLocation, &'a str)>>;
+type FieldDefMap<'a> = HashMap<&'a str, Vec<(&'a std::path::Path, &'a SourceLocation, &'a str)>>;
 
 fn collect_private_defs<'a>(
     ast_context: &'a AstContext,
@@ -254,13 +254,13 @@ fn collect_private_defs<'a>(
                     type_defs
                         .entry(name.as_str())
                         .or_default()
-                        .push((path, *location));
+                        .push((path, location));
                 }
                 TopLevelItem::TypeDefinition(TypeDefItem::Typedef { name, location, .. }) => {
                     type_defs
                         .entry(name.as_str())
                         .or_default()
-                        .push((path, *location));
+                        .push((path, location));
                 }
                 _ => {}
             }
@@ -296,7 +296,7 @@ fn collect_private_defs<'a>(
                 enum_value_defs
                     .entry(value.name.as_str())
                     .or_default()
-                    .push((path, value.location));
+                    .push((path, &value.location));
             }
         }
     }
@@ -328,7 +328,7 @@ fn collect_fields_into_defs<'a>(
         }
         defs.entry(field_name.as_str())
             .or_default()
-            .push((path, field.location, struct_name));
+            .push((path, &field.location, struct_name));
     }
 }
 
