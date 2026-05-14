@@ -1,7 +1,7 @@
 sources = []
 
 if gtk4_dep.found()
-  sources += ['basic.c']
+  sources += ['basic.c', 'format_strings.c']
 endif
 
 if adwaita_dep.found()
