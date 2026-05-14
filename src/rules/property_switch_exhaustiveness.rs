@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use gobject_ast::model::{
-    Expression, FileModel, FunctionDefItem, ParamFlag, ParamSpecAssignment, Property, PropertyType,
-    Statement, SwitchStatement,
+    Expression, FileModel, ParamFlag, ParamSpecAssignment, Property, PropertyType, Statement,
+    SwitchStatement,
 };
 
 use crate::{
@@ -77,12 +77,10 @@ impl Rule for PropertySwitchExhaustiveness {
 
         for (_path, file) in ast_context.iter_all_files() {
             for enum_info in file.iter_property_enums() {
-                // Find the associated GObjectType
-                let Some(gobject_type) = file.find_gobject_type_for_property_enum(enum_info) else {
+                let Some(ctx) = file.resolve_property_enum_context(enum_info) else {
                     continue;
                 };
 
-                // Get property names (excluding PROP_0 and N_PROPS)
                 let property_names: Vec<&str> = enum_info
                     .values
                     .iter()
@@ -94,25 +92,14 @@ impl Rule for PropertySwitchExhaustiveness {
                     continue;
                 }
 
-                // Build a map from property enum names to their access permissions
                 let property_access = self.build_property_access_map(
-                    &gobject_type.properties,
+                    &ctx.gobject_type.properties,
                     &file.source,
                     &readable_flags,
                     &writable_flags,
                 );
 
-                // Find get_property and set_property function names from class_init
-                let class_init = file
-                    .iter_function_definitions()
-                    .find(|f| f.name == gobject_type.class_init_function_name());
-                let get_property_func =
-                    class_init.and_then(|ci| self.find_assigned_function(ci, "get_property"));
-                let set_property_func =
-                    class_init.and_then(|ci| self.find_assigned_function(ci, "set_property"));
-
-                // Check get_property function
-                if let Some(func_name) = get_property_func {
+                if let Some(func_name) = ctx.get_property_func {
                     self.check_property_function(
                         file,
                         func_name,
@@ -125,8 +112,7 @@ impl Rule for PropertySwitchExhaustiveness {
                     );
                 }
 
-                // Check set_property function
-                if let Some(func_name) = set_property_func {
+                if let Some(func_name) = ctx.set_property_func {
                     self.check_property_function(
                         file,
                         func_name,
@@ -217,28 +203,6 @@ impl PropertySwitchExhaustiveness {
         let has_writable = property.flags.iter().any(|f| writable_flags.contains(f));
 
         Some((has_readable, has_writable))
-    }
-
-    /// Find function name assigned to object_class->field in class_init
-    fn find_assigned_function<'a>(
-        &self,
-        class_init: &'a FunctionDefItem,
-        field_name: &str,
-    ) -> Option<&'a str> {
-        class_init
-            .body_statements
-            .iter()
-            .flat_map(Statement::iter_assignments)
-            .find_map(|assignment| {
-                if let Expression::FieldAccess(field_access) = &*assignment.lhs
-                    && field_access.field == field_name
-                    && let Expression::Identifier(id) = &*assignment.rhs
-                {
-                    Some(id.name.as_str())
-                } else {
-                    None
-                }
-            })
     }
 
     /// Check a property getter or setter function for exhaustiveness

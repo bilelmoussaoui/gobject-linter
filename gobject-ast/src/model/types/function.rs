@@ -491,8 +491,10 @@ impl FunctionDefItem {
                                 for idx in indices {
                                     if let ParamSpecAssignment::Variable { install_call, .. } =
                                         &mut assignments[idx]
+                                        && install_call.is_none()
                                     {
                                         *install_call = Some(call.clone());
+                                        break;
                                     }
                                 }
                             }
@@ -502,6 +504,7 @@ impl FunctionDefItem {
             });
         }
 
+        assignments.sort_by_key(|a| a.statement_location().start_byte);
         assignments
     }
 }

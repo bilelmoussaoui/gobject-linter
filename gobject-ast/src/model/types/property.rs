@@ -740,8 +740,23 @@ impl ParamSpecAssignment {
         }
     }
 
-    /// Get the enum value (for ArraySubscript, OverrideProperty, and
-    /// DirectInstall)
+    pub fn statement_location(&self) -> &SourceLocation {
+        match self {
+            Self::ArraySubscript {
+                statement_location, ..
+            }
+            | Self::Variable {
+                statement_location, ..
+            }
+            | Self::OverrideProperty {
+                statement_location, ..
+            }
+            | Self::DirectInstall {
+                statement_location, ..
+            } => statement_location,
+        }
+    }
+
     pub fn enum_value(&self) -> Option<&str> {
         match self {
             Self::ArraySubscript { enum_value, .. } => Some(enum_value.as_str()),

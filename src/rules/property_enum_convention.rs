@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use gobject_ast::model::{
-    EnumInfo, EnumValue, Expression, FileModel, ParamSpecAssignment, Parameter, PropertyType,
-    Statement, SwitchStatement, TopLevelItem, TypeInfo,
+    EnumInfo, EnumValue, Expression, FileModel, ParamSpecAssignment, PropertyEnumContext,
+    PropertyType, SwitchStatement, TopLevelItem, TypeInfo,
 };
 use heck::ToShoutySnakeCase;
 
@@ -13,14 +13,6 @@ use crate::{
 };
 
 pub struct PropertyEnumConvention;
-
-/// Context about which class owns a property enum
-#[derive(Debug)]
-struct ClassContext<'a> {
-    class_type_info: &'a TypeInfo,
-    get_property_func: Option<&'a str>,
-    set_property_func: Option<&'a str>,
-}
 
 impl Rule for PropertyEnumConvention {
     fn name(&self) -> &'static str {
@@ -148,17 +140,11 @@ impl PropertyEnumConvention {
                     continue;
                 }
 
-                // Find which class_init and property functions correspond to this enum
-                // by tracing N_PROPS through GParamSpec array to class_init
-                let (class_context, assignments) =
-                    match self.find_class_context_for_enum(file, enum_info) {
-                        Some(pair) => pair,
-                        None => continue,
-                    };
+                let Some(ctx) = file.resolve_property_enum_context(enum_info) else {
+                    continue;
+                };
 
-                // Build map of which properties are overrides from this class_init's
-                // assignments
-                let property_map = self.build_property_override_map(assignments);
+                let property_map = self.build_property_override_map(&ctx.gobject_type.properties);
 
                 // Get the name of the last REAL property (the one before N_PROPS)
                 // If N_PROPS = PROP_X and PROP_X is an override, find the last non-override
@@ -200,10 +186,9 @@ impl PropertyEnumConvention {
                     enum_info.values.last().unwrap().name.as_str()
                 };
 
-                // Determine the enum name to use (either from typedef or derived from
-                // class_init)
                 let derived_enum_name = if enum_info.name.is_none() {
-                    self.derive_enum_name_from_class_type(class_context.class_type_info)
+                    ctx.class_type_info
+                        .and_then(|ti| self.derive_enum_name_from_class_type(ti))
                 } else {
                     None
                 };
@@ -303,16 +288,16 @@ impl PropertyEnumConvention {
                 } else if let Some(ref derived) = derived_enum_name {
                     derived.clone()
                 } else {
-                    // Try to derive from class type if we have it
-                    self.derive_enum_name_from_class_type(class_context.class_type_info)
+                    ctx.class_type_info
+                        .and_then(|ti| self.derive_enum_name_from_class_type(ti))
                         .unwrap_or_else(|| "UnknownProps".to_string())
                 };
 
                 if !enum_name.is_empty() {
-                    if let Some(func_name) = class_context.get_property_func {
+                    if let Some(func_name) = ctx.get_property_func {
                         self.add_switch_cast_for_function(file, func_name, &enum_name, &mut fixes);
                     }
-                    if let Some(func_name) = class_context.set_property_func {
+                    if let Some(func_name) = ctx.set_property_func {
                         self.add_switch_cast_for_function(file, func_name, &enum_name, &mut fixes);
                     }
                 }
@@ -361,13 +346,11 @@ impl PropertyEnumConvention {
                     continue;
                 }
 
-                let (class_context, assignments) =
-                    match self.find_class_context_for_enum(file, enum_info) {
-                        Some(pair) => pair,
-                        None => continue,
-                    };
+                let Some(ctx) = file.resolve_property_enum_context(enum_info) else {
+                    continue;
+                };
 
-                let property_map = self.build_property_override_map(assignments);
+                let property_map = self.build_property_override_map(&ctx.gobject_type.properties);
 
                 // Find the last real (non-override) property
                 let last_real_prop = enum_info
@@ -389,14 +372,7 @@ impl PropertyEnumConvention {
                     violations,
                 );
 
-                // Check if getter/setter need switch casts or typedef
-                self.check_modern_enum_switch_casts(
-                    file,
-                    path,
-                    enum_info,
-                    &class_context,
-                    violations,
-                );
+                self.check_modern_enum_switch_casts(file, path, enum_info, &ctx, violations);
             }
         }
     }
@@ -620,60 +596,6 @@ impl PropertyEnumConvention {
             .map(|base_name| format!("{}Props", base_name))
     }
 
-    /// Find which class owns this property enum by tracing N_PROPS through
-    /// GParamSpec arrays or by finding install_property calls
-    /// Returns the class type and associated get/set property function names
-    fn find_class_context_for_enum<'a>(
-        &self,
-        file: &'a FileModel,
-        enum_info: &EnumInfo,
-    ) -> Option<(ClassContext<'a>, &'a [ParamSpecAssignment])> {
-        let gobject_type = file.find_gobject_type_for_property_enum(enum_info)?;
-
-        let class_init_name = gobject_type.class_init_function_name();
-        let func = file
-            .iter_function_definitions()
-            .find(|f| f.name == class_init_name)?;
-
-        // Extract class type from parameter
-        let class_type_info = func.parameters.first().and_then(|p| {
-            if let Parameter::Regular { type_info, .. } = p {
-                Some(type_info)
-            } else {
-                None
-            }
-        })?;
-
-        // Extract get_property and set_property function names from assignments
-        let mut get_property_func = None;
-        let mut set_property_func = None;
-
-        for assignment in func
-            .body_statements
-            .iter()
-            .flat_map(Statement::iter_assignments)
-        {
-            if let Expression::FieldAccess(field) = &*assignment.lhs
-                && let Expression::Identifier(ident) = assignment.rhs.as_ref()
-            {
-                if field.field == "get_property" {
-                    get_property_func = Some(ident.name.as_str());
-                } else if field.field == "set_property" {
-                    set_property_func = Some(ident.name.as_str());
-                }
-            }
-        }
-
-        Some((
-            ClassContext {
-                class_type_info,
-                get_property_func,
-                set_property_func,
-            },
-            &gobject_type.properties,
-        ))
-    }
-
     /// Check if N_PROPS is used in switch case expressions in
     /// get_property/set_property e.g., case N_PROPS +
     /// META_DBUS_SESSION_PROP_FOO:
@@ -728,17 +650,18 @@ impl PropertyEnumConvention {
         file: &FileModel,
         path: &std::path::Path,
         enum_info: &EnumInfo,
-        class_context: &ClassContext<'_>,
+        ctx: &PropertyEnumContext<'_>,
         violations: &mut Vec<Violation>,
     ) {
-        // Determine the enum name (derive if anonymous)
         let enum_name = if let Some(ref name) = enum_info.name {
             name.clone()
         } else {
-            // For anonymous enums, derive the name from the class type
-            match self.derive_enum_name_from_class_type(class_context.class_type_info) {
+            match ctx
+                .class_type_info
+                .and_then(|ti| self.derive_enum_name_from_class_type(ti))
+            {
                 Some(name) => name,
-                None => return, // Can't derive a name
+                None => return,
             }
         };
 
@@ -750,10 +673,10 @@ impl PropertyEnumConvention {
         }
 
         // Add switch casts for getter/setter functions
-        if let Some(func_name) = class_context.get_property_func {
+        if let Some(func_name) = ctx.get_property_func {
             self.add_switch_cast_for_function(file, func_name, &enum_name, &mut fixes);
         }
-        if let Some(func_name) = class_context.set_property_func {
+        if let Some(func_name) = ctx.set_property_func {
             self.add_switch_cast_for_function(file, func_name, &enum_name, &mut fixes);
         }
 

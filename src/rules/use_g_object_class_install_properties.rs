@@ -44,70 +44,56 @@ impl Rule for UseGObjectClassInstallProperties {
             return;
         }
 
-        let Some(mut gobject_type) = file.find_gobject_type_for_property_enum(enum_info) else {
+        let Some(mut ctx) = file.resolve_property_enum_context(enum_info) else {
             return;
         };
         // Prefer the Define variant which has interfaces populated
-        if gobject_type.interfaces.is_empty()
+        if ctx.gobject_type.interfaces.is_empty()
             && let Some(define) = file
                 .iter_all_gobject_types()
-                .find(|gt| gt.type_name == gobject_type.type_name && gt.kind.is_define())
+                .find(|gt| gt.type_name == ctx.gobject_type.type_name && gt.kind.is_define())
         {
-            gobject_type = define;
+            ctx.gobject_type = define;
         }
 
-        let class_init_name = gobject_type.class_init_function_name();
-        let Some(func) = file
-            .iter_function_definitions()
-            .find(|f| f.name == class_init_name)
-        else {
-            return;
-        };
-
-        let install_property_calls = func.find_calls(&["g_object_class_install_property"]);
-        let override_property_calls = func.find_calls(&["g_object_class_override_property"]);
-
-        if install_property_calls.is_empty() && override_property_calls.is_empty() {
+        let individual_properties: Vec<_> = ctx
+            .gobject_type
+            .properties
+            .iter()
+            .filter(|p| !matches!(p, ParamSpecAssignment::ArraySubscript { .. }))
+            .collect();
+        if individual_properties.is_empty() {
             return;
         }
-
-        let total_calls = install_property_calls.len() + override_property_calls.len();
 
         let fixes = self.generate_fixes(
             ast_context,
             file,
-            func,
-            gobject_type,
-            &install_property_calls,
-            &override_property_calls,
-            &gobject_type.properties,
+            ctx.class_init,
+            ctx.gobject_type,
+            &individual_properties,
             enum_info,
             &file.source,
             &config.style,
         );
 
-        let first_call = install_property_calls
+        let location = individual_properties
             .first()
-            .or(override_property_calls.first())
+            .map(|p| p.statement_location())
             .unwrap();
         let message = if fixes.is_empty() {
             format!(
                 "Consider using g_object_class_install_properties() instead of {} individual property installation calls",
-                total_calls
+                individual_properties.len()
             )
         } else {
             format!(
                 "Use g_object_class_install_properties() instead of {} individual property installation calls",
-                total_calls
+                individual_properties.len()
             )
         };
 
-        violations.push(self.violation_with_fixes_at(
-            &file.path,
-            &first_call.location,
-            message,
-            fixes,
-        ));
+        violations.push(self.violation_with_fixes_at(&file.path, location, message, fixes));
     }
 }
 
@@ -119,14 +105,28 @@ impl UseGObjectClassInstallProperties {
         file: &FileModel,
         class_init: &FunctionDefItem,
         gobject_type: &gobject_ast::model::GObjectType,
-        install_calls: &[&CallExpression],
-        override_calls: &[&CallExpression],
-        assignments: &[ParamSpecAssignment],
+        assignments: &[&ParamSpecAssignment],
         property_enum: &EnumInfo,
         source: &[u8],
         style: &crate::config::Style,
     ) -> Vec<Fix> {
         let mut fixes = Vec::new();
+
+        let install_calls: Vec<&CallExpression> = assignments
+            .iter()
+            .filter_map(|a| match a {
+                ParamSpecAssignment::DirectInstall { install_call, .. } => Some(install_call),
+                ParamSpecAssignment::Variable { install_call, .. } => install_call.as_ref(),
+                _ => None,
+            })
+            .collect();
+        let override_calls: Vec<&CallExpression> = assignments
+            .iter()
+            .filter_map(|a| match a {
+                ParamSpecAssignment::OverrideProperty { call, .. } => Some(call),
+                _ => None,
+            })
+            .collect();
 
         // Resolve interface for override properties
         let override_names: Vec<&str> = assignments
@@ -300,7 +300,7 @@ impl UseGObjectClassInstallProperties {
         let mut param_spec_vars = std::collections::HashSet::new();
 
         // Convert each g_object_class_install_property call
-        for call in install_calls {
+        for call in &install_calls {
             // Extract the property enum value (2nd argument)
             let Some(prop_id_arg) = call.get_arg(1) else {
                 continue;
@@ -409,7 +409,7 @@ impl UseGObjectClassInstallProperties {
         }
 
         // Convert each g_object_class_override_property call
-        for call in override_calls {
+        for call in &override_calls {
             let Some(prop_id_arg) = call.get_arg(1) else {
                 continue;
             };

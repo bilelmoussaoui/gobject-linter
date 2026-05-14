@@ -8,8 +8,8 @@ use serde::Serialize;
 use crate::model::{
     Comment, DeclareKind, DefineKind, EnumInfo, EnumValueDoc, Expression, FunctionDeclItem,
     FunctionDefItem, FunctionDoc, GObjectType, GObjectTypeKind, GType, InterfaceImplementation,
-    PreprocessorDirective, SourceLocation, Statement, TopLevelItem, TypeDefItem, TypeDoc, TypeInfo,
-    TypedefTarget, UnaryOp, VariableDecl,
+    Parameter, PreprocessorDirective, SourceLocation, Statement, TopLevelItem, TypeDefItem,
+    TypeDoc, TypeInfo, TypedefTarget, UnaryOp, VariableDecl,
 };
 
 /// The complete project model - a map of files to their content
@@ -167,6 +167,16 @@ impl Project {
         }
         false
     }
+}
+
+/// Resolved context for a property enum: the owning GObjectType, its class_init
+/// function, and the get/set property function names.
+pub struct PropertyEnumContext<'a> {
+    pub gobject_type: &'a GObjectType,
+    pub class_init: &'a FunctionDefItem,
+    pub class_type_info: Option<&'a TypeInfo>,
+    pub get_property_func: Option<&'a str>,
+    pub set_property_func: Option<&'a str>,
 }
 
 /// Model of a single file (header or C file)
@@ -461,6 +471,52 @@ impl FileModel {
             }
 
             false
+        })
+    }
+
+    pub fn resolve_property_enum_context(
+        &self,
+        enum_info: &EnumInfo,
+    ) -> Option<PropertyEnumContext<'_>> {
+        let gobject_type = self.find_gobject_type_for_property_enum(enum_info)?;
+        let class_init_name = gobject_type.class_init_function_name();
+        let class_init = self
+            .iter_function_definitions()
+            .find(|f| f.name == class_init_name)?;
+
+        let class_type_info = class_init.parameters.first().and_then(|p| {
+            if let Parameter::Regular { type_info, .. } = p {
+                Some(type_info)
+            } else {
+                None
+            }
+        });
+
+        let mut get_property_func = None;
+        let mut set_property_func = None;
+
+        for assignment in class_init
+            .body_statements
+            .iter()
+            .flat_map(Statement::iter_assignments)
+        {
+            if let Expression::FieldAccess(field) = &*assignment.lhs
+                && let Expression::Identifier(ident) = assignment.rhs.as_ref()
+            {
+                match field.field.as_str() {
+                    "get_property" => get_property_func = Some(ident.name.as_str()),
+                    "set_property" => set_property_func = Some(ident.name.as_str()),
+                    _ => {}
+                }
+            }
+        }
+
+        Some(PropertyEnumContext {
+            gobject_type,
+            class_init,
+            class_type_info,
+            get_property_func,
+            set_property_func,
         })
     }
 
