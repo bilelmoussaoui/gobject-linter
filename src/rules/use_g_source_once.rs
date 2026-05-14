@@ -128,14 +128,20 @@ impl UseGSourceOnce {
                 continue;
             }
 
-            let return_exprs = func.collect_return_values();
-            if return_exprs.is_empty() {
+            let return_stmts: Vec<_> = func
+                .body_statements
+                .iter()
+                .flat_map(Statement::iter_returns)
+                .collect();
+            if return_stmts.is_empty() {
                 return None;
             }
 
-            if !return_exprs.iter().all(|expr| {
-                expr.is_falsy()
-                    || matches!(expr, Expression::Identifier(id) if id.name == "G_SOURCE_REMOVE")
+            if !return_stmts.iter().all(|ret| {
+                ret.value.as_ref().is_some_and(|expr| {
+                    expr.is_falsy()
+                        || matches!(expr, Expression::Identifier(id) if id.name == "G_SOURCE_REMOVE")
+                })
             }) {
                 return None;
             }
@@ -144,8 +150,24 @@ impl UseGSourceOnce {
                 fixes.push(fix);
             }
 
-            for ret_expr in return_exprs {
-                fixes.push(Fix::delete_line_and_leading_blank(ret_expr.location()));
+            let last_top_level = func.body_statements.last().and_then(|s| {
+                if let Statement::Return(ret) = s {
+                    Some(&ret.location)
+                } else {
+                    None
+                }
+            });
+
+            for ret in &return_stmts {
+                if last_top_level.is_some_and(|loc| loc.start_byte == ret.location.start_byte) {
+                    fixes.push(Fix::delete_line_and_leading_blank(&ret.location));
+                } else {
+                    fixes.push(Fix::new(
+                        ret.location.start_byte,
+                        ret.location.end_byte,
+                        "return;",
+                    ));
+                }
             }
 
             found_definition = true;

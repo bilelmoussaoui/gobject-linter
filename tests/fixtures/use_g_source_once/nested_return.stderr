@@ -1,0 +1,1 @@
+nested_return.c:17:3: use_g_source_once: Callback 'handle_it_cb' always returns G_SOURCE_REMOVE. Use g_idle_add_once instead of g_idle_add

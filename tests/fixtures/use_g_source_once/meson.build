@@ -3,6 +3,8 @@ sources = [
   'basic.fixed.c',
   'with_cast.c',
   'with_cast.fixed.c',
+  'nested_return.c',
+  'nested_return.fixed.c',
 ]
 
 foreach src : sources
