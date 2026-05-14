@@ -71,6 +71,10 @@ impl UntranslatedString {
                 if !string_value.chars().any(char::is_alphabetic) {
                     return;
                 }
+                // Skip simple format strings like "%s" or "%d"
+                if matches!(string_value.as_bytes(), [b'%', c] if c.is_ascii_alphabetic()) {
+                    return;
+                }
             }
 
             let location = arg.location();
