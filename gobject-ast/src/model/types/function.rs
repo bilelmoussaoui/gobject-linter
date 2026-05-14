@@ -336,84 +336,130 @@ impl FunctionDefItem {
         // First pass: collect all assignments
         for (i, stmt) in self.body_statements.iter().enumerate() {
             stmt.walk(&mut |s| {
-                if let Statement::Expression(expr_stmt) = s {
-                    match expr_stmt.as_ref() {
-                        // Assignment: props[PROP_X] = g_param_spec_*() or spec = g_param_spec_*()
-                        Expression::Assignment(assignment) => {
-                            if let Expression::Call(param_call) = &*assignment.rhs {
-                                let func_name = param_call.function_name();
-                                if !func_name.contains("_param_spec_") {
-                                    return;
-                                }
+                match s {
+                    // Declaration: GParamSpec *pspec = g_param_spec_*()
+                    Statement::Declaration(decl)
+                        if matches!(
+                            &decl.initializer,
+                            Some(Expression::Call(c)) if c.function_contains("_param_spec_")
+                        ) =>
+                    {
+                        let Some(Expression::Call(param_call)) = &decl.initializer else {
+                            unreachable!()
+                        };
+                        let Some(mut property) = Property::from_param_spec_call(param_call) else {
+                            return;
+                        };
+                        if i > 0
+                            && let Statement::Comment(c) = &self.body_statements[i - 1]
+                        {
+                            property.doc =
+                                PropertyDoc::from_comment_for(c, type_name, &property.name);
+                        }
+                        let idx = assignments.len();
+                        variable_assignments
+                            .entry(&*decl.name)
+                            .or_default()
+                            .push(idx);
+                        assignments.push(ParamSpecAssignment::Variable {
+                            variable_name: decl.name.clone(),
+                            statement_location: s.location().clone(),
+                            call: param_call.clone(),
+                            property,
+                            install_call: None,
+                        });
+                    }
+                    Statement::Expression(expr_stmt) => {
+                        match expr_stmt.as_ref() {
+                            // Assignment: props[PROP_X] = g_param_spec_*() or spec =
+                            // g_param_spec_*()
+                            Expression::Assignment(assignment) => {
+                                if let Expression::Call(param_call) = &*assignment.rhs {
+                                    let func_name = param_call.function_name();
+                                    if !func_name.contains("_param_spec_") {
+                                        return;
+                                    }
 
-                                // Parse property from call
-                                let Some(mut property) = Property::from_param_spec_call(param_call)
-                                else {
-                                    return;
-                                };
-                                if i > 0
-                                    && let Statement::Comment(c) = &self.body_statements[i - 1]
-                                {
-                                    property.doc =
-                                        PropertyDoc::from_comment_for(c, type_name, &property.name);
-                                }
+                                    let Some(mut property) =
+                                        Property::from_param_spec_call(param_call)
+                                    else {
+                                        return;
+                                    };
+                                    if i > 0
+                                        && let Statement::Comment(c) = &self.body_statements[i - 1]
+                                    {
+                                        property.doc = PropertyDoc::from_comment_for(
+                                            c,
+                                            type_name,
+                                            &property.name,
+                                        );
+                                    }
 
-                                // Check LHS: array subscript or variable?
-                                if let Expression::Subscript(subscript) = &*assignment.lhs {
-                                    // Array pattern: props[PROP_X] = g_param_spec_*()
-                                    if let Some(array_name) = subscript.array.location().as_str()
-                                        && let Some(enum_value) =
-                                            subscript.index.location().as_str()
+                                    // Check LHS: array subscript or variable?
+                                    if let Expression::Subscript(subscript) = &*assignment.lhs {
+                                        if let Some(array_name) =
+                                            subscript.array.location().as_str()
+                                            && let Some(enum_value) =
+                                                subscript.index.location().as_str()
+                                        {
+                                            let idx = assignments.len();
+                                            array_assignments
+                                                .entry(array_name)
+                                                .or_default()
+                                                .push(idx);
+                                            assignments.push(ParamSpecAssignment::ArraySubscript {
+                                                array_name: array_name.to_owned(),
+                                                enum_value: enum_value.to_owned(),
+                                                statement_location: s.location().clone(),
+                                                call: param_call.clone(),
+                                                property,
+                                                install_call: None,
+                                            });
+                                        }
+                                    } else if let Some(var_name) =
+                                        assignment.lhs.location().as_str()
                                     {
                                         let idx = assignments.len();
-                                        array_assignments.entry(array_name).or_default().push(idx);
-                                        assignments.push(ParamSpecAssignment::ArraySubscript {
-                                            array_name: array_name.to_owned(),
-                                            enum_value: enum_value.to_owned(),
+                                        variable_assignments.entry(var_name).or_default().push(idx);
+                                        assignments.push(ParamSpecAssignment::Variable {
+                                            variable_name: var_name.to_owned(),
                                             statement_location: s.location().clone(),
                                             call: param_call.clone(),
                                             property,
                                             install_call: None,
                                         });
                                     }
-                                } else if let Some(var_name) = assignment.lhs.location().as_str() {
-                                    // Variable pattern: param_spec = g_param_spec_*()
-                                    let idx = assignments.len();
-                                    variable_assignments.entry(var_name).or_default().push(idx);
-                                    assignments.push(ParamSpecAssignment::Variable {
-                                        variable_name: var_name.to_owned(),
+                                }
+                            }
+                            // Direct call: g_object_class_override_property(class, PROP_X, "name")
+                            Expression::Call(call) => {
+                                if call.function_contains("override_property")
+                                    && let Some(mut property) =
+                                        Property::from_override_property_call(call)
+                                    && let Some(enum_arg) = call.get_arg(1)
+                                    && let Some(enum_value) = enum_arg.location().as_str()
+                                {
+                                    if i > 0
+                                        && let Statement::Comment(c) = &self.body_statements[i - 1]
+                                    {
+                                        property.doc = PropertyDoc::from_comment_for(
+                                            c,
+                                            type_name,
+                                            &property.name,
+                                        );
+                                    }
+                                    assignments.push(ParamSpecAssignment::OverrideProperty {
+                                        enum_value: enum_value.to_owned(),
                                         statement_location: s.location().clone(),
-                                        call: param_call.clone(),
+                                        call: call.clone(),
                                         property,
-                                        install_call: None,
                                     });
                                 }
                             }
+                            _ => {}
                         }
-                        // Direct call: g_object_class_override_property(class, PROP_X, "name")
-                        Expression::Call(call) => {
-                            if call.function_contains("override_property")
-                                && let Some(mut property) =
-                                    Property::from_override_property_call(call)
-                                && let Some(enum_arg) = call.get_arg(1)
-                                && let Some(enum_value) = enum_arg.location().as_str()
-                            {
-                                if i > 0
-                                    && let Statement::Comment(c) = &self.body_statements[i - 1]
-                                {
-                                    property.doc =
-                                        PropertyDoc::from_comment_for(c, type_name, &property.name);
-                                }
-                                assignments.push(ParamSpecAssignment::OverrideProperty {
-                                    enum_value: enum_value.to_owned(),
-                                    statement_location: s.location().clone(),
-                                    call: call.clone(),
-                                    property,
-                                });
-                            }
-                        }
-                        _ => {}
                     }
+                    _ => {}
                 }
             });
         }
@@ -474,8 +520,7 @@ impl FunctionDefItem {
                                     property,
                                     install_call: call.clone(),
                                 });
-                            } else if !is_interface
-                                && let Some(var_name) = spec_expr.location().as_str()
+                            } else if let Some(var_name) = spec_expr.location().as_str()
                                 && let Some(indices) = variable_assignments.get(var_name)
                             {
                                 let indices = indices.clone();

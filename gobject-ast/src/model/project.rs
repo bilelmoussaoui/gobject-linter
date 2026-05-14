@@ -111,49 +111,24 @@ impl Project {
     /// Given a GObjectType and its overridden property names, find the
     /// implemented interface that defines the most of them. Returns `None`
     /// if no interface matches any property, or if there's a tie.
-    pub fn find_interface_for_overrides<'a>(
+    pub fn find_interface_for_property<'a>(
         &self,
         gobject_type: &'a GObjectType,
-        override_names: &[&str],
+        property_name: &str,
     ) -> Option<&'a GType> {
-        let mut best: Option<(&GType, usize)> = None;
-        let mut tied = false;
-
         for iface in &gobject_type.interfaces {
             let Some(iface_type) = self.find_gobject_type_by_gtype(&iface.interface_type) else {
                 continue;
             };
-            let count = override_names
+            if iface_type
+                .properties
                 .iter()
-                .filter(|name| {
-                    iface_type
-                        .properties
-                        .iter()
-                        .any(|p| p.property().name == **name)
-                })
-                .count();
-            if count == 0 {
-                continue;
-            }
-            match best {
-                Some((_, best_count)) if count > best_count => {
-                    best = Some((&iface.interface_type, count));
-                    tied = false;
-                }
-                Some((_, best_count)) if count == best_count => {
-                    tied = true;
-                }
-                None => {
-                    best = Some((&iface.interface_type, count));
-                }
-                _ => {}
+                .any(|p| p.property().name == property_name)
+            {
+                return Some(&iface.interface_type);
             }
         }
-
-        if tied {
-            return None;
-        }
-        best.map(|(gtype, _)| gtype)
+        None
     }
 
     /// Check if a function has export macros (truly public API)

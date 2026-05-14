@@ -126,24 +126,27 @@ impl UseGObjectClassInstallProperties {
             })
             .collect();
 
-        // Resolve interface for override properties
-        let override_names: Vec<&str> = assignments
-            .iter()
-            .filter_map(|a| match a {
-                ParamSpecAssignment::OverrideProperty { property, .. } => {
-                    Some(property.name.as_str())
-                }
-                _ => None,
-            })
-            .collect();
+        // Check which override properties can be resolved to an interface
+        let has_convertible_overrides = !override_calls.is_empty()
+            && override_calls.iter().any(|call| {
+                call.get_arg(2)
+                    .and_then(|a| a.location().as_str())
+                    .map(|s| s.trim_matches('"'))
+                    .and_then(|name| {
+                        ast_context
+                            .project
+                            .find_interface_for_property(gobject_type, name)
+                    })
+                    .is_some()
+            });
+        if install_calls.is_empty() && !has_convertible_overrides {
+            return fixes;
+        }
 
-        let iface_gtype = if !override_names.is_empty() {
-            ast_context
-                .project
-                .find_interface_for_overrides(gobject_type, &override_names)
-        } else {
-            None
-        };
+        let multiple_types = file
+            .iter_all_gobject_types()
+            .filter(|gt| gt.type_name != gobject_type.type_name)
+            .any(|gt| !gt.properties.is_empty());
 
         // Pre-collect variable-pattern assignments for lookup during fix generation
         let param_spec_assignments: Vec<_> = assignments
@@ -166,32 +169,81 @@ impl UseGObjectClassInstallProperties {
         // Handle split enum: collapse the intermediate sentinel only when we
         // can convert overrides to g_param_spec_override (i.e. interface found)
         let split_sentinel = self.find_split_sentinel(property_enum);
-        if iface_gtype.is_some()
+        let mut deleted_sentinel_name: Option<&str> = None;
+        if has_convertible_overrides
             && let Some((sentinel_value, first_override_value)) = &split_sentinel
         {
-            fixes.push(Fix::delete_line_and_trailing_blank(
-                &sentinel_value.location,
-            ));
-            if let Some(value_loc) = &first_override_value.value_location {
-                let eq_start = value_loc.find_before(b'=');
-                fixes.push(Fix::new(eq_start, value_loc.end_byte, String::new()));
+            if first_override_value.is_prop_last() {
+                // Pattern: PROP_X, N_PROPS = PROP_X — just remove the
+                // initializer so N_PROPS auto-increments past PROP_X
+                if let Some(value_loc) = &first_override_value.value_location {
+                    let eq_start = value_loc.find_before(b'=');
+                    fixes.push(Fix::new(eq_start, value_loc.end_byte, String::new()));
+                }
+            } else {
+                // True split: NUM_PROPERTIES, PROP_OVERRIDE = NUM_PROPERTIES —
+                // delete the intermediate sentinel and remove the initializer
+                fixes.push(Fix::delete_line_and_trailing_blank(
+                    &sentinel_value.location,
+                ));
+                deleted_sentinel_name = Some(&sentinel_value.name);
+                if let Some(value_loc) = &first_override_value.value_location {
+                    let eq_start = value_loc.find_before(b'=');
+                    fixes.push(Fix::new(eq_start, value_loc.end_byte, String::new()));
+                }
             }
         }
 
-        // Check if enum has N_PROPS (the final sentinel)
-        let n_props_value = property_enum.values.iter().rev().find(|v| v.is_prop_last());
-        let n_props_name = if let Some(n_props) = n_props_value {
+        // Check if enum has N_PROPS (the final sentinel), skipping any
+        // sentinel we're about to delete from a split enum collapse
+        let n_props_value =
+            property_enum.values.iter().rev().find(|v| {
+                v.is_prop_last() && deleted_sentinel_name.is_none_or(|name| v.name != name)
+            });
+
+        // If override properties appear after N_PROPS in the enum, it must
+        // move to the end so the array is large enough
+        let n_props_mispositioned = has_convertible_overrides
+            && n_props_value.is_some_and(|nv| {
+                let nv_idx = property_enum
+                    .values
+                    .iter()
+                    .position(|v| v.name == nv.name)
+                    .unwrap();
+                override_calls.iter().any(|call| {
+                    call.get_arg(1)
+                        .and_then(|a| a.location().as_str())
+                        .and_then(|name| property_enum.values.iter().position(|v| v.name == name))
+                        .is_some_and(|idx| idx > nv_idx)
+                })
+            });
+
+        if n_props_mispositioned
+            && let Some(nv) = n_props_value {
+                fixes.push(Fix::delete_line_and_trailing_blank(&nv.location));
+            }
+
+        let n_props_name = if let Some(n_props) = n_props_value
+            && !n_props_mispositioned
+        {
             n_props.name.clone()
         } else {
-            // Need to add N_PROPS to the enum
-            let n_props_name = self.determine_n_props_name(property_enum);
+            let n_props_name = n_props_value
+                .map(|v| v.name.clone())
+                .or_else(|| deleted_sentinel_name.map(std::string::ToString::to_string))
+                .unwrap_or_else(|| {
+                    let name = self.determine_n_props_name(property_enum);
+                    if multiple_types && name == "N_PROPS" {
+                        format!("{}_N_PROPS", gobject_type.function_prefix.to_uppercase())
+                    } else {
+                        name
+                    }
+                });
 
             // Insert N_PROPS after the last enum value
             let last_value = property_enum.values.last().unwrap();
-            // Use the same indentation as the last enum value
             let value_indentation = last_value.location.extract_indentation();
 
-            // Check if there's a comma after end_byte
             let comma_end = last_value.location.find_after(b',');
             let (insertion_pos, needs_comma) = if comma_end > last_value.location.end_byte {
                 (comma_end, false)
@@ -234,7 +286,15 @@ impl UseGObjectClassInstallProperties {
                     .map(|d| d.name.as_str())
             });
 
-        let array_name = existing_array_name.unwrap_or("props").to_string();
+        let array_name = if let Some(name) = existing_array_name {
+            name.to_string()
+        } else {
+            if multiple_types {
+                format!("{}_props", gobject_type.function_prefix)
+            } else {
+                "props".to_string()
+            }
+        };
 
         if existing_array_name.is_some() {
             // Find the declaration and update its size to N_PROPS
@@ -423,16 +483,20 @@ impl UseGObjectClassInstallProperties {
                 continue;
             };
 
-            if let Some(iface_gtype) = iface_gtype {
+            let resolved = ast_context
+                .project
+                .find_interface_for_property(gobject_type, prop_name);
+            if let Some(iface_gtype) = resolved {
                 let GType::Identifier(iface_type_str) = iface_gtype else {
                     continue;
                 };
 
                 let iface_ref =
                     style.format_call("g_type_default_interface_ref", &[iface_type_str]);
+                let prop_name_quoted = format!("\"{}\"", prop_name);
                 let find_prop = style.format_call(
                     "g_object_interface_find_property",
-                    &[&iface_ref, &format!("\"{}\"", prop_name)],
+                    &[&iface_ref, &prop_name_quoted],
                 );
                 let replacement = format!(
                     "{}[{}] = g_param_spec_override (\"{}\",\n{}    {});",
@@ -458,9 +522,9 @@ impl UseGObjectClassInstallProperties {
             }
         }
 
-        // Add g_object_class_install_properties call after all property assignments.
-        // Only consider override calls when we converted them to g_param_spec_override.
-        let last_call = if iface_gtype.is_some() {
+        // Ensure g_object_class_install_properties exists after all property
+        // assignments. Only consider override calls when we converted them.
+        let last_call = if has_convertible_overrides {
             [
                 install_calls.last().copied(),
                 override_calls.last().copied(),
@@ -478,18 +542,48 @@ impl UseGObjectClassInstallProperties {
             ) else {
                 return fixes;
             };
-
-            let call = style.format_call_stmt(
-                "g_object_class_install_properties",
-                &[object_class_var, &n_props_name, &array_name],
-            );
-            let install_properties_call = format!("\n\n{}{}", indentation, call);
             let last_stmt_end = last_stmt.location().find_semicolon_end();
-            fixes.push(Fix::new(
-                last_stmt_end,
-                last_stmt_end,
-                install_properties_call,
-            ));
+
+            let existing_install = class_init
+                .find_calls_matching(|name| name == "g_object_class_install_properties")
+                .into_iter()
+                .next();
+
+            if let Some(existing) = existing_install {
+                if existing.location.start_byte < last_call.location.start_byte {
+                    let Some(existing_stmt) = self.find_statement_containing_call(
+                        &class_init.body_statements,
+                        existing.location.start_byte,
+                    ) else {
+                        return fixes;
+                    };
+                    fixes.push(Fix::delete_line_and_trailing_blank(
+                        existing_stmt.location(),
+                    ));
+
+                    let call = style.format_call_stmt(
+                        "g_object_class_install_properties",
+                        &[object_class_var, &n_props_name, &array_name],
+                    );
+                    let install_properties_call = format!("\n\n{}{}", indentation, call);
+                    fixes.push(Fix::new(
+                        last_stmt_end,
+                        last_stmt_end,
+                        install_properties_call,
+                    ));
+                }
+            } else {
+                let call = style.format_call_stmt(
+                    "g_object_class_install_properties",
+                    &[object_class_var, &n_props_name, &array_name],
+                );
+                let install_properties_call = format!("\n\n{}{}", indentation, call);
+                fixes.push(Fix::new(
+                    last_stmt_end,
+                    last_stmt_end,
+                    install_properties_call,
+                ));
+            }
         }
 
         fixes
