@@ -69,13 +69,10 @@ impl Rule for MissingAutoptrCleanup {
                             "old-style",
                         ));
                     }
-                    GObjectTypeKind::Declare { .. } => {
+                    GObjectTypeKind::Declare { .. } if !gobject_type.manually_registered => {
                         declared_types.insert(&gobject_type.type_name);
                     }
-                    GObjectTypeKind::DefineQuark { .. }
-                    | GObjectTypeKind::DefineEnum { .. }
-                    | GObjectTypeKind::DefineFlags { .. }
-                    | GObjectTypeKind::DefineCustom { .. } => {}
+                    _ => {}
                 }
             }
 

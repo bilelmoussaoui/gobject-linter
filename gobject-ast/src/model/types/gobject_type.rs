@@ -22,6 +22,8 @@ pub struct GObjectType {
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub has_private: bool, /* G_ADD_PRIVATE in *_WITH_CODE, or
                             * *_WITH_PRIVATE */
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub manually_registered: bool,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub code_block_statements: Vec<Statement>, // Statements from *_WITH_CODE macros
     #[serde(skip_serializing_if = "Vec::is_empty")]
