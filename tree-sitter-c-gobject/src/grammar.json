@@ -31,6 +31,14 @@
           "name": "_gobject_ignore_macro"
         },
         {
+          "type": "SYMBOL",
+          "name": "_objc_block"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_objc_class_forward"
+        },
+        {
           "type": "CHOICE",
           "members": [
             {
@@ -6653,100 +6661,117 @@
       "type": "CHOICE",
       "members": [
         {
-          "type": "SYMBOL",
-          "name": "conditional_expression"
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "conditional_expression"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "assignment_expression"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "unary_expression"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "update_expression"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "cast_expression"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "pointer_expression"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "sizeof_expression"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "alignof_expression"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "offsetof_expression"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "generic_expression"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "subscript_expression"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "call_expression"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "field_expression"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "compound_literal_expression"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "identifier"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "number_literal"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "_string"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "true"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "false"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "null"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "char_literal"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "parenthesized_expression"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "gnu_asm_expression"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "extension_expression"
+            }
+          ]
         },
         {
           "type": "SYMBOL",
-          "name": "assignment_expression"
+          "name": "_objc_selector_expr"
         },
         {
           "type": "SYMBOL",
-          "name": "unary_expression"
+          "name": "_objc_string_literal"
         },
         {
           "type": "SYMBOL",
-          "name": "update_expression"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "cast_expression"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "pointer_expression"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "sizeof_expression"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "alignof_expression"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "offsetof_expression"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "generic_expression"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "subscript_expression"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "call_expression"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "field_expression"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "compound_literal_expression"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "identifier"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "number_literal"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "_string"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "true"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "false"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "null"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "char_literal"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "parenthesized_expression"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "gnu_asm_expression"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "extension_expression"
+          "name": "_objc_message_expr"
         }
       ]
     },
@@ -10019,6 +10044,26 @@
     {
       "type": "SYMBOL",
       "name": "_gobject_ignore_macro"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_objc_block"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_objc_class_forward"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_objc_selector_expr"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_objc_string_literal"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_objc_message_expr"
     }
   ],
   "inline": [

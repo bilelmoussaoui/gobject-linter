@@ -19,6 +19,11 @@ module.exports = grammar(C, {
     $._macro_modifier_name,           // any other ALL_CAPS identifier (CLUTTER_EXPORT etc.)
     $.gobject_export_macro,           // ALL_CAPS macro immediately preceding G_DECLARE_*/G_DEFINE_*
     $._gobject_ignore_macro,          // G_GNUC_BEGIN_IGNORE_DEPRECATIONS etc.
+    $._objc_block,                    // @interface...@end / @implementation...@end / @protocol...@end
+    $._objc_class_forward,            // @class Foo;
+    $._objc_selector_expr,            // @selector(name:)
+    $._objc_string_literal,           // @"string"
+    $._objc_message_expr,             // [obj message:arg]
   ],
 
   conflicts: ($, original) => [
@@ -61,6 +66,8 @@ module.exports = grammar(C, {
       $.gobject_decls_block,
       $.gobject_macro_statement,
       $._gobject_ignore_macro,
+      $._objc_block,
+      $._objc_class_forward,
       original,
     ),
 
@@ -154,6 +161,13 @@ module.exports = grammar(C, {
       field('name', $.identifier),
       repeat($.macro_modifier),
       optional(seq('=', field('value', $.expression))),
+    ),
+
+    _expression_not_binary: ($, original) => choice(
+      original,
+      $._objc_selector_expr,
+      $._objc_string_literal,
+      $._objc_message_expr,
     ),
 
     // Export / deprecation / availability macros used as declaration modifiers.

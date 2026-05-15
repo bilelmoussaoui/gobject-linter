@@ -9,6 +9,11 @@ typedef enum {
     MACRO_MODIFIER_NAME,           /* any other ALL_CAPS ident                  */
     GOBJECT_EXPORT_MACRO,          /* ALL_CAPS ident immediately before G_DECLARE_* or G_DEFINE_* */
     GOBJECT_IGNORE_MACRO,          /* G_GNUC_BEGIN_IGNORE_DEPRECATIONS etc.     */
+    OBJC_BLOCK,                    /* @interface...@end / @implementation...@end / @protocol...@end */
+    OBJC_CLASS_FORWARD,            /* @class Foo;                               */
+    OBJC_SELECTOR_EXPR,            /* @selector(name:)                          */
+    OBJC_STRING_LITERAL,           /* @"string"                                 */
+    OBJC_MESSAGE_EXPR,             /* [obj message:arg]                         */
 } TokenType;
 
 void *tree_sitter_c_gobject_external_scanner_create(void) { return NULL; }
@@ -96,6 +101,99 @@ static bool followed_by_gobject_macro(TSLexer *lexer) {
            custom_define_type_match(buf, len) > 0;
 }
 
+/* Read a lowercase keyword after '@' into buf.  Returns the length. */
+static int read_objc_keyword(TSLexer *lexer, char *buf, int max) {
+    int len = 0;
+    while (len < max - 1 &&
+           lexer->lookahead >= 'a' && lexer->lookahead <= 'z') {
+        buf[len++] = (char)lexer->lookahead;
+        lexer->advance(lexer, false);
+    }
+    buf[len] = '\0';
+    return len;
+}
+
+/* Consume everything from the current position until @end (inclusive).
+ * Assumes '@interface', '@implementation', or '@protocol' was already consumed. */
+static void consume_until_at_end(TSLexer *lexer) {
+    while (lexer->lookahead) {
+        if (lexer->lookahead == '@') {
+            lexer->advance(lexer, false);
+            char kw[16];
+            int kw_len = read_objc_keyword(lexer, kw, sizeof(kw));
+            if (kw_len == 3 && strcmp(kw, "end") == 0) {
+                return;
+            }
+        } else {
+            lexer->advance(lexer, false);
+        }
+    }
+}
+
+/* Try to scan an Objective-C construct starting with '@'. */
+static bool scan_objc(TSLexer *lexer, const bool *valid_symbols) {
+    bool any_objc = valid_symbols[OBJC_BLOCK]          ||
+                    valid_symbols[OBJC_CLASS_FORWARD]   ||
+                    valid_symbols[OBJC_SELECTOR_EXPR]   ||
+                    valid_symbols[OBJC_STRING_LITERAL];
+    if (!any_objc) return false;
+
+    /* Advance past '@' */
+    lexer->advance(lexer, false);
+
+    /* @"string" */
+    if (valid_symbols[OBJC_STRING_LITERAL] && lexer->lookahead == '"') {
+        lexer->advance(lexer, false);
+        while (lexer->lookahead && lexer->lookahead != '"') {
+            if (lexer->lookahead == '\\') lexer->advance(lexer, false);
+            if (lexer->lookahead) lexer->advance(lexer, false);
+        }
+        if (lexer->lookahead == '"') lexer->advance(lexer, false);
+        lexer->result_symbol = OBJC_STRING_LITERAL;
+        return true;
+    }
+
+    /* @[ array literal — consume as @"..." would be too complex; just let
+     * tree-sitter see it as an expression.  Skip for now. */
+
+    /* Read the keyword */
+    char kw[32];
+    int kw_len = read_objc_keyword(lexer, kw, sizeof(kw));
+    if (kw_len == 0) return false;
+
+    /* @interface / @implementation / @protocol ... @end */
+    if (valid_symbols[OBJC_BLOCK] &&
+        (strcmp(kw, "interface") == 0 ||
+         strcmp(kw, "implementation") == 0 ||
+         strcmp(kw, "protocol") == 0)) {
+        consume_until_at_end(lexer);
+        lexer->result_symbol = OBJC_BLOCK;
+        return true;
+    }
+
+    /* @class Foo; or @class Foo, Bar; */
+    if (valid_symbols[OBJC_CLASS_FORWARD] && strcmp(kw, "class") == 0) {
+        while (lexer->lookahead && lexer->lookahead != ';') {
+            lexer->advance(lexer, false);
+        }
+        if (lexer->lookahead == ';') lexer->advance(lexer, false);
+        lexer->result_symbol = OBJC_CLASS_FORWARD;
+        return true;
+    }
+
+    /* @selector(name:) */
+    if (valid_symbols[OBJC_SELECTOR_EXPR] && strcmp(kw, "selector") == 0) {
+        lookahead_skip_whitespace(lexer);
+        if (lexer->lookahead == '(') {
+            skip_argument_list(lexer);
+            lexer->result_symbol = OBJC_SELECTOR_EXPR;
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bool tree_sitter_c_gobject_external_scanner_scan(
     void *payload,
     TSLexer *lexer,
@@ -108,10 +206,34 @@ bool tree_sitter_c_gobject_external_scanner_scan(
                      valid_symbols[GOBJECT_BEGIN_DECLS]           ||
                      valid_symbols[GOBJECT_END_DECLS]             ||
                      valid_symbols[MACRO_MODIFIER_NAME]           ||
-                     valid_symbols[GOBJECT_EXPORT_MACRO];
+                     valid_symbols[GOBJECT_EXPORT_MACRO]          ||
+                     valid_symbols[OBJC_BLOCK]                    ||
+                     valid_symbols[OBJC_CLASS_FORWARD]            ||
+                     valid_symbols[OBJC_SELECTOR_EXPR]            ||
+                     valid_symbols[OBJC_STRING_LITERAL]           ||
+                     valid_symbols[OBJC_MESSAGE_EXPR];
     if (!any_valid) return false;
 
     skip_whitespace(lexer);
+
+    /* Objective-C constructs starting with '@' */
+    if (lexer->lookahead == '@') {
+        return scan_objc(lexer, valid_symbols);
+    }
+
+    /* Objective-C message send: [receiver message:arg]
+     * In C, '[' at expression-start is never valid (subscript requires a
+     * preceding expression), so consuming balanced [...] is safe here. */
+    if (valid_symbols[OBJC_MESSAGE_EXPR] && lexer->lookahead == '[') {
+        int depth = 0;
+        do {
+            if (lexer->lookahead == '[') depth++;
+            else if (lexer->lookahead == ']') depth--;
+            lexer->advance(lexer, false);
+        } while (depth > 0 && lexer->lookahead);
+        lexer->result_symbol = OBJC_MESSAGE_EXPR;
+        return true;
+    }
 
     /* Must start with an uppercase letter or underscore */
     if (!((lexer->lookahead >= 'A' && lexer->lookahead <= 'Z') ||
