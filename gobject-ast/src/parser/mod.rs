@@ -208,14 +208,9 @@ impl Parser {
             return;
         }
 
-        // For ERROR nodes, try to recover a function definition from the
-        // deconstructed children, then recurse into the remaining children
-        // to pick up any valid function_definition nodes that tree-sitter
-        // managed to parse inside the error region.
+        // Recurse into ERROR nodes to pick up any valid top-level items
+        // that tree-sitter managed to parse inside the error region.
         if node.kind() == "ERROR" {
-            if let Some(item) = self.try_recover_function_from_error(node, source) {
-                file_model.top_level_items.push(item);
-            }
             let mut cursor = node.walk();
             for child in node.children(&mut cursor) {
                 self.visit_node(child, source, file_model);

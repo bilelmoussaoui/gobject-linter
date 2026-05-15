@@ -530,9 +530,6 @@ impl Parser {
             .any(|c| matches!(c.kind(), "function_definition" | "gobject_type_macro"))
     }
 
-    /// Parse a function definition from a node whose children include the
-    /// return type, declarator, and body.  Works for both proper
-    /// `function_definition` nodes and ERROR nodes with the same structure.
     fn parse_function_definition_node(&self, node: Node, source: &[u8]) -> Option<TopLevelItem> {
         let (name, is_static, is_inline) = self.extract_function_from_definition(node, source)?;
 
@@ -551,28 +548,15 @@ impl Parser {
                 params = self.extract_parameters(params_node, source);
             }
             params
-        } else if let Some(func_decl) = self.find_function_declarator(node) {
-            if let Some(params_node) = self.find_node_by_kind(func_decl, "parameter_list") {
-                self.extract_parameters(params_node, source)
-            } else {
-                Vec::new()
-            }
         } else {
             Vec::new()
         };
 
         let body = node.child_by_field_name("body");
-        let (body_statements, body_location) = if let Some(b) = body {
-            (
-                self.parse_function_body(b, source),
-                Some(self.node_location(b)),
-            )
-        } else {
-            (
-                self.collect_body_from_error_children(node, source),
-                Some(self.node_location(node)),
-            )
-        };
+        let body_statements = body
+            .map(|b| self.parse_function_body(b, source))
+            .unwrap_or_default();
+        let body_location = body.map(|b| self.node_location(b));
 
         let return_type = self.extract_return_type(node, source);
 
@@ -587,68 +571,6 @@ impl Parser {
             body_location,
             doc: FunctionDoc::from_node_for(node, source, name),
         }))
-    }
-
-    /// Collect body statements from an ERROR node's flattened children
-    /// (between `{` and `}`), skipping anything `parse_statement` doesn't
-    /// recognize (preprocessor tokens, stray keywords, etc.).
-    fn collect_body_from_error_children(&self, node: Node, source: &[u8]) -> Vec<Statement> {
-        let mut statements = Vec::new();
-        let mut cursor = node.walk();
-        let mut inside_body = false;
-
-        for child in node.children(&mut cursor) {
-            if !child.is_named() && child.kind() == "{" {
-                inside_body = true;
-                continue;
-            }
-            if !child.is_named() && child.kind() == "}" {
-                break;
-            }
-            if !inside_body || !child.is_named() {
-                continue;
-            }
-            if let Some(stmt) = self.parse_statement(child, source) {
-                statements.push(stmt);
-            }
-        }
-
-        statements
-    }
-
-    /// Recover a function definition from an ERROR node.
-    ///
-    /// When `#ifdef` / `#endif` appear inside a function body (e.g. wrapping
-    /// an `else if` branch), tree-sitter cannot assemble the surrounding
-    /// `function_definition` and produces an ERROR node whose children are the
-    /// same as a normal function_definition, just not wrapped in one.
-    pub(super) fn try_recover_function_from_error(
-        &self,
-        node: Node,
-        source: &[u8],
-    ) -> Option<TopLevelItem> {
-        self.find_function_declarator(node)?;
-
-        let mut cursor = node.walk();
-        let has_open_brace = node
-            .children(&mut cursor)
-            .any(|c| !c.is_named() && c.kind() == "{");
-        if !has_open_brace {
-            return None;
-        }
-
-        let item = self.parse_function_definition_node(node, source)?;
-
-        if let TopLevelItem::FunctionDefinition(ref f) = item {
-            tracing::info!(
-                "Recovered function '{}' from ERROR node at {}:{}",
-                f.name,
-                node.start_position().row + 1,
-                node.start_position().column + 1,
-            );
-        }
-
-        Some(item)
     }
 
     /// If `declaration_node` is a *pure* struct definition (`struct _Foo { …

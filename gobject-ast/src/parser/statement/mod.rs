@@ -332,17 +332,7 @@ impl Parser {
                 None
             }
             "function_definition" => {
-                // Nested function definitions (GNU C extension) - skip for now
-                // BUT: tree-sitter sometimes mist parses "else if" inside #ifdef as
-                // function_definition In that case, try to extract the body
-                // compound_statement
-                if let Some(body) = node.child_by_field_name("body")
-                    && body.kind() == "compound_statement"
-                {
-                    return self
-                        .parse_compound_statement(body, source)
-                        .map(Statement::Compound);
-                }
+                // Nested function definitions (GNU C extension) — skip
                 None
             }
             "attributed_statement" => {
