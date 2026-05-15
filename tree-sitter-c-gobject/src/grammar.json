@@ -118,6 +118,10 @@
           "name": "_gobject_ignore_macro"
         },
         {
+          "type": "SYMBOL",
+          "name": "orphan_else"
+        },
+        {
           "type": "CHOICE",
           "members": [
             {
@@ -9710,6 +9714,23 @@
                 "value": "/"
               }
             ]
+          }
+        ]
+      }
+    },
+    "orphan_else": {
+      "type": "PREC",
+      "value": -1,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "STRING",
+            "value": "else"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "statement"
           }
         ]
       }

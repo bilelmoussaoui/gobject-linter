@@ -69,8 +69,22 @@ module.exports = grammar(C, {
       $.gobject_decls_block,
       $.gobject_macro_statement,
       $._gobject_ignore_macro,
+      $.orphan_else,
       original,
     ),
+
+    // Dangling else clause that cannot attach to a preceding if_statement,
+    // typically because #ifdef/#endif split the if/else-if chain:
+    //   if (cond1) stmt1;
+    //   #ifdef FOO
+    //   else if (cond2) stmt2;   ← orphan_else (inside preproc_ifdef)
+    //   #endif
+    //   else if (cond3) stmt3;   ← orphan_else (after preproc_ifdef)
+    // Low precedence so if_statement's else clause always wins when possible.
+    orphan_else: $ => prec(-1, seq(
+      'else',
+      $.statement,
+    )),
 
     _declaration_modifiers: ($, original) => choice(
       original,

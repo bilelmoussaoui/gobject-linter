@@ -235,6 +235,11 @@ impl Parser {
                 self.parse_preproc_conditional(node, source)
                     .map(Statement::Compound)
             }
+            "orphan_else" => {
+                // Dangling else from #ifdef-split if/else chains
+                self.parse_preproc_conditional(node, source)
+                    .map(Statement::Compound)
+            }
             "comment" => {
                 let (kind, content) = self.extract_comment_text(node, source)?;
                 let location = self.node_location(node);

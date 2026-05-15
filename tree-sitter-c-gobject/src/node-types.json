@@ -1140,6 +1140,10 @@
           "named": true
         },
         {
+          "type": "orphan_else",
+          "named": true
+        },
+        {
           "type": "preproc_call",
           "named": true
         },
@@ -1360,6 +1364,10 @@
         },
         {
           "type": "linkage_specification",
+          "named": true
+        },
+        {
+          "type": "orphan_else",
           "named": true
         },
         {
@@ -2715,6 +2723,21 @@
     }
   },
   {
+    "type": "orphan_else",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "statement",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "parameter_declaration",
     "named": true,
     "fields": {
@@ -3092,6 +3115,10 @@
           "named": true
         },
         {
+          "type": "orphan_else",
+          "named": true
+        },
+        {
           "type": "preproc_call",
           "named": true
         },
@@ -3200,6 +3227,10 @@
           "named": true
         },
         {
+          "type": "orphan_else",
+          "named": true
+        },
+        {
           "type": "preproc_call",
           "named": true
         },
@@ -3276,6 +3307,10 @@
         },
         {
           "type": "linkage_specification",
+          "named": true
+        },
+        {
+          "type": "orphan_else",
           "named": true
         },
         {
@@ -3451,6 +3486,10 @@
           "named": true
         },
         {
+          "type": "orphan_else",
+          "named": true
+        },
+        {
           "type": "preproc_call",
           "named": true
         },
@@ -3556,6 +3595,10 @@
         },
         {
           "type": "linkage_specification",
+          "named": true
+        },
+        {
+          "type": "orphan_else",
           "named": true
         },
         {
