@@ -126,6 +126,15 @@ module.exports = grammar(C, {
       ';',
     ),
 
+    // Extend ms_call_modifier to recognise Windows calling-convention macros
+    // (CALLBACK = __stdcall, WINAPI = __stdcall) so that
+    // `static LRESULT CALLBACK func(...)` parses correctly.
+    ms_call_modifier: ($, original) => choice(
+      original,
+      'CALLBACK',
+      'WINAPI',
+    ),
+
     // Allow macro modifiers (GDK_AVAILABLE_ENUMERATOR_IN_4_12, etc.) on enum values.
     enumerator: $ => seq(
       field('name', $.identifier),
