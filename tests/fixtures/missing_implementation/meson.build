@@ -1,6 +1,8 @@
 sources = [
   'basic.c',
   'basic.h',
+  'gettype.c',
+  'gettype.h',
 ]
 
 foreach src : sources
