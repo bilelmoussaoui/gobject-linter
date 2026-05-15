@@ -4508,6 +4508,10 @@
     "named": false
   },
   {
+    "type": "CALLBACK",
+    "named": false
+  },
+  {
     "type": "L\"",
     "named": false
   },
@@ -4525,6 +4529,10 @@
   },
   {
     "type": "U'",
+    "named": false
+  },
+  {
+    "type": "WINAPI",
     "named": false
   },
   {

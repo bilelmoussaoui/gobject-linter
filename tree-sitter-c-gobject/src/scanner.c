@@ -217,10 +217,20 @@ bool tree_sitter_c_gobject_external_scanner_scan(
          * (or at '(' if there was no next identifier). */
     }
 
-    /* MACRO_MODIFIER_NAME: any remaining ALL_CAPS identifier that isn't
-     * followed by '->' (which would indicate a type-cast expression). */
+    /* MACRO_MODIFIER_NAME: only emit for known modifier patterns, not every
+     * ALL_CAPS identifier.  This prevents Windows types (LRESULT, BOOL, VOID,
+     * DWORD, etc.) from being swallowed as modifiers. */
     if (valid_symbols[MACRO_MODIFIER_NAME] && len >= 1) {
         if (followed_by_arrow(lexer)) return false;
+        bool is_modifier =
+            strstr(buf, "_EXPORT") != NULL ||
+            strstr(buf, "_DEPRECATED") != NULL ||
+            strstr(buf, "_AVAILABLE") != NULL ||
+            strstr(buf, "_UNAVAILABLE") != NULL ||
+            strstr(buf, "_ENUMERATOR_") != NULL ||
+            (len >= 7 && strncmp(buf, "G_GNUC_", 7) == 0) ||
+            strcmp(buf, "G_NO_INLINE") == 0;
+        if (!is_modifier) return false;
         lexer->result_symbol = MACRO_MODIFIER_NAME;
         return true;
     }

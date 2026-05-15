@@ -3398,28 +3398,41 @@
       "type": "CHOICE",
       "members": [
         {
-          "type": "STRING",
-          "value": "__cdecl"
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "STRING",
+              "value": "__cdecl"
+            },
+            {
+              "type": "STRING",
+              "value": "__clrcall"
+            },
+            {
+              "type": "STRING",
+              "value": "__stdcall"
+            },
+            {
+              "type": "STRING",
+              "value": "__fastcall"
+            },
+            {
+              "type": "STRING",
+              "value": "__thiscall"
+            },
+            {
+              "type": "STRING",
+              "value": "__vectorcall"
+            }
+          ]
         },
         {
           "type": "STRING",
-          "value": "__clrcall"
+          "value": "CALLBACK"
         },
         {
           "type": "STRING",
-          "value": "__stdcall"
-        },
-        {
-          "type": "STRING",
-          "value": "__fastcall"
-        },
-        {
-          "type": "STRING",
-          "value": "__thiscall"
-        },
-        {
-          "type": "STRING",
-          "value": "__vectorcall"
+          "value": "WINAPI"
         }
       ]
     },
