@@ -137,6 +137,7 @@ module.exports = grammar(C, {
     gobject_code_block_item: $ => seq(
       $.identifier,
       $.argument_list,
+      optional(';'),
     ),
 
     // Standalone macro call followed by semicolon: G_STATIC_ASSERT(...), etc.
