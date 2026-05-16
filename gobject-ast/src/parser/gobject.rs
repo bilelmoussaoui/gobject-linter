@@ -455,43 +455,72 @@ impl Parser {
                         .find(|c| c.kind() == "argument_list")
                 };
 
-                let name = name_node
-                    .and_then(|n| std::str::from_utf8(&source[n.byte_range()]).ok())
-                    .unwrap_or("");
-
-                match name {
-                    "G_ADD_PRIVATE" => {
-                        has_private = true;
-                    }
-                    "G_IMPLEMENT_INTERFACE" => {
-                        if let Some(args) = args_node {
-                            let mut iface_args = Vec::new();
-                            self.collect_identifiers(args, source, &mut iface_args);
-                            if !iface_args.is_empty() {
-                                interfaces.push(InterfaceImplementation {
-                                    interface_type: GType::Identifier(iface_args[0].to_owned()),
-                                    init_function: iface_args
-                                        .get(1)
-                                        .map(std::string::ToString::to_string),
-                                });
-                            }
-                        }
-                    }
-                    _ => {
-                        // Other code-block calls — record as statements
-                        if let Some(args) = args_node {
-                            // Reconstruct a minimal call expression text for the statement
-                            let item_text =
-                                std::str::from_utf8(&source[item.byte_range()]).unwrap_or("");
-                            tracing::debug!("code block statement: {}", item_text);
-                            let _ = args; // statement parsing handled separately if needed
-                        }
-                    }
-                }
+                self.process_code_block_call(
+                    name_node,
+                    args_node,
+                    source,
+                    &mut interfaces,
+                    &mut has_private,
+                );
             }
+        } else {
+            // Fallback: when the grammar parses code block items as expressions
+            // (e.g. single G_IMPLEMENT_INTERFACE as a call_expression), walk
+            // all call_expression descendants of the macro node.
+            self.find_code_block_calls_recursive(parent, source, &mut interfaces, &mut has_private);
         }
 
         (interfaces, has_private, code_statements)
+    }
+
+    fn process_code_block_call(
+        &self,
+        name_node: Option<Node>,
+        args_node: Option<Node>,
+        source: &[u8],
+        interfaces: &mut Vec<InterfaceImplementation>,
+        has_private: &mut bool,
+    ) {
+        let name = name_node
+            .and_then(|n| std::str::from_utf8(&source[n.byte_range()]).ok())
+            .unwrap_or("");
+
+        match name {
+            "G_ADD_PRIVATE" => {
+                *has_private = true;
+            }
+            "G_IMPLEMENT_INTERFACE" => {
+                if let Some(args) = args_node {
+                    let mut iface_args = Vec::new();
+                    self.collect_identifiers(args, source, &mut iface_args);
+                    if !iface_args.is_empty() {
+                        interfaces.push(InterfaceImplementation {
+                            interface_type: GType::Identifier(iface_args[0].to_owned()),
+                            init_function: iface_args.get(1).map(std::string::ToString::to_string),
+                        });
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn find_code_block_calls_recursive(
+        &self,
+        node: Node,
+        source: &[u8],
+        interfaces: &mut Vec<InterfaceImplementation>,
+        has_private: &mut bool,
+    ) {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() == "call_expression" {
+                let func_node = child.child_by_field_name("function");
+                let args_node = child.child_by_field_name("arguments");
+                self.process_code_block_call(func_node, args_node, source, interfaces, has_private);
+            }
+            self.find_code_block_calls_recursive(child, source, interfaces, has_private);
+        }
     }
 
     fn extract_enum_value_defs(&self, parent: Node, source: &[u8]) -> Vec<EnumValueDef> {

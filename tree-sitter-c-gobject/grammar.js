@@ -114,15 +114,20 @@ module.exports = grammar(C, {
 
       // *_WITH_CODE macros: N comma-terminated regular args followed by a
       // whitespace-separated code block (G_ADD_PRIVATE, G_IMPLEMENT_INTERFACE, …).
-      // Using a dedicated external token lets the scanner disambiguate at lex time
-      // so no GLR conflicts arise.
+      // Some *_DEFINE_*_TYPE macros may or may not have a code block, so we
+      // also accept a plain argument_list (no trailing comma on last arg).
       seq(
         repeat($.gobject_export_macro),
         $._gobject_macro_name_with_code,
-        '(',
-        repeat1(seq($.expression, ',')),
-        optional($.gobject_code_block),
-        ')',
+        seq(
+          '(',
+          repeat(seq($.expression, ',')),
+          optional(choice(
+            $.gobject_code_block,
+            $.expression,
+          )),
+          ')',
+        ),
       ),
     ),
 

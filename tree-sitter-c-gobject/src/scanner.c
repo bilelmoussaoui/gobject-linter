@@ -78,7 +78,7 @@ static bool followed_by_arrow(TSLexer *lexer) {
 static int custom_define_type_match(const char *buf, int len) {
     if (strstr(buf, "_DEFINE_") == NULL) return 0;
     if (len >= 15 && strcmp(buf + len - 15, "_TYPE_WITH_CODE") == 0) return 1;
-    if (len >= 5  && strcmp(buf + len - 5,  "_TYPE") == 0) return 2;
+    if (len >= 5  && strcmp(buf + len - 5,  "_TYPE") == 0) return 1;
     return 0;
 }
 
