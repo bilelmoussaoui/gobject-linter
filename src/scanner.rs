@@ -567,23 +567,24 @@ pub fn list_all_rules_json(config: &Config) -> String {
     serde_json::to_string_pretty(&output).unwrap()
 }
 
-/// Keep only the violation with the highest rule_index for each (file, line)
-/// pair
+/// Keep only the violation with the highest rule_index for each (file, line,
+/// column) position
 fn deduplicate_by_rule_precedence(violations: &mut Vec<Violation>) {
     if violations.len() <= 1 {
         return;
     }
 
-    // Sort by (file, line) so duplicates are adjacent, then by rule_index
-    // descending so the best candidate comes first in each group
+    // Sort by (file, line, column) so duplicates are adjacent, then by
+    // rule_index descending so the best candidate comes first in each group
     violations.sort_by(|a, b| {
         a.file
             .cmp(&b.file)
             .then(a.line.cmp(&b.line))
+            .then(a.column.cmp(&b.column))
             .then(b.rule_index.cmp(&a.rule_index))
     });
 
-    // Walk linearly: keep the first of each (file, line) group (highest
-    // rule_index due to sort order)
-    violations.dedup_by(|b, a| a.file == b.file && a.line == b.line);
+    // Walk linearly: keep the first of each (file, line, column) group
+    // (highest rule_index due to sort order)
+    violations.dedup_by(|b, a| a.file == b.file && a.line == b.line && a.column == b.column);
 }

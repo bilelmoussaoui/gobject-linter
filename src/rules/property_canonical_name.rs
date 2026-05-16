@@ -1,4 +1,6 @@
-use gobject_ast::model::{CallExpression, Expression, FileModel, GObjectType, ParamFlag, Property};
+use gobject_ast::model::{
+    CallExpression, Expression, FileModel, FunctionDefItem, GObjectType, ParamFlag, Property,
+};
 
 use crate::{
     ast_context::AstContext,
@@ -37,13 +39,61 @@ impl Rule for PropertyCanonicalName {
             let Some(call) = assignment.param_spec_call() else {
                 continue;
             };
-            self.check_call(file, call, assignment.property(), violations);
+            self.check_param_spec_call(file, call, assignment.property(), violations);
+        }
+    }
+
+    fn check_func_impl(
+        &self,
+        _ast_context: &AstContext,
+        _config: &Config,
+        func: &FunctionDefItem,
+        file: &FileModel,
+        violations: &mut Vec<Violation>,
+    ) {
+        const NAME_ARG_SECOND: &[&str] = &[
+            "g_object_notify",
+            "g_object_set_property",
+            "g_object_get_property",
+            "g_object_class_find_property",
+        ];
+        const NAME_ARG_THIRD: &[&str] = &["g_object_class_override_property"];
+        const VARARGS_PROP_VALUE: &[&str] = &[
+            "g_object_set",
+            "g_object_get",
+            "g_object_new",
+            "g_object_new_with_properties",
+        ];
+
+        for call in func.find_calls_matching(|name| {
+            NAME_ARG_SECOND.contains(&name)
+                || NAME_ARG_THIRD.contains(&name)
+                || VARARGS_PROP_VALUE.contains(&name)
+        }) {
+            let name = call.function_name_str().unwrap();
+
+            if NAME_ARG_SECOND.contains(&name) {
+                if let Some(arg) = call.arguments.get(1) {
+                    self.check_property_name_arg(arg, file, violations);
+                }
+            } else if NAME_ARG_THIRD.contains(&name) {
+                if let Some(arg) = call.arguments.get(2) {
+                    self.check_property_name_arg(arg, file, violations);
+                }
+            } else {
+                // g_object_set/get/new: "prop", value, "prop", value, ..., NULL
+                // Property names at odd indices starting from 1 (for set/get)
+                // or 1 (for g_object_new where arg 0 is the type)
+                for arg in call.arguments.iter().skip(1).step_by(2) {
+                    self.check_property_name_arg(arg, file, violations);
+                }
+            }
         }
     }
 }
 
 impl PropertyCanonicalName {
-    fn check_call(
+    fn check_param_spec_call(
         &self,
         file: &FileModel,
         call: &CallExpression,
@@ -97,5 +147,45 @@ impl PropertyCanonicalName {
         };
 
         violations.push(self.violation_with_fix_at(&file.path, string_lit_location, message, fix));
+    }
+
+    fn check_property_name_arg(
+        &self,
+        expr: &Expression,
+        file: &FileModel,
+        violations: &mut Vec<Violation>,
+    ) {
+        let Expression::StringLiteral(string_lit) = expr else {
+            return;
+        };
+        let raw = &string_lit.value;
+
+        let Some(first_close) = raw[1..].find('"') else {
+            return;
+        };
+        let prop_name = &raw[1..1 + first_close];
+
+        if !prop_name.contains('_') {
+            return;
+        }
+
+        let canonical = prop_name.replace('_', "-");
+        let replacement = format!("\"{}\"", canonical);
+
+        let fix = Fix::new(
+            string_lit.location.start_byte,
+            string_lit.location.start_byte + 1 + first_close + 1,
+            replacement,
+        );
+
+        violations.push(self.violation_with_fix_at(
+            &file.path,
+            &string_lit.location,
+            format!(
+                "Property name '{}' should use dashes instead of underscores: '{}'",
+                prop_name, canonical
+            ),
+            fix,
+        ));
     }
 }

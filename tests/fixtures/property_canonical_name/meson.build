@@ -2,6 +2,8 @@ sources = [
   'basic.c',
   'basic.fixed.c',
   'i_macro.c',
+  'runtime_calls.c',
+  'runtime_calls.fixed.c',
 ]
 
 foreach src : sources
