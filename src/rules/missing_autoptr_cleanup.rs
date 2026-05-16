@@ -74,10 +74,14 @@ impl Rule for MissingAutoptrCleanup {
         let mut declared_types: HashSet<&str> = HashSet::new();
         let mut autoptr_cleanups: HashSet<&str> = HashSet::new();
 
-        // Collect function declarations from headers
+        // Collect declarations from headers
         let mut get_type_decls: HashMap<&str, GetTypeDecl> = HashMap::new();
         let mut header_func_names: HashSet<&str> = HashSet::new();
+        let mut header_typedefs: HashSet<&str> = HashSet::new();
         for (path, file) in ast_context.iter_header_files() {
+            for (name, _) in file.iter_typedef_pairs() {
+                header_typedefs.insert(name);
+            }
             // Find the GObjectDeclsBlock (G_BEGIN_DECLS/G_END_DECLS) in this header
             let decls_block = file.iter_all_items().find_map(|item| match item {
                 TopLevelItem::Preprocessor(PreprocessorDirective::GObjectDeclsBlock {
@@ -159,17 +163,21 @@ impl Rule for MissingAutoptrCleanup {
                 continue;
             }
 
-            if let CleanupKind::Boxed { free_func } = kind {
-                if !header_func_names.contains(*free_func) {
+            match kind {
+                CleanupKind::Boxed { free_func } if !header_func_names.contains(*free_func) => {
                     continue;
                 }
+                CleanupKind::OldStyleGObject if !header_typedefs.contains(type_name) => {
+                    continue;
+                }
+                _ => {}
             }
 
             let cleanup_func = kind.cleanup_func();
 
             if let Some(decl) = get_type_decls.get(*func_prefix) {
                 let message = Self::make_message(type_name, kind);
-                let fix = cleanup_func.map(|func| Self::make_fix(decl, type_name, func));
+                let fix = cleanup_func.and_then(|func| Self::make_fix(decl, type_name, func));
 
                 let violation = if let Some(fix) = fix {
                     self.violation_with_fix_at(decl.path, decl.location, message, fix)
@@ -209,22 +217,16 @@ impl MissingAutoptrCleanup {
         }
     }
 
-    fn make_fix(decl: &GetTypeDecl, type_name: &str, cleanup_func: &str) -> Fix {
-        let macro_text = format!("G_DEFINE_AUTOPTR_CLEANUP_FUNC ({type_name}, {cleanup_func})\n");
-
-        if let Some(block_loc) = decl.decls_block {
-            // Insert before G_END_DECLS
-            let source = block_loc.source();
-            let mut pos = block_loc.end_byte;
-            while pos > 0 && source[pos - 1] != b'\n' {
-                pos -= 1;
-            }
-            let has_blank = pos >= 2 && source[pos - 1] == b'\n' && source[pos - 2] == b'\n';
-            let prefix = if has_blank { "" } else { "\n" };
-            Fix::new(pos, pos, format!("{prefix}{macro_text}"))
-        } else {
-            let insert_pos = decl.location.find_line_range().0;
-            Fix::new(insert_pos, insert_pos, format!("{macro_text}\n"))
+    fn make_fix(decl: &GetTypeDecl, type_name: &str, cleanup_func: &str) -> Option<Fix> {
+        let block_loc = decl.decls_block?;
+        let source = block_loc.source();
+        let mut pos = block_loc.end_byte;
+        while pos > 0 && source[pos - 1] != b'\n' {
+            pos -= 1;
         }
+        let macro_text = format!("G_DEFINE_AUTOPTR_CLEANUP_FUNC ({type_name}, {cleanup_func})\n");
+        let has_blank = pos >= 2 && source[pos - 1] == b'\n' && source[pos - 2] == b'\n';
+        let prefix = if has_blank { "" } else { "\n" };
+        Some(Fix::new(pos, pos, format!("{prefix}{macro_text}")))
     }
 }
