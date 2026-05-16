@@ -47,6 +47,7 @@ impl Rule for SignalCanonicalName {
             "g_signal_connect_data",
             "g_signal_connect_object",
             "g_signal_emit_by_name",
+            "g_signal_stop_emission_by_name",
             "g_signal_group_connect",
             "g_signal_group_connect_after",
             "g_signal_group_connect_swapped",

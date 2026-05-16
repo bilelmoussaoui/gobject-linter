@@ -10,4 +10,5 @@ void setup_signals(GObject *obj) {
     g_signal_connect_after(obj, "item-selected", G_CALLBACK(on_item_selected), NULL);
     g_signal_connect_swapped(obj, "state-updated", G_CALLBACK(on_state_updated), NULL);
     g_signal_emit_by_name(obj, "notify-user");
+    g_signal_stop_emission_by_name(obj, "insert-text");
 }
