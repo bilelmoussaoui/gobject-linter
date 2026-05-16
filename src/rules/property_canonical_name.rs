@@ -8,12 +8,23 @@ const SINGLE_NAME_ARG: &[(&str, usize)] = &[
     ("g_object_get_property", 1),
     ("g_object_class_find_property", 1),
     ("g_object_class_override_property", 2),
+    ("gtk_cell_layout_add_attribute", 2),
+    ("gtk_cell_area_cell_get_property", 2),
 ];
 const VARARGS_PROP_VALUE: &[(&str, usize)] = &[
     ("g_object_set", 1),
     ("g_object_get", 1),
     ("g_object_new", 1),
     ("g_object_new_with_properties", 1),
+    ("gtk_show_about_dialog", 1),
+    ("gtk_cell_area_add_with_properties", 2),
+    ("gtk_cell_area_set", 2),
+    ("gtk_cell_area_get", 2),
+    ("gtk_cell_layout_set_attributes", 2),
+    ("gtk_text_buffer_create_tag", 2),
+    ("gtk_tree_view_column_new_with_attributes", 2),
+    ("gtk_tree_view_column_set_attributes", 2),
+    ("gtk_tree_view_insert_column_with_attributes", 4),
 ];
 
 use crate::{
