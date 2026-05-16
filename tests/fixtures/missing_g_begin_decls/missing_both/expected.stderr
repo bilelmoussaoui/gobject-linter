@@ -1,0 +1,1 @@
+missing_both.h:1:1: missing_g_begin_decls: Public header is missing G_BEGIN_DECLS/G_END_DECLS

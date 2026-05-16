@@ -1,0 +1,1 @@
+missing_end.h:5:1: missing_g_begin_decls: G_BEGIN_DECLS without matching G_END_DECLS

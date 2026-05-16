@@ -35,8 +35,40 @@ fn build_context_for_file(
         }
     }
 
-    // Build fake MesonHeaders from the per-test public_headers file. We do
-    // this after creating the temp dir so filenames resolve to the right paths.
+    let ctx = build_ast_context(&temp_dir, public_headers_file);
+    (ctx, temp_dir)
+}
+
+/// Build an AstContext from a directory of fixture files copied into a temp
+/// dir.
+fn build_context_for_dir(
+    fixture_dir: &Path,
+    public_headers_file: Option<&Path>,
+) -> (AstContext, tempfile::TempDir) {
+    let temp_dir = tempfile::tempdir().expect("failed to create temp dir");
+
+    for entry in fs::read_dir(fixture_dir)
+        .unwrap()
+        .filter_map(std::result::Result::ok)
+    {
+        let path = entry.path();
+        if path.is_file() {
+            let ext = path.extension().and_then(|e| e.to_str());
+            if matches!(ext, Some("c" | "h")) {
+                let dest = temp_dir.path().join(path.file_name().unwrap());
+                fs::copy(&path, &dest).expect("failed to copy fixture file");
+            }
+        }
+    }
+
+    let ctx = build_ast_context(&temp_dir, public_headers_file);
+    (ctx, temp_dir)
+}
+
+fn build_ast_context(
+    temp_dir: &tempfile::TempDir,
+    public_headers_file: Option<&Path>,
+) -> AstContext {
     let meson_headers = public_headers_file.map(|f| {
         let installed = fs::read_to_string(f)
             .unwrap_or_default()
@@ -52,10 +84,8 @@ fn build_context_for_file(
     });
 
     let ignore = GlobSetBuilder::new().build().unwrap();
-    let ctx = AstContext::build_with_ignore(temp_dir.path(), &ignore, None, meson_headers)
-        .expect("failed to build AstContext");
-
-    (ctx, temp_dir)
+    AstContext::build_with_ignore(temp_dir.path(), &ignore, None, meson_headers)
+        .expect("failed to build AstContext")
 }
 
 /// Format violations as `filename:line:col: rule: message`, sorted.
@@ -80,29 +110,85 @@ fn format_violations(
     lines.join("\n")
 }
 
+fn check_violations(
+    rule_name: &str,
+    case_name: &str,
+    stderr_file: &Path,
+    violations: &[gobject_linter::rules::Violation],
+    strip_prefix: &Path,
+    bless: bool,
+    failures: &mut Vec<String>,
+) {
+    let actual_stderr = format_violations(violations, strip_prefix);
+
+    if bless || !stderr_file.exists() {
+        fs::write(stderr_file, format!("{actual_stderr}\n")).expect("failed to write .stderr");
+        if bless {
+            println!("blessed {}", stderr_file.display());
+        }
+    } else {
+        let expected = fs::read_to_string(stderr_file).unwrap_or_default();
+        if actual_stderr.trim() != expected.trim() {
+            let tmp = tempfile::tempdir().unwrap();
+            let expected_path = tmp.path().join("expected.stderr");
+            let actual_path = tmp.path().join("actual.stderr");
+            fs::write(&expected_path, &expected).expect("failed to write expected");
+            fs::write(&actual_path, &actual_stderr).expect("failed to write actual");
+
+            let diff_output = std::process::Command::new("diff")
+                .arg("-u")
+                .arg("--label")
+                .arg("expected")
+                .arg("--label")
+                .arg("actual")
+                .arg(&expected_path)
+                .arg(&actual_path)
+                .output()
+                .map_or_else(
+                    |_| {
+                        format!(
+                            "Failed to run diff\n--- expected ---\n{}\n--- got ---\n{}",
+                            expected.trim(),
+                            actual_stderr.trim()
+                        )
+                    },
+                    |o| String::from_utf8_lossy(&o.stdout).to_string(),
+                );
+
+            failures.push(format!(
+                "fixture {rule_name}/{case_name}: violations mismatch\n{}",
+                diff_output
+            ));
+        }
+    }
+}
+
 /// Core fixture runner for a single rule.
 ///
-/// - Iterates all `*.c` files in `tests/fixtures/<rule_name>/`
-/// - Runs the rule, compares violations against `<stem>.stderr`
-/// - If `<stem>.fixed.c` exists, applies fixes and compares the result
-/// - If `<stem>.stderr` doesn't exist or `BLESS=1` is set, writes/updates it
+/// Supports two fixture layouts:
+/// 1. Flat files: `tests/fixtures/<rule>/foo.c` + `foo.stderr`
+/// 2. Subdirectories: `tests/fixtures/<rule>/case_name/` containing `.c`/`.h`
+///    files and `expected.stderr`
 fn run_fixture_tests(rule_name: &str, rule: &dyn Rule) {
     let fixtures_dir = Path::new("tests/fixtures").join(rule_name);
     if !fixtures_dir.exists() {
         return;
     }
 
+    let bless = std::env::var("BLESS").is_ok();
+    let mut failures: Vec<String> = Vec::new();
+
     let mut test_files: Vec<_> = fs::read_dir(&fixtures_dir)
         .unwrap()
         .filter_map(std::result::Result::ok)
         .filter(|e| {
             let path = e.path();
-            // Test *.c and standalone *.h files (not already tested as part of .c)
-            // Exclude *.fixed.{c,h} (those are expected outputs)
+            if path.is_dir() {
+                return false;
+            }
             let ext = path.extension();
             let is_c = ext.is_some_and(|e| e == "c");
             let is_standalone_h = ext.is_some_and(|e| e == "h") && {
-                // Only include .h if there's no corresponding .c file
                 let stem = path.file_stem().unwrap();
                 let c_file = path.with_file_name(stem).with_extension("c");
                 !c_file.exists()
@@ -118,72 +204,33 @@ fn run_fixture_tests(rule_name: &str, rule: &dyn Rule) {
         .collect();
     test_files.sort();
 
-    let bless = std::env::var("BLESS").is_ok();
-    let mut failures: Vec<String> = Vec::new();
-
-    for test_file in test_files {
+    for test_file in &test_files {
         let stem = test_file.file_stem().unwrap().to_str().unwrap().to_owned();
         let ext = test_file.extension().unwrap().to_str().unwrap();
         let stderr_file = fixtures_dir.join(format!("{stem}.stderr"));
         let fixed_file = fixtures_dir.join(format!("{stem}.fixed.{ext}"));
 
-        // --- violation check ---
-        // If a <stem>.public_headers file exists, pass it to fake meson info.
         let public_headers_file = fixtures_dir.join(format!("{stem}.public_headers"));
         let public_headers_arg = public_headers_file
             .exists()
             .then_some(public_headers_file.as_path());
 
-        let (ctx, temp_dir) = build_context_for_file(&test_file, public_headers_arg);
+        let (ctx, temp_dir) = build_context_for_file(test_file, public_headers_arg);
         let config = Config::default();
 
         let mut violations = Vec::new();
         rule.check_all(&ctx, &config, &mut violations);
         violations.sort_by_key(|v| (v.line, v.column));
 
-        let actual_stderr = format_violations(&violations, temp_dir.path());
-
-        if bless || !stderr_file.exists() {
-            fs::write(&stderr_file, format!("{actual_stderr}\n")).expect("failed to write .stderr");
-            if bless {
-                println!("blessed {}", stderr_file.display());
-            }
-        } else {
-            let expected = fs::read_to_string(&stderr_file).unwrap_or_default();
-            if actual_stderr.trim() != expected.trim() {
-                // Write both to temp files for diff
-                let expected_path = temp_dir.path().join("expected.stderr");
-                let actual_path = temp_dir.path().join("actual.stderr");
-                fs::write(&expected_path, &expected).expect("failed to write expected");
-                fs::write(&actual_path, &actual_stderr).expect("failed to write actual");
-
-                // Run diff to show the differences
-                let diff_output = std::process::Command::new("diff")
-                    .arg("-u")
-                    .arg("--label")
-                    .arg("expected")
-                    .arg("--label")
-                    .arg("actual")
-                    .arg(&expected_path)
-                    .arg(&actual_path)
-                    .output()
-                    .map_or_else(
-                        |_| {
-                            format!(
-                                "Failed to run diff\n--- expected ---\n{}\n--- got ---\n{}",
-                                expected.trim(),
-                                actual_stderr.trim()
-                            )
-                        },
-                        |o| String::from_utf8_lossy(&o.stdout).to_string(),
-                    );
-
-                failures.push(format!(
-                    "fixture {rule_name}/{stem}: violations mismatch\n{}",
-                    diff_output
-                ));
-            }
-        }
+        check_violations(
+            rule_name,
+            &stem,
+            &stderr_file,
+            &violations,
+            temp_dir.path(),
+            bless,
+            &mut failures,
+        );
 
         // --- fix check ---
         if fixed_file.exists() {
@@ -194,13 +241,12 @@ fn run_fixture_tests(rule_name: &str, rule: &dyn Rule) {
             let expected_fixed = fs::read_to_string(&fixed_file).expect("failed to read .fixed.c");
 
             if actual_fixed != expected_fixed {
-                // Write both to temp files for diff
-                let expected_path = temp_dir.path().join("expected.c");
-                let actual_path = temp_dir.path().join("actual.c");
+                let tmp = tempfile::tempdir().unwrap();
+                let expected_path = tmp.path().join("expected.c");
+                let actual_path = tmp.path().join("actual.c");
                 fs::write(&expected_path, &expected_fixed).expect("failed to write expected");
                 fs::write(&actual_path, &actual_fixed).expect("failed to write actual");
 
-                // Run diff to show the differences
                 let diff_output = std::process::Command::new("diff")
                     .arg("-u")
                     .arg("--label")
@@ -227,59 +273,57 @@ fn run_fixture_tests(rule_name: &str, rule: &dyn Rule) {
                 ));
             }
 
-            // --- post-fix violation check ---
-            // Re-run the rule on the fixed file to verify which violations remain.
             let fixed_stderr_file = fixtures_dir.join(format!("{stem}.fixed.stderr"));
             let (ctx_fixed, temp_dir_fixed) = build_context_for_file(&temp_c, public_headers_arg);
             let mut post_fix_violations = Vec::new();
             rule.check_all(&ctx_fixed, &config, &mut post_fix_violations);
             post_fix_violations.sort_by_key(|v| (v.line, v.column));
-            let actual_fixed_stderr =
-                format_violations(&post_fix_violations, temp_dir_fixed.path());
 
-            if bless || !fixed_stderr_file.exists() {
-                fs::write(&fixed_stderr_file, format!("{actual_fixed_stderr}\n"))
-                    .expect("failed to write .fixed.stderr");
-                if bless {
-                    println!("blessed {}", fixed_stderr_file.display());
-                }
-            } else {
-                let expected = fs::read_to_string(&fixed_stderr_file).unwrap_or_default();
-                if actual_fixed_stderr.trim() != expected.trim() {
-                    // Write both to temp files for diff
-                    let expected_path = temp_dir_fixed.path().join("expected.stderr");
-                    let actual_path = temp_dir_fixed.path().join("actual.stderr");
-                    fs::write(&expected_path, &expected).expect("failed to write expected");
-                    fs::write(&actual_path, &actual_fixed_stderr).expect("failed to write actual");
-
-                    // Run diff to show the differences
-                    let diff_output = std::process::Command::new("diff")
-                        .arg("-u")
-                        .arg("--label")
-                        .arg("expected")
-                        .arg("--label")
-                        .arg("actual")
-                        .arg(&expected_path)
-                        .arg(&actual_path)
-                        .output()
-                        .map_or_else(
-                            |_| {
-                                format!(
-                                    "Failed to run diff\n--- expected ---\n{}\n--- got ---\n{}",
-                                    expected.trim(),
-                                    actual_fixed_stderr.trim()
-                                )
-                            },
-                            |o| String::from_utf8_lossy(&o.stdout).to_string(),
-                        );
-
-                    failures.push(format!(
-                        "fixture {rule_name}/{stem}: post-fix violations mismatch\n{}",
-                        diff_output
-                    ));
-                }
-            }
+            check_violations(
+                rule_name,
+                &format!("{stem}.fixed"),
+                &fixed_stderr_file,
+                &post_fix_violations,
+                temp_dir_fixed.path(),
+                bless,
+                &mut failures,
+            );
         }
+    }
+
+    let mut subdirs: Vec<_> = fs::read_dir(&fixtures_dir)
+        .unwrap()
+        .filter_map(std::result::Result::ok)
+        .filter(|e| e.path().is_dir())
+        .map(|e| e.path())
+        .collect();
+    subdirs.sort();
+
+    for subdir in &subdirs {
+        let case_name = subdir.file_name().unwrap().to_str().unwrap().to_owned();
+        let stderr_file = subdir.join("expected.stderr");
+
+        let public_headers_file = subdir.join("public_headers");
+        let public_headers_arg = public_headers_file
+            .exists()
+            .then_some(public_headers_file.as_path());
+
+        let (ctx, temp_dir) = build_context_for_dir(subdir, public_headers_arg);
+        let config = Config::default();
+
+        let mut violations = Vec::new();
+        rule.check_all(&ctx, &config, &mut violations);
+        violations.sort_by_key(|v| (v.line, v.column));
+
+        check_violations(
+            rule_name,
+            &case_name,
+            &stderr_file,
+            &violations,
+            temp_dir.path(),
+            bless,
+            &mut failures,
+        );
     }
 
     if !failures.is_empty() {
@@ -335,6 +379,10 @@ rule_test!(
 rule_test!(
     missing_autoptr_cleanup,
     gobject_linter::rules::MissingAutoptrCleanup
+);
+rule_test!(
+    missing_g_begin_decls,
+    gobject_linter::rules::MissingGBeginDecls
 );
 rule_test!(
     missing_implementation,

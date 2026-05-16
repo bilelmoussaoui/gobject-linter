@@ -101,6 +101,7 @@ macro_rules! for_each_rule {
             (use_pragma_once, UsePragmaOnce),
             (missing_implementation, MissingImplementation),
             (missing_autoptr_cleanup, MissingAutoptrCleanup),
+            (missing_g_begin_decls, MissingGBeginDecls),
             (missing_export_macro, MissingExportMacro),
             (no_g_auto_macros, NoGAutoMacros),
             (deprecated_add_private, DeprecatedAddPrivate),
