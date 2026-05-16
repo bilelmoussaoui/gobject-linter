@@ -27,6 +27,7 @@ impl Parser {
         parser
             .set_language(&tree_sitter_c_gobject::LANGUAGE.into())
             .context("Failed to load C grammar")?;
+        parser.set_timeout_micros(5_000_000); // 5 second limit to prevent DoS via crafted input
 
         Ok(Self {
             parser,
