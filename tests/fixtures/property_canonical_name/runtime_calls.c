@@ -1,4 +1,4 @@
-#include <glib-object.h>
+#include <gio/gio.h>
 
 void test_property_names(GObject *obj, GObjectClass *klass) {
     g_object_set(obj, "display_name", "hello", NULL);
@@ -17,7 +17,9 @@ void test_property_names(GObject *obj, GObjectClass *klass) {
     g_object_set(obj, "first_name", "John", "last_name", "Doe", NULL);
 
     // #ifdef inside g_object_new should not cause false positives
-    g_object_new(MY_TYPE,
+    GDrive *drive = NULL;
+    GMount *mount = NULL;
+    g_object_new(G_TYPE_OBJECT,
                  "drive", drive,
                  "mount", mount,
 #ifdef HAVE_CLOUDPROVIDERS
