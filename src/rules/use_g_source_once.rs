@@ -191,7 +191,9 @@ impl UseGSourceOnce {
 
     fn fix_definition_return_type(&self, func: &FunctionDefItem) -> Option<Fix> {
         // Check if return type is gboolean
-        if func.return_type.as_basic() != Some(BasicType::Boolean) {
+        if func.return_type.as_basic() != Some(BasicType::Boolean)
+            && func.return_type.as_basic() != Some(BasicType::Int)
+        {
             return None;
         }
 
@@ -205,7 +207,9 @@ impl UseGSourceOnce {
 
     fn fix_declaration_return_type(&self, func: &FunctionDeclItem) -> Option<Fix> {
         // Check if return type is gboolean
-        if func.return_type.as_basic() != Some(BasicType::Boolean) {
+        if func.return_type.as_basic() != Some(BasicType::Boolean)
+            && func.return_type.as_basic() != Some(BasicType::Int)
+        {
             return None;
         }
 
