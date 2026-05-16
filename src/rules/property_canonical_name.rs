@@ -2,6 +2,20 @@ use gobject_ast::model::{
     CallExpression, Expression, FileModel, FunctionDefItem, GObjectType, ParamFlag, Property,
 };
 
+const SINGLE_NAME_ARG: &[(&str, usize)] = &[
+    ("g_object_notify", 1),
+    ("g_object_set_property", 1),
+    ("g_object_get_property", 1),
+    ("g_object_class_find_property", 1),
+    ("g_object_class_override_property", 2),
+];
+const VARARGS_PROP_VALUE: &[(&str, usize)] = &[
+    ("g_object_set", 1),
+    ("g_object_get", 1),
+    ("g_object_new", 1),
+    ("g_object_new_with_properties", 1),
+];
+
 use crate::{
     ast_context::AstContext,
     config::Config,
@@ -51,40 +65,18 @@ impl Rule for PropertyCanonicalName {
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        const NAME_ARG_SECOND: &[&str] = &[
-            "g_object_notify",
-            "g_object_set_property",
-            "g_object_get_property",
-            "g_object_class_find_property",
-        ];
-        const NAME_ARG_THIRD: &[&str] = &["g_object_class_override_property"];
-        const VARARGS_PROP_VALUE: &[&str] = &[
-            "g_object_set",
-            "g_object_get",
-            "g_object_new",
-            "g_object_new_with_properties",
-        ];
-
         for call in func.find_calls_matching(|name| {
-            NAME_ARG_SECOND.contains(&name)
-                || NAME_ARG_THIRD.contains(&name)
-                || VARARGS_PROP_VALUE.contains(&name)
+            SINGLE_NAME_ARG.iter().any(|(n, _)| *n == name)
+                || VARARGS_PROP_VALUE.iter().any(|(n, _)| *n == name)
         }) {
             let name = call.function_name_str().unwrap();
 
-            if NAME_ARG_SECOND.contains(&name) {
-                if let Some(arg) = call.arguments.get(1) {
+            if let Some((_, idx)) = SINGLE_NAME_ARG.iter().find(|(n, _)| *n == name) {
+                if let Some(arg) = call.arguments.get(*idx) {
                     self.check_property_name_arg(arg, file, violations);
                 }
-            } else if NAME_ARG_THIRD.contains(&name) {
-                if let Some(arg) = call.arguments.get(2) {
-                    self.check_property_name_arg(arg, file, violations);
-                }
-            } else {
-                // g_object_set/get/new: "prop", value, "prop", value, ..., NULL
-                // Property names at odd indices starting from 1 (for set/get)
-                // or 1 (for g_object_new where arg 0 is the type)
-                for arg in call.arguments.iter().skip(1).step_by(2) {
+            } else if let Some((_, n_skip)) = VARARGS_PROP_VALUE.iter().find(|(n, _)| *n == name) {
+                for arg in call.arguments.iter().skip(*n_skip).step_by(2) {
                     self.check_property_name_arg(arg, file, violations);
                 }
             }
