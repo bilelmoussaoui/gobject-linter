@@ -81,6 +81,7 @@ impl Parser {
                 | "gnu_asm_expression"
                 | "compound_statement"
                 | "comment"
+                | "objc_message_expr"
         )
     }
 

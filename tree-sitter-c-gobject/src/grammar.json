@@ -6771,7 +6771,7 @@
         },
         {
           "type": "SYMBOL",
-          "name": "_objc_message_expr"
+          "name": "objc_message_expr"
         }
       ]
     },
@@ -10075,7 +10075,7 @@
     },
     {
       "type": "SYMBOL",
-      "name": "_objc_message_expr"
+      "name": "objc_message_expr"
     }
   ],
   "inline": [

@@ -222,7 +222,7 @@ impl Parser {
                 // Skip parse errors gracefully
                 None
             }
-            "generic_expression" => {
+            "objc_message_expr" | "generic_expression" => {
                 // store as raw text, no rule needs to inspect it
                 let text = std::str::from_utf8(&source[node.byte_range()])
                     .ok()?

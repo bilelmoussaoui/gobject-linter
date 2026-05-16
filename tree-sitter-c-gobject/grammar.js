@@ -23,7 +23,7 @@ module.exports = grammar(C, {
     $._objc_class_forward,            // @class Foo;
     $._objc_selector_expr,            // @selector(name:)
     $._objc_string_literal,           // @"string"
-    $._objc_message_expr,             // [obj message:arg]
+    $.objc_message_expr,              // [obj message:arg]
   ],
 
   conflicts: ($, original) => [
@@ -168,7 +168,7 @@ module.exports = grammar(C, {
       original,
       $._objc_selector_expr,
       $._objc_string_literal,
-      $._objc_message_expr,
+      $.objc_message_expr,
     ),
 
     // Export / deprecation / availability macros used as declaration modifiers.

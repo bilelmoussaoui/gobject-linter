@@ -188,6 +188,10 @@
         "named": true
       },
       {
+        "type": "objc_message_expr",
+        "named": true
+      },
+      {
         "type": "offsetof_expression",
         "named": true
       },
@@ -4869,6 +4873,10 @@
   },
   {
     "type": "number_literal",
+    "named": true
+  },
+  {
+    "type": "objc_message_expr",
     "named": true
   },
   {
