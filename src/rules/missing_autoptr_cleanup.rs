@@ -136,10 +136,8 @@ impl Rule for MissingAutoptrCleanup {
                             CleanupKind::OldStyleGObject,
                         ));
                     }
-                    GObjectTypeKind::Declare { .. } => {
-                        if !gobject_type.manually_registered {
-                            declared_types.insert(&gobject_type.type_name);
-                        }
+                    GObjectTypeKind::Declare { .. } if !gobject_type.manually_registered => {
+                        declared_types.insert(&gobject_type.type_name);
                     }
                     _ => {}
                 }
