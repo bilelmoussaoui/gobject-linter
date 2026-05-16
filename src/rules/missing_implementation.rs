@@ -24,13 +24,6 @@ impl Rule for MissingImplementation {
         _config: &Config,
         violations: &mut Vec<crate::rules::Violation>,
     ) {
-        let declared_types: HashSet<&str> = ast_context
-            .iter_header_files()
-            .flat_map(|(_, file)| file.iter_all_gobject_types())
-            .filter(|gt| gt.kind.is_declare())
-            .map(|gt| gt.type_name.as_str())
-            .collect();
-
         // Collect explicit function definitions and _get_type() names from
         // G_DEFINE_* macros that lack a matching G_DECLARE_*.
         let mut defined: HashSet<String> = HashSet::new();
@@ -39,7 +32,7 @@ impl Rule for MissingImplementation {
                 defined.insert(f.name.clone());
             }
             for gt in file.iter_all_gobject_types() {
-                if gt.kind.is_define() && !declared_types.contains(gt.type_name.as_str()) {
+                if gt.kind.is_define() {
                     defined.insert(format!("{}_get_type", gt.function_prefix));
                 }
             }
