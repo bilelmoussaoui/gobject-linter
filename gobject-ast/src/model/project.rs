@@ -1031,4 +1031,32 @@ impl FileModel {
             _ => Box::new(std::iter::once(item)) as Box<dyn Iterator<Item = &'a TopLevelItem>>,
         }))
     }
+
+    fn iter_items_with_parent<'a>(
+        &'a self,
+        items: &'a [TopLevelItem],
+        parent: Option<&'a TopLevelItem>,
+    ) -> Box<dyn Iterator<Item = (&'a TopLevelItem, Option<&'a TopLevelItem>)> + 'a> {
+        Box::new(items.iter().flat_map(move |item| {
+            match item {
+                TopLevelItem::Preprocessor(PreprocessorDirective::Conditional { body, .. })
+                | TopLevelItem::Preprocessor(PreprocessorDirective::GObjectDeclsBlock {
+                    body,
+                    ..
+                }) => Box::new(
+                    std::iter::once((item, parent))
+                        .chain(self.iter_items_with_parent(body, Some(item))),
+                )
+                    as Box<dyn Iterator<Item = (&'a TopLevelItem, Option<&'a TopLevelItem>)>>,
+                _ => Box::new(std::iter::once((item, parent)))
+                    as Box<dyn Iterator<Item = (&'a TopLevelItem, Option<&'a TopLevelItem>)>>,
+            }
+        }))
+    }
+
+    pub fn iter_all_items_with_parent(
+        &self,
+    ) -> impl Iterator<Item = (&TopLevelItem, Option<&TopLevelItem>)> + '_ {
+        self.iter_items_with_parent(&self.top_level_items, None)
+    }
 }
