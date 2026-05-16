@@ -1,4 +1,7 @@
-use std::collections::HashSet;
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+};
 
 use gobject_ast::model::{
     DefineKind, GObjectTypeKind, PreprocessorDirective, SourceLocation, TopLevelItem,
@@ -47,6 +50,7 @@ impl Rule for MissingAutoptrCleanup {
             &'static str,
         )> = Vec::new();
         let mut declared_types: HashSet<&str> = HashSet::new();
+        let mut declare_locations: HashMap<&str, (&Path, &SourceLocation)> = HashMap::new();
         let mut autoptr_cleanups: HashSet<&str> = HashSet::new();
 
         for (path, file) in ast_context.iter_all_files() {
@@ -69,8 +73,12 @@ impl Rule for MissingAutoptrCleanup {
                             "old-style",
                         ));
                     }
-                    GObjectTypeKind::Declare { .. } if !gobject_type.manually_registered => {
-                        declared_types.insert(&gobject_type.type_name);
+                    GObjectTypeKind::Declare { .. } => {
+                        if !gobject_type.manually_registered {
+                            declared_types.insert(&gobject_type.type_name);
+                        }
+                        declare_locations
+                            .insert(&gobject_type.type_name, (path, &gobject_type.location));
                     }
                     _ => {}
                 }
@@ -94,6 +102,15 @@ impl Rule for MissingAutoptrCleanup {
                 continue;
             }
 
+            let (report_path, report_location) = if kind == "old-style" {
+                declare_locations
+                    .get(type_name)
+                    .copied()
+                    .unwrap_or((path, location))
+            } else {
+                (path, location)
+            };
+
             let message = match kind {
                 "boxed" => format!(
                     "Boxed type '{}' is missing G_DEFINE_AUTOPTR_CLEANUP_FUNC macro",
@@ -106,7 +123,7 @@ impl Rule for MissingAutoptrCleanup {
                 _ => unreachable!(),
             };
 
-            violations.push(self.violation_at(path, location, message));
+            violations.push(self.violation_at(report_path, report_location, message));
         }
     }
 }
