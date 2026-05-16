@@ -138,10 +138,18 @@ impl Parser {
             }
             "update_expression" => self.parse_update_expression(node, source),
             "concatenated_string" => {
-                // Concatenated string literals: "foo" "bar" → semantically a string literal
-                let value = std::str::from_utf8(&source[node.byte_range()])
-                    .ok()?
-                    .to_owned();
+                let mut cursor = node.walk();
+                let mut parts = Vec::new();
+                for child in node.named_children(&mut cursor) {
+                    if child.kind() == "string_literal" {
+                        let text = std::str::from_utf8(&source[child.byte_range()]).ok()?;
+                        parts.push(text);
+                    }
+                }
+                if parts.is_empty() {
+                    return None;
+                }
+                let value = parts.join(" ");
                 Some(Expression::StringLiteral(StringLiteralExpression {
                     value,
                     location: self.node_location(node),

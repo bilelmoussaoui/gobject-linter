@@ -15,4 +15,13 @@ void test_property_names(GObject *obj, GObjectClass *klass) {
 
     // Multiple properties in one g_object_set call
     g_object_set(obj, "first-name", "John", "last-name", "Doe", NULL);
+
+    // #ifdef inside g_object_new should not cause false positives
+    g_object_new(MY_TYPE,
+                 "drive", drive,
+                 "mount", mount,
+#ifdef HAVE_CLOUDPROVIDERS
+                 "cloud-provider-account", cloud_provider_account,
+#endif
+                 NULL);
 }
