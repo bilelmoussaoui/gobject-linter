@@ -352,6 +352,22 @@ bool tree_sitter_c_gobject_external_scanner_scan(
             strstr(buf, "_ENUMERATOR_") != NULL ||
             (len >= 7 && strncmp(buf, "G_GNUC_", 7) == 0) ||
             strcmp(buf, "G_NO_INLINE") == 0;
+        if (!is_modifier) {
+            /* An ALL_CAPS identifier followed by struct/union/enum is an
+             * attribute macro (e.g. SECTION, PACKED) — never a type name. */
+            lookahead_skip_whitespace(lexer);
+            char kw[8];
+            int kw_len = 0;
+            while (kw_len < 6 &&
+                   lexer->lookahead >= 'a' && lexer->lookahead <= 'z') {
+                kw[kw_len++] = (char)lexer->lookahead;
+                lexer->advance(lexer, false);
+            }
+            kw[kw_len] = '\0';
+            is_modifier = (strcmp(kw, "struct") == 0 ||
+                           strcmp(kw, "union") == 0 ||
+                           strcmp(kw, "enum") == 0);
+        }
         if (!is_modifier) return false;
         lexer->result_symbol = MACRO_MODIFIER_NAME;
         return true;
