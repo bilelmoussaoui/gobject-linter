@@ -491,6 +491,7 @@ rule_test!(
 );
 rule_test!(use_pragma_once, gobject_linter::rules::UsePragmaOnce);
 rule_test!(dead_code, gobject_linter::rules::DeadCode);
+rule_test!(unused_vfunc, gobject_linter::rules::UnusedVfunc);
 rule_test!(
     missing_export_macro,
     gobject_linter::rules::MissingExportMacro

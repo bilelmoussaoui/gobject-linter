@@ -96,6 +96,7 @@ macro_rules! for_each_rule {
     ($callback:ident) => {
         $callback! {
             (dead_code, DeadCode),
+            (unused_vfunc, UnusedVfunc),
             (include_order, IncludeOrder),
             (inconsistent_function_signature, InconsistentFunctionSignature),
             (use_pragma_once, UsePragmaOnce),
