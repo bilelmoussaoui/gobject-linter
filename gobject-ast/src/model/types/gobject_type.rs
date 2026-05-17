@@ -120,6 +120,7 @@ pub struct VirtualFunction {
     pub parameters: Vec<Parameter>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub doc: Option<FunctionDoc>,
+    pub location: SourceLocation,
 }
 
 #[derive(Debug, Clone, Serialize)]

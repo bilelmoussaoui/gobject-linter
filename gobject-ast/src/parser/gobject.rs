@@ -416,6 +416,7 @@ impl Parser {
             return_type,
             parameters,
             doc: FunctionDoc::from_node(field_node, source),
+            location: self.node_location(field_node),
         })
     }
 
