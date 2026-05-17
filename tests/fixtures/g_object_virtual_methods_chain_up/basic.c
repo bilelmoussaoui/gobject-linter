@@ -6,13 +6,18 @@ struct _Foo { GObject parent_instance; GObject *child; };
 G_DEFINE_TYPE (Foo, foo, G_TYPE_OBJECT)
 
 static void foo_init (Foo *self) { }
-static void foo_class_init (FooClass *klass) { }
 
 static void
 foo_dispose (GObject *object)
 {
   Foo *self = MY_FOO (object);
   g_clear_object (&self->child);
+}
+
+static void
+foo_class_init (FooClass *klass)
+{
+  G_OBJECT_CLASS (klass)->dispose = foo_dispose;
 }
 
 // Valid: chains up using object_class variable
@@ -23,7 +28,6 @@ struct _Bar { GObject parent_instance; GObject *child; };
 G_DEFINE_TYPE (Bar, bar, G_TYPE_OBJECT)
 
 static void bar_init (Bar *self) { }
-static void bar_class_init (BarClass *klass) { }
 
 static void
 bar_dispose (GObject *object)
@@ -34,6 +38,12 @@ bar_dispose (GObject *object)
   g_clear_object (&self->child);
 
   object_class->dispose (object);
+}
+
+static void
+bar_class_init (BarClass *klass)
+{
+  G_OBJECT_CLASS (klass)->dispose = bar_dispose;
 }
 
 // Valid: chains up using klass variable
@@ -49,7 +59,6 @@ struct _Baz {
 G_DEFINE_TYPE (Baz, baz, G_TYPE_OBJECT)
 
 static void baz_init (Baz *self) { }
-static void baz_class_init (BazClass *klass) { }
 
 static void
 baz_finalize (GObject *object)
@@ -61,6 +70,12 @@ baz_finalize (GObject *object)
   g_free (self->data);
 
   klass->finalize (object);
+}
+
+static void
+baz_class_init (BazClass *klass)
+{
+  G_OBJECT_CLASS (klass)->finalize = baz_finalize;
 }
 
 // Valid: Not a GObject virtual method - GSource has its own finalize
@@ -91,7 +106,6 @@ struct _MyDevice {
 G_DEFINE_TYPE (MyDevice, my_device, G_TYPE_OBJECT)
 
 static void my_device_init (MyDevice *self) { }
-static void my_device_class_init (MyDeviceClass *klass) { }
 
 static void
 my_device_dispose (GObject *object)
@@ -103,4 +117,10 @@ my_device_dispose (GObject *object)
   g_clear_pointer (&self->impl_state, g_free);
 
   object_class->dispose (object);
+}
+
+static void
+my_device_class_init (MyDeviceClass *klass)
+{
+  G_OBJECT_CLASS (klass)->dispose = my_device_dispose;
 }
