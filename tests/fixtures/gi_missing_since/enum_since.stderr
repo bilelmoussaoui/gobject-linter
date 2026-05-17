@@ -1,0 +1,1 @@
+enum_since.h:19:3: gi_missing_since: Enum member 'MY_ALIGN_END' has Since: in inline doc which g-ir-scanner cannot detect — use a standalone /** MY_ALIGN_END: doc block

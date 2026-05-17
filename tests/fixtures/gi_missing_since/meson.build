@@ -1,4 +1,5 @@
 sources = [
+  'enum_since.h',
   'functions.c',
   'functions.h',
   'type_since.c',

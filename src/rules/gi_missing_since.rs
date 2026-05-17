@@ -46,6 +46,7 @@ impl Rule for GiMissingSince {
         self.check_type_since(ast_context, violations);
         self.check_functions_since(ast_context, violations);
         self.check_property_since_consistency(ast_context, violations);
+        self.check_enum_value_inline_since(ast_context, violations);
     }
 }
 
@@ -350,6 +351,41 @@ impl GiMissingSince {
                             }
                             _ => {}
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    fn check_enum_value_inline_since(
+        &self,
+        ast_context: &AstContext,
+        violations: &mut Vec<Violation>,
+    ) {
+        for (path, file) in ast_context.iter_header_files() {
+            if !ast_context.is_public_header(path).unwrap_or(false) {
+                continue;
+            }
+
+            for enum_info in file.iter_all_enums() {
+                for value in &enum_info.values {
+                    let Some(doc) = &value.doc else {
+                        continue;
+                    };
+                    if doc.since.is_some() {
+                        continue;
+                    }
+                    let has_inline_since =
+                        doc.description.iter().any(|line| line.contains("Since:"));
+                    if has_inline_since {
+                        violations.push(self.violation_at(
+                            path,
+                            &value.name_location,
+                            format!(
+                                "Enum member '{}' has Since: in inline doc which g-ir-scanner cannot detect — use a standalone /** {}: doc block",
+                                value.name, value.name,
+                            ),
+                        ));
                     }
                 }
             }
