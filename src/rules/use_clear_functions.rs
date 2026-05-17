@@ -34,6 +34,7 @@ enum ClearReplacement {
     SignalHandler,
     WeakPointer,
     List { clear_func: &'static str },
+    Error,
 }
 
 #[derive(Clone, Copy)]
@@ -90,6 +91,12 @@ const CLEAR_MAPPINGS: &[ClearMapping] = &[
         },
         null_check: NullCheck::Null,
         min_version: (2, 64),
+    },
+    ClearMapping {
+        source_func: "g_error_free",
+        replacement: ClearReplacement::Error,
+        null_check: NullCheck::Null,
+        min_version: (2, 0),
     },
     ClearMapping {
         source_func: "g_object_unref",
@@ -163,6 +170,7 @@ fn format_replacement(
         ClearReplacement::List { clear_func } => {
             style.format_call_stmt(clear_func, &[&addr, "NULL"])
         }
+        ClearReplacement::Error => style.format_call_stmt("g_clear_error", &[&addr]),
     }
 }
 
