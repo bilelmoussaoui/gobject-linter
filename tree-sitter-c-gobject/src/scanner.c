@@ -72,14 +72,16 @@ static bool followed_by_arrow(TSLexer *lexer) {
  * Call mark_end() BEFORE calling this so the token boundary is already saved.
  * Returns true if followed by a GObject macro, false otherwise.
  * Advances the lexer (caller relies on mark_end for the correct token end). */
-/* Check whether buf matches the *_DEFINE_*_TYPE pattern (project-specific
- * type-definition macros such as GDK_DEFINE_EVENT_TYPE, GSK_DEFINE_RENDER_NODE_TYPE).
- * Returns 1 for _TYPE_WITH_CODE, 2 for _TYPE, 0 for no match. */
+/* Check whether buf contains both _DEFINE_ and _TYPE (project-specific
+ * type-definition macros such as GDK_DEFINE_EVENT_TYPE,
+ * _G_DEFINE_TYPE_EXTENDED_WITH_PRELUDE, GI_DEFINE_BASE_INFO_TYPE).
+ * All custom define macros are treated as WITH_CODE since the grammar
+ * for WITH_CODE is a superset that handles code blocks when present. */
 static int custom_define_type_match(const char *buf, int len) {
+    (void)len;
     if (strstr(buf, "_DEFINE_") == NULL) return 0;
-    if (len >= 15 && strcmp(buf + len - 15, "_TYPE_WITH_CODE") == 0) return 1;
-    if (len >= 5  && strcmp(buf + len - 5,  "_TYPE") == 0) return 1;
-    return 0;
+    if (strstr(buf, "_TYPE") == NULL) return 0;
+    return 1;
 }
 
 static bool followed_by_gobject_macro(TSLexer *lexer) {

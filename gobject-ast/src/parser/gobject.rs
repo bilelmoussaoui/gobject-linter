@@ -330,12 +330,17 @@ impl Parser {
         }
 
         // Fallback for project-specific *_DEFINE_*_TYPE macros
-        // (e.g. GDK_DEFINE_EVENT_TYPE, GSK_DEFINE_RENDER_NODE_TYPE).
-        // These are GTypeInstance children, not GObjects — just extract
-        // type_name and function_prefix so _get_type is registered.
         if arg_values.len() >= 2 {
-            let type_name = arg_values[0];
-            let function_prefix = arg_values[1];
+            let (type_name, function_prefix) = if arg_values[0].contains('_')
+                && arg_values[0]
+                    .chars()
+                    .next()
+                    .is_some_and(char::is_lowercase)
+            {
+                (arg_values[0], arg_values[0])
+            } else {
+                (arg_values[0], arg_values[1])
+            };
 
             return Some(GObjectType {
                 type_name: type_name.to_owned(),
