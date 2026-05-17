@@ -43,7 +43,7 @@ impl Rule for MissingGBeginDecls {
                 while pos > 0 && source[pos - 1] != b'\n' {
                     pos -= 1;
                 }
-                let end_line = &source[pos..loc.end_byte];
+                let end_line = source[pos..loc.end_byte].trim_ascii_start();
                 if !end_line.starts_with(b"G_END_DECLS") {
                     violations.push(self.violation_at(
                         path,
