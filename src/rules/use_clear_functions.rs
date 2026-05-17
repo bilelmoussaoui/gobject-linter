@@ -101,8 +101,23 @@ const CLEAR_MAPPINGS: &[ClearMapping] = &[
     PointerMapping!("g_hash_table_destroy"),
     PointerMapping!("g_hash_table_unref"),
     PointerMapping!("g_array_unref"),
+    PointerMapping!("g_async_queue_unref"),
+    PointerMapping!("g_byte_array_unref"),
     PointerMapping!("g_bytes_unref"),
+    PointerMapping!("g_checksum_free"),
+    PointerMapping!("g_date_free"),
+    PointerMapping!("g_date_time_unref"),
+    PointerMapping!("g_key_file_free"),
+    PointerMapping!("g_option_context_free"),
+    PointerMapping!("g_ptr_array_unref"),
+    PointerMapping!("g_queue_free"),
+    PointerMapping!("g_sequence_free"),
+    PointerMapping!("g_time_zone_unref"),
+    PointerMapping!("g_uri_unref"),
     PointerMapping!("g_variant_unref"),
+    PointerMapping!("g_variant_dict_unref"),
+    PointerMapping!("g_variant_iter_unref"),
+    PointerMapping!("g_variant_type_unref"),
 ];
 
 impl ClearMapping {
