@@ -138,19 +138,19 @@ fn main() -> Result<()> {
     }
 
     // Apply --only filter if specified
-    if !args.only.is_empty() {
-        if let Err(e) = config.enable_only_rules(&args.only) {
-            eprintln!("{} {}", "error:".red().bold(), e);
-            std::process::exit(1);
-        }
+    if !args.only.is_empty()
+        && let Err(e) = config.enable_only_rules(&args.only)
+    {
+        eprintln!("{} {}", "error:".red().bold(), e);
+        std::process::exit(1);
     }
 
     // Apply --exclude filter if specified
-    if !args.exclude.is_empty() {
-        if let Err(e) = config.disable_rules(&args.exclude) {
-            eprintln!("{} {}", "error:".red().bold(), e);
-            std::process::exit(1);
-        }
+    if !args.exclude.is_empty()
+        && let Err(e) = config.disable_rules(&args.exclude)
+    {
+        eprintln!("{} {}", "error:".red().bold(), e);
+        std::process::exit(1);
     }
 
     // Apply --category filter if specified
