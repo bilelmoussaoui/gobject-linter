@@ -44,6 +44,17 @@ struct ClearMapping {
     min_version: (u32, u32),
 }
 
+macro_rules! PointerMapping {
+    ($name:literal) => {
+        ClearMapping {
+            source_func: $name,
+            replacement: ClearReplacement::Pointer,
+            null_check: NullCheck::NullOrZero,
+            min_version: (2, 28),
+        }
+    }
+}
+
 const CLEAR_MAPPINGS: &[ClearMapping] = &[
     ClearMapping {
         source_func: "g_source_remove",
@@ -51,12 +62,7 @@ const CLEAR_MAPPINGS: &[ClearMapping] = &[
         null_check: NullCheck::Zero,
         min_version: (2, 56),
     },
-    ClearMapping {
-        source_func: "g_source_destroy",
-        replacement: ClearReplacement::Pointer,
-        null_check: NullCheck::NullOrZero,
-        min_version: (2, 28),
-    },
+    PointerMapping!("g_source_destroy"),
     ClearMapping {
         source_func: "g_signal_handler_disconnect",
         replacement: ClearReplacement::SignalHandler,
@@ -91,42 +97,12 @@ const CLEAR_MAPPINGS: &[ClearMapping] = &[
         null_check: NullCheck::NullOrZero,
         min_version: (2, 28),
     },
-    ClearMapping {
-        source_func: "g_free",
-        replacement: ClearReplacement::Pointer,
-        null_check: NullCheck::NullOrZero,
-        min_version: (2, 28),
-    },
-    ClearMapping {
-        source_func: "g_hash_table_unref",
-        replacement: ClearReplacement::Pointer,
-        null_check: NullCheck::NullOrZero,
-        min_version: (2, 28),
-    },
-    ClearMapping {
-        source_func: "g_hash_table_destroy",
-        replacement: ClearReplacement::Pointer,
-        null_check: NullCheck::NullOrZero,
-        min_version: (2, 28),
-    },
-    ClearMapping {
-        source_func: "g_array_unref",
-        replacement: ClearReplacement::Pointer,
-        null_check: NullCheck::NullOrZero,
-        min_version: (2, 28),
-    },
-    ClearMapping {
-        source_func: "g_bytes_unref",
-        replacement: ClearReplacement::Pointer,
-        null_check: NullCheck::NullOrZero,
-        min_version: (2, 28),
-    },
-    ClearMapping {
-        source_func: "g_variant_unref",
-        replacement: ClearReplacement::Pointer,
-        null_check: NullCheck::NullOrZero,
-        min_version: (2, 28),
-    },
+    PointerMapping!("g_free"),
+    PointerMapping!("g_hash_table_destroy"),
+    PointerMapping!("g_hash_table_unref"),
+    PointerMapping!("g_array_unref"),
+    PointerMapping!("g_bytes_unref"),
+    PointerMapping!("g_variant_unref"),
 ];
 
 impl ClearMapping {
