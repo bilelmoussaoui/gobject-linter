@@ -8,6 +8,8 @@ sources = [
   'handle_id_issue_25.fixed.c',
   'handle_id_multi_stmt.c',
   'handle_id_multi_stmt.fixed.c',
+  'if_statements.c',
+  'if_statements.fixed.c',
   'list_basic.c',
   'list_basic.fixed.c',
   'signal_handler_basic.c',
