@@ -1,0 +1,11 @@
+if_statements.c:6:3: use_clear_functions: Use g_clear_pointer (&a, g_free) instead of manual NULL check, unref, and assignment
+if_statements.c:12:3: use_clear_functions: Use g_clear_pointer (&a, g_free) instead of manual NULL check, unref, and assignment
+if_statements.c:18:3: use_clear_functions: Use g_clear_pointer (&a, g_free) instead of manual NULL check, unref, and assignment
+if_statements.c:26:7: use_clear_functions: Use g_clear_handle_id (&c, g_source_remove) instead of g_source_remove and zero assignment
+if_statements.c:32:7: use_clear_functions: Use g_clear_handle_id (&c, g_source_remove) instead of g_source_remove and zero assignment
+if_statements.c:39:7: use_clear_functions: Use g_clear_pointer (&a, g_free) instead of g_free and NULL/zero assignment
+if_statements.c:46:7: use_clear_functions: Use g_clear_pointer (&a, g_free) instead of g_free and NULL/zero assignment
+if_statements.c:53:7: use_clear_functions: Use g_clear_handle_id (&c, g_source_remove) instead of g_source_remove and zero assignment
+if_statements.c:60:7: use_clear_functions: Use g_clear_pointer (&a, g_free) instead of g_free and NULL/zero assignment
+if_statements.c:67:7: use_clear_functions: Use g_clear_handle_id (&c, g_source_remove) instead of g_source_remove and zero assignment
+if_statements.c:74:7: use_clear_functions: Use g_clear_pointer (&a, g_free) instead of g_free and NULL/zero assignment

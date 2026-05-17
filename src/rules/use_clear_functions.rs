@@ -1,6 +1,6 @@
 use gobject_ast::model::{
-    AssignmentOp, BinaryOp, Expression, FileModel, FunctionDefItem, IfStatement, SourceLocation,
-    Statement, UnaryOp,
+    AssignmentOp, BinaryExpression, BinaryOp, Expression, FileModel, FunctionDefItem, IfStatement,
+    SourceLocation, Statement, UnaryExpression, UnaryOp,
 };
 
 use crate::{
@@ -53,7 +53,7 @@ macro_rules! PointerMapping {
             null_check: NullCheck::NullOrZero,
             min_version: (2, 28),
         }
-    }
+    };
 }
 
 const CLEAR_MAPPINGS: &[ClearMapping] = &[
@@ -419,13 +419,27 @@ impl UseClearFunctions {
         }
 
         match expr {
-            Expression::Binary(bin) => {
-                if let Some(var) = self.find_variable_in_condition(&bin.left) {
-                    return Some(var);
+            Expression::Binary(BinaryExpression {
+                left: l,
+                operator: op,
+                right: r,
+                ..
+            }) => {
+                let l_empty = l.is_null() || l.is_zero();
+                let r_empty = r.is_null() || r.is_zero();
+                match (op, l_empty, r_empty) {
+                    (BinaryOp::NotEqual, true, false) => r.extract_variable_name(),
+                    (BinaryOp::Less, true, false) => r.extract_variable_name(),
+                    (BinaryOp::NotEqual, false, true) => l.extract_variable_name(),
+                    (BinaryOp::Greater, false, true) => l.extract_variable_name(),
+                    _ => None,
                 }
-                self.find_variable_in_condition(&bin.right)
             }
-            Expression::Unary(unary) => self.find_variable_in_condition(&unary.operand),
+            Expression::Unary(UnaryExpression {
+                operator: UnaryOp::Not,
+                operand: op,
+                ..
+            }) => op.extract_variable_name(),
             _ => expr.location().as_str(),
         }
     }
