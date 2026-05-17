@@ -125,6 +125,18 @@ const CLEAR_MAPPINGS: &[ClearMapping] = &[
     PointerMapping!("g_variant_dict_unref"),
     PointerMapping!("g_variant_iter_unref"),
     PointerMapping!("g_variant_type_unref"),
+    PointerMapping!("gdk_color_state_unref"),
+    PointerMapping!("gdk_event_unref"),
+    PointerMapping!("gdk_texture_downloader_free"),
+    PointerMapping!("gsk_path_unref"),
+    PointerMapping!("gsk_path_builder_unref"),
+    PointerMapping!("gsk_path_measure_unref"),
+    PointerMapping!("gsk_render_node_unref"),
+    PointerMapping!("gsk_render_replay_free"),
+    PointerMapping!("gsk_stroke_free"),
+    PointerMapping!("gsk_transform_unref"),
+    PointerMapping!("gtk_expression_unref"),
+    PointerMapping!("gtk_expression_watch_unref"),
 ];
 
 impl ClearMapping {
