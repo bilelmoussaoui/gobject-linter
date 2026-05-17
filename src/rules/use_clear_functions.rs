@@ -53,9 +53,9 @@ const CLEAR_MAPPINGS: &[ClearMapping] = &[
     },
     ClearMapping {
         source_func: "g_source_destroy",
-        replacement: ClearReplacement::HandleId,
-        null_check: NullCheck::Zero,
-        min_version: (2, 56),
+        replacement: ClearReplacement::Pointer,
+        null_check: NullCheck::NullOrZero,
+        min_version: (2, 28),
     },
     ClearMapping {
         source_func: "g_signal_handler_disconnect",
