@@ -105,6 +105,7 @@ impl Rule for MissingGBeginDecls {
             if orphan_begin.is_none()
                 && orphan_end.is_none()
                 && ast_context.is_public_header(path) == Some(true)
+                && file.has_declarations()
             {
                 violations.push(self.violation(
                     path,

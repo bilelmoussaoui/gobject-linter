@@ -580,6 +580,18 @@ impl FileModel {
         self.iter_items_recursive(&self.top_level_items)
     }
 
+    pub fn has_declarations(&self) -> bool {
+        self.iter_all_items().any(|item| {
+            matches!(
+                item,
+                TopLevelItem::TypeDefinition(_)
+                    | TopLevelItem::FunctionDeclaration(_)
+                    | TopLevelItem::FunctionDefinition(_)
+                    | TopLevelItem::Declaration(_)
+            )
+        })
+    }
+
     /// Iterate typedef forward-alias declarations of the form
     /// `typedef [struct|union] _Foo Foo` (i.e., typedefs that have no inline
     /// struct body). Yields `(typedef_name, target_TypeInfo)` so callers can
