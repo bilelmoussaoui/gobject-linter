@@ -1,9 +1,10 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
     sync::Arc,
 };
 
+use heck::ToUpperCamelCase;
 use serde::Serialize;
 
 use crate::model::{
@@ -450,6 +451,91 @@ impl FileModel {
         })
     }
 
+    /// Extract all vfunc assignments from a class_init function body.
+    /// Returns a map of (class_type, field) → func_name, e.g.
+    /// `("GObjectClass", "dispose") → "my_obj_dispose"`.
+    ///
+    /// For `klass->field = func`, the class type is resolved from the
+    /// class_init parameter type. For `G_OBJECT_CLASS(klass)->field = func`,
+    /// it is derived from the cast macro name.
+    pub fn resolve_class_init_vfuncs<'a>(
+        &'a self,
+        gobject_type: &GObjectType,
+    ) -> HashMap<(String, &'a str), &'a str> {
+        let class_init_name = gobject_type.class_init_function_name();
+        let Some(class_init) = self
+            .iter_function_definitions()
+            .find(|f| f.name == class_init_name)
+        else {
+            return HashMap::new();
+        };
+
+        let mut var_types: HashMap<&str, String> = HashMap::new();
+
+        if let Some(Parameter::Regular {
+            name: Some(name),
+            type_info,
+            ..
+        }) = class_init.parameters.first()
+        {
+            var_types.insert(name.as_str(), type_info.base_type.clone());
+        }
+
+        for stmt in &class_init.body_statements {
+            for decl in stmt.iter_declarations() {
+                if let Some(init) = &decl.initializer
+                    && let Expression::Call(call) = init
+                {
+                    let name = call.function_name();
+                    if let Some(prefix) = name
+                        .strip_suffix("_CLASS")
+                        .or_else(|| name.strip_suffix("_GET_CLASS"))
+                    {
+                        var_types.insert(
+                            decl.name.as_str(),
+                            format!("{}Class", prefix.to_upper_camel_case()),
+                        );
+                        continue;
+                    }
+                }
+                var_types.insert(decl.name.as_str(), decl.type_info.base_type.clone());
+            }
+        }
+
+        let func_names: HashSet<&str> = self
+            .iter_function_definitions()
+            .map(|f| f.name.as_str())
+            .collect();
+
+        let mut vfuncs = HashMap::new();
+        for assignment in class_init
+            .body_statements
+            .iter()
+            .flat_map(Statement::iter_assignments)
+        {
+            if let Expression::FieldAccess(fa) = &*assignment.lhs
+                && let Expression::Identifier(ident) = assignment.rhs.as_ref()
+                && func_names.contains(ident.name.as_str())
+            {
+                let class_type = match &*fa.base {
+                    Expression::Identifier(id) => var_types.get(id.name.as_str()).cloned(),
+                    Expression::Call(call) => {
+                        let name = call.function_name();
+                        let prefix = name
+                            .strip_suffix("_CLASS")
+                            .or_else(|| name.strip_suffix("_GET_CLASS"));
+                        prefix.map(|p| format!("{}Class", p.to_upper_camel_case()))
+                    }
+                    _ => None,
+                };
+                if let Some(ct) = class_type {
+                    vfuncs.insert((ct, fa.field.as_str()), ident.name.as_str());
+                }
+            }
+        }
+        vfuncs
+    }
+
     pub fn resolve_property_enum_context(
         &self,
         enum_info: &EnumInfo,
@@ -468,24 +554,15 @@ impl FileModel {
             }
         });
 
-        let mut get_property_func = None;
-        let mut set_property_func = None;
-
-        for assignment in class_init
-            .body_statements
+        let vfuncs = self.resolve_class_init_vfuncs(gobject_type);
+        let get_property_func = vfuncs
             .iter()
-            .flat_map(Statement::iter_assignments)
-        {
-            if let Expression::FieldAccess(field) = &*assignment.lhs
-                && let Expression::Identifier(ident) = assignment.rhs.as_ref()
-            {
-                match field.field.as_str() {
-                    "get_property" => get_property_func = Some(ident.name.as_str()),
-                    "set_property" => set_property_func = Some(ident.name.as_str()),
-                    _ => {}
-                }
-            }
-        }
+            .find(|((_, field), _)| *field == "get_property")
+            .map(|(_, func)| *func);
+        let set_property_func = vfuncs
+            .iter()
+            .find(|((_, field), _)| *field == "set_property")
+            .map(|(_, func)| *func);
 
         Some(PropertyEnumContext {
             gobject_type,
