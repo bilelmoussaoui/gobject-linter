@@ -12,6 +12,8 @@ foo_dispose (GObject *object)
 {
   Foo *self = MY_FOO (object);
   g_clear_object (&self->child);
+
+  G_OBJECT_CLASS (foo_parent_class)->dispose (object);
 }
 
 static void
@@ -138,6 +140,9 @@ static void
 qux_constructed (GObject *object)
 {
   Qux *self = MY_QUX (object);
+
+  G_OBJECT_CLASS (qux_parent_class)->constructed (object);
+
   self->value = 42;
 }
 

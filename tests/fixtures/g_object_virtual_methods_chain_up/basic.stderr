@@ -1,1 +1,2 @@
-basic.c:10:1: g_object_virtual_methods_chain_up: foo_dispose must chain up to parent class (e.g., G_OBJECT_CLASS (parent_class)->dispose (object))
+basic.c:10:1: g_object_virtual_methods_chain_up: foo_dispose must chain up to parent class (e.g., G_OBJECT_CLASS (foo_parent_class)->dispose (object);)
+basic.c:137:1: g_object_virtual_methods_chain_up: qux_constructed must chain up to parent class (e.g., G_OBJECT_CLASS (qux_parent_class)->constructed (object);)
