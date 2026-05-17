@@ -168,15 +168,22 @@ impl Parser {
                 None
             }
             "comma_expression" => {
-                // Comma operator: (a, b, c) → value is rightmost expression
-                let mut cursor = node.walk();
-                let mut last_expr = None;
-                for child in node.children(&mut cursor) {
-                    if child.is_named() && child.kind() != "," && Self::is_expression_node(&child) {
-                        last_expr = self.parse_expression(child, source);
+                // Comma operator: (a, b, c) → value is rightmost expression.
+                // tree-sitter nests these deeply (left-recursive), so iterate
+                // instead of recursing to avoid stack overflow.
+                let mut current = node;
+                loop {
+                    let mut cursor = current.walk();
+                    let last_child = current
+                        .children(&mut cursor)
+                        .filter(|c| c.is_named() && c.kind() != ",")
+                        .last();
+                    match last_child {
+                        Some(child) if child.kind() == "comma_expression" => current = child,
+                        Some(child) => break self.parse_expression(child, source),
+                        None => break None,
                     }
                 }
-                last_expr
             }
             "offsetof_expression" => {
                 // offsetof(StructType, field)

@@ -186,6 +186,12 @@ impl Parser {
     }
 
     fn visit_node(&self, node: Node, source: &[u8], file_model: &mut FileModel) {
+        stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
+            self.visit_node_inner(node, source, file_model);
+        });
+    }
+
+    fn visit_node_inner(&self, node: Node, source: &[u8], file_model: &mut FileModel) {
         // Try to parse this node as a top-level item. If successful, don't
         // recurse — children are handled inside parse_top_level_item itself
         // (e.g. via parse_conditional_body for #ifdef blocks).
