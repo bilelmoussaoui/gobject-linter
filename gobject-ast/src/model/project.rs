@@ -269,6 +269,16 @@ impl FileModel {
             })
     }
 
+    pub fn iter_defines(&self) -> impl Iterator<Item = (&str, Option<&str>)> + '_ {
+        self.iter_items_recursive(&self.top_level_items)
+            .filter_map(|item| match item {
+                TopLevelItem::Preprocessor(PreprocessorDirective::Define {
+                    name, value, ..
+                }) => Some((name.as_str(), value.as_deref())),
+                _ => None,
+            })
+    }
+
     /// Iterate through all standalone comments (including those in #ifdef
     /// blocks)
     pub fn iter_comments(&self) -> impl Iterator<Item = &Comment> + '_ {

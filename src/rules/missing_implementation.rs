@@ -24,16 +24,20 @@ impl Rule for MissingImplementation {
         _config: &Config,
         violations: &mut Vec<crate::rules::Violation>,
     ) {
-        // Collect explicit function definitions and _get_type() names from
-        // G_DEFINE_* macros that lack a matching G_DECLARE_*.
         let mut defined: HashSet<String> = HashSet::new();
-        for (_, file) in ast_context.iter_c_files() {
+        for (_, file) in ast_context.iter_all_files() {
             for f in file.iter_function_definitions() {
                 defined.insert(f.name.clone());
             }
             for gt in file.iter_all_gobject_types() {
-                if gt.kind.is_define() {
-                    defined.insert(format!("{}_get_type", gt.function_prefix));
+                defined.insert(format!("{}_get_type", gt.function_prefix));
+            }
+            // #define g_foo_get_type _g_foo_get_type
+            for (name, value) in file.iter_defines() {
+                if let Some(value) = value {
+                    if value.starts_with('_') && &value[1..] == name {
+                        defined.insert(value.to_string());
+                    }
                 }
             }
         }
