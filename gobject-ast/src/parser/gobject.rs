@@ -332,10 +332,7 @@ impl Parser {
         // Fallback for project-specific *_DEFINE_*_TYPE macros
         if arg_values.len() >= 2 {
             let (type_name, function_prefix) = if arg_values[0].contains('_')
-                && arg_values[0]
-                    .chars()
-                    .next()
-                    .is_some_and(char::is_lowercase)
+                && arg_values[0].chars().next().is_some_and(char::is_lowercase)
             {
                 (arg_values[0], arg_values[0])
             } else {

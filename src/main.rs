@@ -8,7 +8,13 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use colored::Colorize;
 use gobject_linter::{
-    ast_context, config, config::OutputFormat, fixer, output, reporter, rules::Category, scanner,
+    ast_context,
+    config::{self, OutputFormat},
+    fixer,
+    meson::MesonIntrospection,
+    output, reporter,
+    rules::Category,
+    scanner,
 };
 use indicatif::{ProgressBar, ProgressStyle};
 use unidiff::PatchSet;
@@ -205,21 +211,27 @@ fn main() -> Result<()> {
         None
     };
 
-    // Get header visibility from meson introspection (for dead code analysis)
+    // Get meson introspection (for header visibility and compiler info)
     if let Some(ref sp) = spinner {
         sp.set_message("Running meson introspection...");
     }
-    let meson_headers =
-        gobject_linter::meson::get_header_sets(&project_root, config.build_dir.as_deref())
-            .ok()
-            .flatten();
+
+    let meson_introspection = MesonIntrospection::new(&project_root, config.build_dir.as_deref())
+        .ok()
+        .flatten();
+
+    let compiler_map = meson_introspection
+        .as_ref()
+        .and_then(|i| i.load_compiler_map().ok());
 
     if args.verbose {
-        if let Some(ref h) = meson_headers {
+        if let Some(ref m) = meson_introspection {
+            let gir_count = m.get_introspected_headers().len();
+            let installed_count = m.get_installed_headers().len();
+            let compile_commands_count = compiler_map.as_ref().map(|m| m.len()).unwrap_or(0);
             println!(
-                "Meson introspection: {} GIR headers, {} installed headers",
-                h.gir.len(),
-                h.installed.len()
+                "Meson introspection: {} GIR headers, {} installed headers, {} compile commands",
+                gir_count, installed_count, compile_commands_count
             );
         } else {
             println!(
@@ -238,7 +250,7 @@ fn main() -> Result<()> {
         &project_root,
         &ignore_matcher,
         spinner.as_ref(),
-        meson_headers,
+        meson_introspection,
     )?;
     let parse_duration = analysis_start.elapsed();
 

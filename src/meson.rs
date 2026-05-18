@@ -7,9 +7,10 @@ use std::{
 use anyhow::{Context, Result};
 use serde::Deserialize;
 
-/// Represents the full output of `meson introspect --all`
-#[derive(Debug, Deserialize)]
-pub struct MesonIntrospection {
+/// Raw meson introspection data
+#[derive(Debug, Default, Deserialize)]
+#[allow(dead_code)]
+struct MesonData {
     #[serde(default)]
     pub benchmarks: Vec<Benchmark>,
     #[serde(default)]
@@ -26,11 +27,30 @@ pub struct MesonIntrospection {
     pub installed: HashMap<String, String>,
     #[serde(default)]
     pub machines: HashMap<String, MachineInfo>,
-    pub projectinfo: ProjectInfo,
+    #[serde(default)]
+    pub projectinfo: Option<ProjectInfo>,
     #[serde(default)]
     pub targets: Vec<Target>,
     #[serde(default)]
     pub tests: Vec<Test>,
+}
+
+/// Represents the full output of `meson introspect --all` with pre-computed
+/// caches
+#[derive(Debug)]
+pub struct MesonIntrospection {
+    /// Path to the meson build directory
+    build_dir: PathBuf,
+
+    /// Raw meson data
+    #[allow(dead_code)]
+    data: MesonData,
+
+    /// Pre-computed set of GIR-introspected headers
+    introspected_headers: HashSet<PathBuf>,
+
+    /// Pre-computed set of installed headers
+    installed_headers: HashSet<PathBuf>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -186,7 +206,7 @@ pub struct Test {
 /// 1. User-specified build_dir from config
 /// 2. Common build directory names (build/, builddir/, _build/)
 /// 3. Any directory containing meson-info/
-pub fn find_build_dir(project_root: &Path, config_build_dir: Option<&str>) -> Option<PathBuf> {
+fn find_build_dir(project_root: &Path, config_build_dir: Option<&str>) -> Option<PathBuf> {
     // 1. Check user-specified build_dir
     if let Some(dir) = config_build_dir {
         let path = project_root.join(dir);
@@ -221,58 +241,72 @@ fn is_build_dir(path: &Path) -> bool {
     path.join("meson-info").join("meson-info.json").exists()
 }
 
-/// Get full meson introspection data by running `meson introspect --all`
-pub fn get_introspection(build_dir: &Path) -> Result<MesonIntrospection> {
-    // Run meson introspect --all
-    let output = Command::new("meson")
-        .arg("introspect")
-        .arg(build_dir)
-        .arg("--all")
-        .output()
-        .context("Failed to run meson introspect (is meson installed?)")?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("meson introspect --all failed: {}", stderr);
+impl MesonIntrospection {
+    /// Create a mock MesonIntrospection for testing with specified headers
+    #[doc(hidden)]
+    pub fn mock(
+        introspected_headers: HashSet<PathBuf>,
+        installed_headers: HashSet<PathBuf>,
+    ) -> Self {
+        Self {
+            build_dir: PathBuf::from("/mock/build"),
+            data: MesonData::default(),
+            introspected_headers,
+            installed_headers,
+        }
     }
 
-    // Parse JSON output
-    let stdout =
-        String::from_utf8(output.stdout).context("meson introspect output is not valid UTF-8")?;
-
-    let introspection: MesonIntrospection =
-        serde_json::from_str(&stdout).context("Failed to parse meson introspect JSON output")?;
-
-    Ok(introspection)
-}
-
-/// Extract GObject introspection headers from meson introspection data
-/// These are the headers scanned by g-ir-scanner to generate .gir files
-/// This is more precise than just "installed headers" as it represents the
-/// actual public GObject API
-impl MesonIntrospection {
-    /// Load meson introspection data for a project
-    /// Returns None if no build directory is found
-    pub fn for_project(
-        project_root: &Path,
-        config_build_dir: Option<&str>,
-    ) -> Result<Option<Self>> {
+    /// Create MesonIntrospection by finding the build directory and running
+    /// `meson introspect --all` Returns None if no build directory is found
+    pub fn new(project_root: &Path, config_build_dir: Option<&str>) -> Result<Option<Self>> {
         // Find build directory
         let Some(build_dir) = find_build_dir(project_root, config_build_dir) else {
             return Ok(None);
         };
 
-        // Get introspection data
-        let introspection = get_introspection(&build_dir)?;
-        Ok(Some(introspection))
+        // Run meson introspect --all
+        let output = Command::new("meson")
+            .arg("introspect")
+            .arg(&build_dir)
+            .arg("--all")
+            .output()
+            .context("Failed to run meson introspect (is meson installed?)")?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            anyhow::bail!("meson introspect --all failed: {}", stderr);
+        }
+
+        // Parse JSON output
+        let stdout = String::from_utf8(output.stdout)
+            .context("meson introspect output is not valid UTF-8")?;
+
+        let data: MesonData = serde_json::from_str(&stdout)
+            .context("Failed to parse meson introspect JSON output")?;
+
+        // Pre-compute introspected headers
+        let introspected_headers = Self::compute_introspected_headers(&data, &build_dir)?;
+
+        // Pre-compute installed headers
+        let installed_headers = Self::compute_installed_headers(&data);
+
+        Ok(Some(Self {
+            build_dir,
+            data,
+            introspected_headers,
+            installed_headers,
+        }))
     }
 
-    /// Get headers scanned by g-ir-scanner (GObject introspection headers)
-    pub fn get_introspected_headers(&self) -> Result<HashSet<PathBuf>> {
+    /// Compute headers scanned by g-ir-scanner (GObject introspection headers)
+    fn compute_introspected_headers(
+        data: &MesonData,
+        _build_dir: &Path,
+    ) -> Result<HashSet<PathBuf>> {
         let mut headers = HashSet::new();
 
         // Find all targets that produce .gir files
-        for target in &self.targets {
+        for target in &data.targets {
             // Check if this target produces a .gir file
             let produces_gir = target.filename.iter().any(|f| f.ends_with(".gir"));
             if !produces_gir {
@@ -301,41 +335,134 @@ impl MesonIntrospection {
         Ok(headers)
     }
 
-    /// Get installed header files (all headers that will be installed)
-    pub fn get_installed_headers(&self) -> HashSet<PathBuf> {
+    /// Compute installed header files (all headers that will be installed)
+    fn compute_installed_headers(data: &MesonData) -> HashSet<PathBuf> {
         let mut headers = HashSet::new();
-        for source_path in self.installed.keys() {
+        for source_path in data.installed.keys() {
             if source_path.ends_with(".h") {
                 headers.insert(PathBuf::from(source_path));
             }
         }
         headers
     }
+
+    /// Get headers scanned by g-ir-scanner (GObject introspection headers)
+    pub fn get_introspected_headers(&self) -> &HashSet<PathBuf> {
+        &self.introspected_headers
+    }
+
+    /// Get installed header files (all headers that will be installed)
+    pub fn get_installed_headers(&self) -> &HashSet<PathBuf> {
+        &self.installed_headers
+    }
 }
 
-/// Header sets derived from meson introspection.
-pub struct MesonHeaders {
-    /// Headers passed to g-ir-scanner — the truly public API.
-    /// Empty means no GIR targets exist in this project.
-    pub gir: HashSet<PathBuf>,
-    /// All headers installed by the project (install_headers()).
-    /// Used as the public set when gir is empty.
-    pub installed: HashSet<PathBuf>,
+/// Compiler information extracted from compile_commands.json
+#[derive(Debug, Clone)]
+pub struct CompilerInfo {
+    /// Compiler executable (e.g., "cc", "gcc", "/usr/bin/clang")
+    pub compiler: String,
+    /// Compilation flags (-I, -D, etc.)
+    pub flags: Vec<String>,
 }
 
-/// Derive header visibility sets for a project.
-/// Returns None if no meson build directory is found.
-pub fn get_header_sets(
-    project_root: &Path,
-    config_build_dir: Option<&str>,
-) -> Result<Option<MesonHeaders>> {
-    let Some(introspection) = MesonIntrospection::for_project(project_root, config_build_dir)?
-    else {
-        return Ok(None);
-    };
+/// Entry in compile_commands.json (standard format used by CMake, Meson, etc.)
+#[derive(Debug, Deserialize)]
+struct CompileCommand {
+    /// Build directory
+    directory: String,
+    /// Full compilation command
+    command: String,
+    /// Source file path (relative to directory)
+    file: String,
+}
 
-    Ok(Some(MesonHeaders {
-        gir: introspection.get_introspected_headers().unwrap_or_default(),
-        installed: introspection.get_installed_headers(),
-    }))
+impl MesonIntrospection {
+    /// Load compile_commands.json and build a map from source file →
+    /// CompilerInfo
+    pub fn load_compiler_map(&self) -> Result<HashMap<PathBuf, CompilerInfo>> {
+        let compile_commands_path = self.build_dir.join("compile_commands.json");
+        if !compile_commands_path.exists() {
+            anyhow::bail!(
+                "compile_commands.json not found in {}",
+                self.build_dir.display()
+            );
+        }
+
+        let content = std::fs::read_to_string(&compile_commands_path)
+            .context("Failed to read compile_commands.json")?;
+
+        let commands: Vec<CompileCommand> =
+            serde_json::from_str(&content).context("Failed to parse compile_commands.json")?;
+
+        let mut map = HashMap::new();
+
+        for cmd in commands {
+            let (compiler, flags) = Self::parse_compile_command(&cmd.command);
+
+            // Resolve file path (may be relative to build directory)
+            let file_path = if Path::new(&cmd.file).is_absolute() {
+                PathBuf::from(&cmd.file)
+            } else {
+                PathBuf::from(&cmd.directory).join(&cmd.file)
+            };
+
+            // Canonicalize to get absolute path
+            let file_path = file_path
+                .canonicalize()
+                .unwrap_or_else(|_| file_path.clone());
+
+            map.insert(file_path, CompilerInfo { compiler, flags });
+        }
+
+        tracing::debug!("Loaded {} entries from compile_commands.json", map.len());
+
+        Ok(map)
+    }
+
+    /// Parse a compilation command string to extract compiler and flags
+    fn parse_compile_command(command: &str) -> (String, Vec<String>) {
+        let parts: Vec<&str> = command.split_whitespace().collect();
+        if parts.is_empty() {
+            return ("cc".to_string(), Vec::new());
+        }
+
+        // First part is compiler (skip ccache if present)
+        let (compiler_idx, compiler) = if parts[0] == "ccache" && parts.len() > 1 {
+            (1, parts[1].to_string())
+        } else {
+            (0, parts[0].to_string())
+        };
+
+        // Extract flags (skip compiler, -o, -c, -MF, -MQ, -MD and their arguments, and
+        // the input file)
+        let mut flags = Vec::new();
+        let mut i = compiler_idx + 1;
+
+        while i < parts.len() {
+            let flag = parts[i];
+
+            // Skip output-related flags and their arguments
+            if flag == "-o" || flag == "-MF" || flag == "-MQ" {
+                i += 2; // Skip flag and its argument
+                continue;
+            }
+
+            // Skip standalone flags
+            if flag == "-c" || flag == "-MD" {
+                i += 1;
+                continue;
+            }
+
+            // Skip the input file (last .c file)
+            if flag.ends_with(".c") && i == parts.len() - 1 {
+                break;
+            }
+
+            flags.push(flag.to_string());
+            i += 1;
+        }
+
+        (compiler, flags)
+    }
 }

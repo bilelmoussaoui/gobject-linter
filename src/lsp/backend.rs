@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
-use gobject_linter::{ast_context::AstContext, config::Config, scanner};
+use gobject_linter::{ast_context::AstContext, config::Config, meson::MesonIntrospection, scanner};
 use tokio::sync::Mutex;
 use tower_lsp::{Client, LanguageServer, jsonrpc::Result, lsp_types::*};
 
@@ -98,9 +98,9 @@ impl GObjectBackend {
             }
         };
 
-        // Get header visibility from meson introspection (for dead code analysis)
-        let meson_headers =
-            gobject_linter::meson::get_header_sets(&workspace_root, config.build_dir.as_deref())
+        // Get meson introspection (for header visibility and compiler info)
+        let meson_introspection =
+            MesonIntrospection::new(&workspace_root, config.build_dir.as_deref())
                 .ok()
                 .flatten();
 
@@ -109,7 +109,7 @@ impl GObjectBackend {
             &workspace_root,
             &ignore_matcher,
             None,
-            meson_headers,
+            meson_introspection,
         ) {
             Ok(ctx) => ctx,
             Err(e) => {

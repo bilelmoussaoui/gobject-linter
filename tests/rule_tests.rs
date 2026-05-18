@@ -2,7 +2,7 @@ use std::{collections::HashSet, fs, path::Path};
 
 use globset::GlobSetBuilder;
 use gobject_linter::{
-    ast_context::AstContext, config::Config, fixer, meson::MesonHeaders, rules::Rule,
+    ast_context::AstContext, config::Config, fixer, meson::MesonIntrospection, rules::Rule,
 };
 
 /// Build an AstContext from a single fixture file copied into a temp directory.
@@ -69,22 +69,18 @@ fn build_ast_context(
     temp_dir: &tempfile::TempDir,
     public_headers_file: Option<&Path>,
 ) -> AstContext {
-    let meson_headers = public_headers_file.map(|f| {
-        let installed = fs::read_to_string(f)
-            .unwrap_or_default()
+    let meson_introspection = public_headers_file.map(|file| {
+        let content = fs::read_to_string(file).expect("failed to read public_headers file");
+        let installed: HashSet<_> = content
             .lines()
-            .map(str::trim)
-            .filter(|l| !l.is_empty())
-            .map(|name| temp_dir.path().join(name))
-            .collect::<HashSet<_>>();
-        MesonHeaders {
-            gir: installed.clone(),
-            installed,
-        }
+            .map(|line| temp_dir.path().join(line.trim()))
+            .collect();
+        // For tests, introspected and installed are the same
+        MesonIntrospection::mock(installed.clone(), installed)
     });
 
     let ignore = GlobSetBuilder::new().build().unwrap();
-    AstContext::build_with_ignore(temp_dir.path(), &ignore, None, meson_headers)
+    AstContext::build_with_ignore(temp_dir.path(), &ignore, None, meson_introspection)
         .expect("failed to build AstContext")
 }
 

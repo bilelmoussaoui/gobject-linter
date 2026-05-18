@@ -13,25 +13,25 @@ use ignore::WalkBuilder;
 use indicatif::ProgressBar;
 use rayon::prelude::*;
 
-use crate::{meson::MesonHeaders, type_alias_map::TypeAliasMap};
+use crate::{meson::MesonIntrospection, type_alias_map::TypeAliasMap};
 
 /// AST-based project context that replaces the old tree-sitter based
 /// ProjectContext
 pub struct AstContext {
     pub project: Project,
-    /// Header visibility from meson introspection.
+    /// Meson introspection data.
     /// None means no meson info was available
-    pub meson_headers: Option<MesonHeaders>,
+    pub meson_introspection: Option<MesonIntrospection>,
     type_aliases: TypeAliasMap,
 }
 
 impl AstContext {
-    /// Build with ignore patterns and optional meson header visibility info
+    /// Build with ignore patterns and optional meson introspection
     pub fn build_with_ignore(
         directory: &Path,
         ignore_matcher: &GlobSet,
         spinner: Option<&ProgressBar>,
-        meson_headers: Option<MesonHeaders>,
+        meson_introspection: Option<MesonIntrospection>,
     ) -> Result<Self> {
         // Collect all files first to get count
         // WalkBuilder respects .gitignore, .ignore, and other ignore files
@@ -90,7 +90,7 @@ impl AstContext {
 
         Ok(Self {
             project,
-            meson_headers,
+            meson_introspection,
             type_aliases,
         })
     }
@@ -146,17 +146,20 @@ impl AstContext {
     }
 
     pub fn is_public_header(&self, path: &Path) -> Option<bool> {
-        let h = self.meson_headers.as_ref()?;
-        Some(h.gir.contains(path) || h.installed.contains(path))
+        let m = self.meson_introspection.as_ref()?;
+        let gir = m.get_introspected_headers();
+        let installed = m.get_installed_headers();
+        Some(gir.contains(path) || installed.contains(path))
     }
 
     pub fn is_gir_header(&self, path: &Path) -> Option<bool> {
-        let h = self.meson_headers.as_ref()?;
-        Some(h.gir.contains(path))
+        let m = self.meson_introspection.as_ref()?;
+        let gir = m.get_introspected_headers();
+        Some(gir.contains(path))
     }
 
     pub fn has_public_private_info(&self) -> bool {
-        self.meson_headers.is_some()
+        self.meson_introspection.is_some()
     }
 
     pub fn find_func_doc(&self, name: &str) -> Option<&gobject_ast::model::FunctionDoc> {

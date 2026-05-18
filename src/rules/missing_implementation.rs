@@ -34,10 +34,11 @@ impl Rule for MissingImplementation {
             }
             // #define g_foo_get_type _g_foo_get_type
             for (name, value) in file.iter_defines() {
-                if let Some(value) = value {
-                    if value.starts_with('_') && &value[1..] == name {
-                        defined.insert(value.to_string());
-                    }
+                if let Some(value) = value
+                    && value.starts_with('_')
+                    && &value[1..] == name
+                {
+                    defined.insert(value.to_string());
                 }
             }
         }
