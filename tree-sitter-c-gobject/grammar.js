@@ -29,9 +29,6 @@ module.exports = grammar(C, {
 
   conflicts: ($, original) => [
     ...original,
-    [$.macro_modifier, $.type_specifier],
-    [$.macro_modifier, $._declarator],
-    [$.macro_modifier, $.macro_type_specifier],
     // Inside *_WITH_CODE macros: an identifier followed by '(' could be the last
     // regular arg (expression) or the first code-block item (gobject_code_block_item).
     // GLR resolves by looking at what follows the argument list — ',' means
@@ -48,6 +45,9 @@ module.exports = grammar(C, {
     // - A type_specifier (g_new(MyType, n))
     // GLR resolves by checking if a ',' follows (type) or something else (expression).
     [$.expression, $.macro_type_specifier],
+    // macro_modifier can appear as part of _declaration_modifiers or as a prefix
+    // to function_definition (G_ALWAYS_INLINE static inline Type func() {})
+    [$.function_definition, $._declaration_modifiers],
   ],
 
   rules: {
@@ -147,10 +147,25 @@ module.exports = grammar(C, {
       $.statement,
     )),
 
+    // Allow G_ALWAYS_INLINE before storage class specifiers in function definitions
+    // Similar to how ms_call_modifier is allowed before _declaration_specifiers
+    function_definition: ($, original) => choice(
+      original,
+      seq(
+        $.macro_modifier,
+        optional($.ms_call_modifier),
+        $._declaration_specifiers,
+        optional($.ms_call_modifier),
+        field('declarator', $._declarator),
+        field('body', $.compound_statement),
+      ),
+    ),
+
     _declaration_modifiers: ($, original) => choice(
       original,
       $.macro_modifier,
     ),
+
 
     gobject_decls_block: $ => seq(
       $._gobject_begin_decls,
@@ -226,9 +241,20 @@ module.exports = grammar(C, {
     _expression_not_binary: ($, original) => choice(
       original,
       $.g_allocation_call,
+      $.va_arg_expression,
       $._objc_selector_expr,
       $._objc_string_literal,
       $.objc_message_expr,
+    ),
+
+    // va_arg(va_list, type) - second argument is a type, not an expression
+    va_arg_expression: $ => seq(
+      'va_arg',
+      '(',
+      field('va_list', $.expression),
+      ',',
+      field('type', $.type_descriptor),
+      ')',
     ),
 
     // Export / deprecation / availability macros used as declaration modifiers.

@@ -230,6 +230,10 @@
       {
         "type": "update_expression",
         "named": true
+      },
+      {
+        "type": "va_arg_expression",
+        "named": true
       }
     ]
   },
@@ -4361,6 +4365,32 @@
     }
   },
   {
+    "type": "va_arg_expression",
+    "named": true,
+    "fields": {
+      "type": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "type_descriptor",
+            "named": true
+          }
+        ]
+      },
+      "va_list": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "variadic_parameter",
     "named": true,
     "fields": {}
@@ -5018,6 +5048,10 @@
   },
   {
     "type": "unsigned",
+    "named": false
+  },
+  {
+    "type": "va_arg",
     "named": false
   },
   {

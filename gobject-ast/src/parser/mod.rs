@@ -53,6 +53,7 @@ impl Parser {
             "call_expression"
                 | "g_allocation_call"
                 | "likelihood_call"
+                | "va_arg_expression"
                 | "assignment_expression"
                 | "binary_expression"
                 | "unary_expression"

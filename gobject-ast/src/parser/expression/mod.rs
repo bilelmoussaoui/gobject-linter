@@ -244,6 +244,16 @@ impl Parser {
                 self.parse_g_allocation_call(node, source)
                     .map(Expression::AllocCall)
             }
+            "va_arg_expression" => {
+                // va_arg(va_list, type)
+                let text = std::str::from_utf8(&source[node.byte_range()])
+                    .ok()?
+                    .to_owned();
+                Some(Expression::Generic(GenericExpression {
+                    text,
+                    location: self.node_location(node),
+                }))
+            }
             "ERROR" => {
                 // Skip parse errors gracefully
                 None
