@@ -14,6 +14,8 @@ mod subscript;
 mod unary;
 mod update;
 
+use std::collections::HashMap;
+
 pub use alloc_call::AllocCallExpression;
 pub use assignment::Assignment;
 pub use binary::BinaryExpression;
@@ -34,7 +36,7 @@ pub use subscript::SubscriptExpression;
 pub use unary::UnaryExpression;
 pub use update::UpdateExpression;
 
-use crate::model::SourceLocation;
+use crate::model::{DefineValue, SourceLocation};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -221,6 +223,33 @@ impl Expression {
         match self {
             Self::StringLiteral(lit) => Some(lit.value.trim_matches('"').to_string()),
             Self::Call(call) => call.get_arg(0)?.extract_string_value(),
+            _ => None,
+        }
+    }
+
+    /// Like `extract_string_value`, but also resolves identifiers through a
+    /// define map (e.g. `MY_PROP_NAME` → the string from `#define MY_PROP_NAME
+    /// "foo"`).
+    pub fn resolve_string_value(&self, defines: &HashMap<String, DefineValue>) -> Option<String> {
+        if let Some(s) = self.extract_string_value() {
+            return Some(s);
+        }
+        match self {
+            Self::Identifier(id) => match defines.get(&id.name)? {
+                DefineValue::StringLiteral(s) => Some(s.clone()),
+                _ => None,
+            },
+            Self::Call(call) => {
+                let arg = call.get_arg(0)?;
+                if let Self::Identifier(id) = arg {
+                    match defines.get(&id.name)? {
+                        DefineValue::StringLiteral(s) => Some(s.clone()),
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            }
             _ => None,
         }
     }

@@ -1,9 +1,12 @@
-use std::ffi::{c_long, c_ulong};
+use std::{
+    collections::HashMap,
+    ffi::{c_long, c_ulong},
+};
 
 use serde::Serialize;
 
 use crate::model::{
-    SourceLocation,
+    DefineValue, SourceLocation,
     doc::PropertyDoc,
     expression::{CallExpression, Expression},
     operators::UnaryOp,
@@ -194,14 +197,17 @@ impl Property {
     /// - g_param_spec_string(name, nick, blurb, default, flags)
     /// - g_param_spec_int(name, nick, blurb, min, max, default, flags)
     /// - g_param_spec_object(name, nick, blurb, object_type, flags)
-    pub(crate) fn from_param_spec_call(call: &CallExpression) -> Option<Self> {
+    pub(crate) fn from_param_spec_call(
+        call: &CallExpression,
+        defines: &HashMap<String, DefineValue>,
+    ) -> Option<Self> {
         let func_name = call.function_name_str()?;
 
         let args = &call.arguments;
 
         // g_param_spec_override(name, overridden)
         if func_name == "g_param_spec_override" {
-            let name = args.first()?.extract_string_value()?;
+            let name = args.first()?.resolve_string_value(defines)?;
             return Some(Self {
                 name,
                 nick: None,
@@ -217,7 +223,7 @@ impl Property {
             return None;
         }
 
-        let name = args[0].extract_string_value()?;
+        let name = args[0].resolve_string_value(defines)?;
         let nick = args[1].extract_string_value();
         let blurb = args[2].extract_string_value();
 
@@ -522,7 +528,10 @@ impl Property {
     /// Extract property from g_object_class_override_property call
     /// Call signature: g_object_class_override_property(oclass, property_id,
     /// name)
-    pub fn from_override_property_call(call: &CallExpression) -> Option<Self> {
+    pub fn from_override_property_call(
+        call: &CallExpression,
+        defines: &HashMap<String, DefineValue>,
+    ) -> Option<Self> {
         let func_name = call.function_name_str()?;
         if func_name != "g_object_class_override_property" {
             return None;
@@ -534,7 +543,7 @@ impl Property {
         }
 
         // Third argument is the property name
-        let name = args[2].extract_string_value()?;
+        let name = args[2].resolve_string_value(defines)?;
 
         Some(Self {
             name,

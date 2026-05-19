@@ -86,6 +86,7 @@ impl AstContext {
             }
         }
 
+        project.resolve_all_gobject_types();
         let type_aliases = TypeAliasMap::build(&project);
 
         Ok(Self {
@@ -99,17 +100,13 @@ impl AstContext {
     pub fn update_file(&mut self, file_path: &Path) -> Result<()> {
         let mut parser = Parser::new()?;
 
-        // Parse the file
-        if let Ok(file_project) = parser.parse_file(file_path) {
-            // Update or insert the file in the project
-            for (path, file_model) in file_project.files {
-                self.project.files.insert(path, file_model);
-            }
+        if let Ok((path, model)) = parser.parse_file_to_model(file_path) {
+            self.project.files.insert(path, model);
         } else {
-            // If parsing failed, remove the file from the project
             self.project.files.remove(file_path);
         }
 
+        self.project.resolve_all_gobject_types();
         self.type_aliases = TypeAliasMap::build(&self.project);
 
         Ok(())

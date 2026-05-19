@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use serde::Serialize;
 
 use crate::model::{
-    CallExpression, ExportMacro, Expression, FunctionDoc, ParamSpecAssignment, Property,
-    PropertyDoc, Signal, SignalDoc, SourceLocation, Statement, TypeInfo, VariableDecl,
+    CallExpression, DefineValue, ExportMacro, Expression, FunctionDoc, ParamSpecAssignment,
+    Property, PropertyDoc, Signal, SignalDoc, SourceLocation, Statement, TypeInfo, VariableDecl,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -337,7 +337,11 @@ impl FunctionDefItem {
     /// Handles array pattern (props[PROP_X] = ...), variable pattern
     /// (param_spec = ...), and override pattern
     /// (g_object_class_override_property(...))
-    pub(crate) fn find_param_spec_assignments(&self, type_name: &str) -> Vec<ParamSpecAssignment> {
+    pub(crate) fn find_param_spec_assignments(
+        &self,
+        type_name: &str,
+        defines: &HashMap<String, DefineValue>,
+    ) -> Vec<ParamSpecAssignment> {
         let mut assignments = Vec::new();
         let mut array_assignments: HashMap<&str, Vec<usize>> = HashMap::new();
         let mut variable_assignments: HashMap<&str, Vec<usize>> = HashMap::new();
@@ -356,7 +360,9 @@ impl FunctionDefItem {
                         let Some(Expression::Call(param_call)) = &decl.initializer else {
                             unreachable!()
                         };
-                        let Some(mut property) = Property::from_param_spec_call(param_call) else {
+                        let Some(mut property) =
+                            Property::from_param_spec_call(param_call, defines)
+                        else {
                             return;
                         };
                         if i > 0
@@ -390,7 +396,7 @@ impl FunctionDefItem {
                                     }
 
                                     let Some(mut property) =
-                                        Property::from_param_spec_call(param_call)
+                                        Property::from_param_spec_call(param_call, defines)
                                     else {
                                         return;
                                     };
@@ -444,7 +450,7 @@ impl FunctionDefItem {
                             Expression::Call(call) => {
                                 if call.function_contains("override_property")
                                     && let Some(mut property) =
-                                        Property::from_override_property_call(call)
+                                        Property::from_override_property_call(call, defines)
                                     && let Some(enum_arg) = call.get_arg(1)
                                     && let Some(enum_value) = enum_arg.location().as_str()
                                 {
@@ -505,7 +511,7 @@ impl FunctionDefItem {
                             if let Expression::Call(spec_call) = spec_expr
                                 && spec_call.function_contains("_param_spec_")
                                 && let Some(mut property) =
-                                    Property::from_param_spec_call(spec_call)
+                                    Property::from_param_spec_call(spec_call, defines)
                             {
                                 let enum_value = if is_interface {
                                     String::new()

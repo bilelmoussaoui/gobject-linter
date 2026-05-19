@@ -155,8 +155,8 @@ fn collect_all_refs(ast_context: &AstContext) -> AllRefs {
                     value: Some(value),
                     ..
                 }) => {
-                    extract_function_calls_from_text(value, &mut func_refs);
-                    extract_field_refs_from_text(value, &mut field_unqualified);
+                    extract_function_calls_from_text(value.as_raw_str(), &mut func_refs);
+                    extract_field_refs_from_text(value.as_raw_str(), &mut field_unqualified);
                 }
                 TopLevelItem::Preprocessor(
                     PreprocessorDirective::AutoptrCleanupFunc {
@@ -459,7 +459,7 @@ fn collect_func_refs_from_stmt(stmt: &Statement, refs: &mut HashSet<String>) {
             value: Some(value), ..
         }) = s
         {
-            extract_function_calls_from_text(value, refs);
+            extract_function_calls_from_text(value.as_raw_str(), refs);
         }
     });
 }
@@ -534,7 +534,7 @@ fn collect_field_refs_from_stmt(
             value: Some(value), ..
         }) = s
         {
-            extract_field_refs_from_text(value, unqualified);
+            extract_field_refs_from_text(value.as_raw_str(), unqualified);
         }
     });
 }

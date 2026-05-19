@@ -33,7 +33,7 @@ pub use statement::{
     SwitchCase, SwitchStatement, VariableDecl, WhileStatement,
 };
 pub use top_level::{
-    ConditionalKind, PragmaKind, PreprocessorDirective, TopLevelItem, TopLevelItemKind,
+    ConditionalKind, DefineValue, PragmaKind, PreprocessorDirective, TopLevelItem, TopLevelItemKind,
 };
 pub use type_info::{AutoCleanupMacro, TypeInfo};
 pub use types::{

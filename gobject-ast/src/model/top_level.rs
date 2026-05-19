@@ -175,7 +175,7 @@ pub enum PreprocessorDirective {
     },
     Define {
         name: String,
-        value: Option<String>,
+        value: Option<DefineValue>,
         location: SourceLocation,
     },
     Call {
@@ -246,4 +246,46 @@ pub enum ConditionalKind {
     If,
     Elif,
     Else,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DefineValue {
+    StringLiteral(String),
+    Number(String),
+    Identifier(String),
+    Expression(String),
+}
+
+impl DefineValue {
+    pub fn parse(raw: &str) -> Self {
+        let trimmed = raw.trim();
+        if trimmed.starts_with('"') && trimmed.ends_with('"') {
+            return Self::StringLiteral(trimmed[1..trimmed.len() - 1].to_owned());
+        }
+        if trimmed
+            .bytes()
+            .all(|b| b.is_ascii_digit() || b == b'x' || b == b'X' || b == b'-')
+            && !trimmed.is_empty()
+        {
+            return Self::Number(trimmed.to_owned());
+        }
+        if trimmed
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+            && !trimmed.is_empty()
+        {
+            return Self::Identifier(trimmed.to_owned());
+        }
+        Self::Expression(trimmed.to_owned())
+    }
+
+    pub fn as_raw_str(&self) -> &str {
+        match self {
+            Self::StringLiteral(s)
+            | Self::Number(s)
+            | Self::Identifier(s)
+            | Self::Expression(s) => s,
+        }
+    }
 }

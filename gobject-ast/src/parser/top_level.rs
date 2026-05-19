@@ -4,7 +4,7 @@ use tree_sitter::Node;
 
 use crate::{
     model::{
-        Comment, CommentPosition, ConditionalKind, EnumInfo, EnumValue, Expression,
+        Comment, CommentPosition, ConditionalKind, DefineValue, EnumInfo, EnumValue, Expression,
         FunctionDeclItem, FunctionDefItem, FunctionDoc, Parameter, PragmaKind,
         PreprocessorDirective, SourceLocation, Statement, StructField, TopLevelItem, TypeDefItem,
         TypeInfo, TypedefTarget,
@@ -170,7 +170,7 @@ impl Parser {
                 let value = node.child_by_field_name("value").and_then(|value_node| {
                     std::str::from_utf8(&source[value_node.byte_range()])
                         .ok()
-                        .map(std::borrow::ToOwned::to_owned)
+                        .map(DefineValue::parse)
                 });
 
                 Some(TopLevelItem::Preprocessor(PreprocessorDirective::Define {

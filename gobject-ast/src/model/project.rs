@@ -8,10 +8,10 @@ use heck::ToUpperCamelCase;
 use serde::Serialize;
 
 use crate::model::{
-    Comment, DeclareKind, DefineKind, EnumInfo, EnumValueDoc, Expression, FunctionDeclItem,
-    FunctionDefItem, FunctionDoc, GObjectType, GObjectTypeKind, GType, InterfaceImplementation,
-    Parameter, PreprocessorDirective, SourceLocation, Statement, TopLevelItem, TypeDefItem,
-    TypeDoc, TypeInfo, TypedefTarget, UnaryOp, VariableDecl,
+    Comment, DeclareKind, DefineKind, DefineValue, EnumInfo, EnumValueDoc, Expression,
+    FunctionDeclItem, FunctionDefItem, FunctionDoc, GObjectType, GObjectTypeKind, GType,
+    InterfaceImplementation, Parameter, PreprocessorDirective, SourceLocation, Statement,
+    TopLevelItem, TypeDefItem, TypeDoc, TypeInfo, TypedefTarget, UnaryOp, VariableDecl,
 };
 
 /// The complete project model - a map of files to their content
@@ -25,6 +25,20 @@ impl Project {
     pub fn new() -> Self {
         Self {
             files: HashMap::new(),
+        }
+    }
+
+    /// Build a project-wide define map and resolve GObject types across all
+    /// files. Must be called after all files have been parsed.
+    pub fn resolve_all_gobject_types(&mut self) {
+        let defines: HashMap<String, DefineValue> = self
+            .files
+            .values()
+            .flat_map(FileModel::iter_defines)
+            .filter_map(|(name, value)| Some((name.to_owned(), value?.clone())))
+            .collect();
+        for file in self.files.values_mut() {
+            file.resolve_gobject_types(&defines);
         }
     }
 
@@ -269,12 +283,12 @@ impl FileModel {
             })
     }
 
-    pub fn iter_defines(&self) -> impl Iterator<Item = (&str, Option<&str>)> + '_ {
+    pub fn iter_defines(&self) -> impl Iterator<Item = (&str, Option<&DefineValue>)> + '_ {
         self.iter_items_recursive(&self.top_level_items)
             .filter_map(|item| match item {
                 TopLevelItem::Preprocessor(PreprocessorDirective::Define {
                     name, value, ..
-                }) => Some((name.as_str(), value.as_deref())),
+                }) => Some((name.as_str(), value.as_ref())),
                 _ => None,
             })
     }
@@ -623,10 +637,10 @@ impl FileModel {
     /// Populate `properties` and `signals` on each `GObjectType` by finding
     /// the matching `*_class_init` function and extracting param_spec
     /// assignments and signal registrations from it.
-    pub fn resolve_gobject_types(&mut self) {
+    pub fn resolve_gobject_types(&mut self, defines: &HashMap<String, DefineValue>) {
         self.extract_manual_declare_types();
         Self::extract_manual_gobject_types(&mut self.top_level_items);
-        Self::resolve_items(&mut self.top_level_items);
+        Self::resolve_items(&mut self.top_level_items, defines);
     }
 
     /// Scan for manual `#define TYPE_MACRO (prefix_get_type ())` patterns
@@ -646,7 +660,7 @@ impl FileModel {
         // Collect all defines for cross-referencing
         struct DefineInfo {
             name: String,
-            value: String,
+            value: DefineValue,
             location: SourceLocation,
         }
         let defines: Vec<DefineInfo> = self
@@ -678,7 +692,8 @@ impl FileModel {
             }
 
             // Extract function prefix from the value
-            let trimmed = define.value.trim().trim_matches(|c| c == '(' || c == ')');
+            let raw = define.value.as_raw_str();
+            let trimmed = raw.trim().trim_matches(|c| c == '(' || c == ')');
             let Some(func_name) = trimmed.split_whitespace().next() else {
                 continue;
             };
@@ -702,6 +717,7 @@ impl FileModel {
                     // e.g. (G_TYPE_CHECK_INSTANCE_CAST ((obj), GTK_TYPE_APP_CHOOSER,
                     // GtkAppChooser))
                     d.value
+                        .as_raw_str()
                         .rsplit(',')
                         .next()
                         .map(|s| s.trim().trim_end_matches(')').trim().to_owned())
@@ -933,7 +949,7 @@ impl FileModel {
         }
     }
 
-    fn resolve_items(items: &mut [TopLevelItem]) {
+    fn resolve_items(items: &mut [TopLevelItem], defines: &HashMap<String, DefineValue>) {
         for i in 0..items.len() {
             match &items[i] {
                 TopLevelItem::Preprocessor(PreprocessorDirective::GObjectType(gt)) => {
@@ -957,7 +973,7 @@ impl FileModel {
                             _ => unreachable!(),
                         };
 
-                        let properties = func.find_param_spec_assignments(&type_name);
+                        let properties = func.find_param_spec_assignments(&type_name, defines);
                         let signals = func.find_signal_registrations(&type_name);
                         if let TopLevelItem::Preprocessor(PreprocessorDirective::GObjectType(gt)) =
                             &mut items[i]
@@ -989,7 +1005,7 @@ impl FileModel {
                     body,
                     ..
                 }) => {
-                    Self::resolve_items(body);
+                    Self::resolve_items(body, defines);
                 }
                 _ => {}
             }

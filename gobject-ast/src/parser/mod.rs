@@ -111,6 +111,7 @@ impl Parser {
             project.files.insert(file_path, model);
         }
 
+        project.resolve_all_gobject_types();
         Ok(project)
     }
 
@@ -118,6 +119,7 @@ impl Parser {
         let (path, model) = self.parse_file_to_model(path)?;
         let mut project = Project::new();
         project.files.insert(path, model);
+        project.resolve_all_gobject_types();
         Ok(project)
     }
 
@@ -136,7 +138,6 @@ impl Parser {
         self.visit_node(tree.root_node(), source.as_slice(), &mut file_model);
 
         file_model.source = source;
-        file_model.resolve_gobject_types();
 
         Ok((path.to_path_buf(), file_model))
     }

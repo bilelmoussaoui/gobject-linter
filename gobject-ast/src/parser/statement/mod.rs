@@ -13,8 +13,8 @@ use tree_sitter::Node;
 
 use crate::{
     model::{
-        Comment, CommentPosition, CompoundStatement, DoWhileStatement, ForInit, ForStatement,
-        PreprocessorDirective, Statement, WhileStatement,
+        Comment, CommentPosition, CompoundStatement, DefineValue, DoWhileStatement, ForInit,
+        ForStatement, PreprocessorDirective, Statement, WhileStatement,
     },
     parser::Parser,
 };
@@ -305,7 +305,7 @@ impl Parser {
                 let value = node.child_by_field_name("value").and_then(|value_node| {
                     std::str::from_utf8(&source[value_node.byte_range()])
                         .ok()
-                        .map(std::borrow::ToOwned::to_owned)
+                        .map(DefineValue::parse)
                 });
 
                 Some(Statement::Preprocessor(PreprocessorDirective::Define {
