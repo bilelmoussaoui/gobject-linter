@@ -19,6 +19,7 @@ module.exports = grammar(C, {
     $._macro_modifier_name,           // any other ALL_CAPS identifier (CLUTTER_EXPORT etc.)
     $.gobject_export_macro,           // ALL_CAPS macro immediately preceding G_DECLARE_*/G_DEFINE_*
     $._gobject_ignore_macro,          // G_GNUC_BEGIN_IGNORE_DEPRECATIONS etc.
+    $._g_allocation_function,         // g_new, g_renew, g_slice_new, etc.
     $._objc_block,                    // @interface...@end / @implementation...@end / @protocol...@end
     $._objc_class_forward,            // @class Foo;
     $._objc_selector_expr,            // @selector(name:)
@@ -42,9 +43,55 @@ module.exports = grammar(C, {
     // keeps both GLR stacks alive so valid_symbols includes GOBJECT_EXPORT_MACRO,
     // letting the scanner's look-ahead choose correctly.
     [$.gobject_export_macro, $.macro_modifier],
+    // In argument lists for g_new/g_renew, an identifier could be:
+    // - An expression (normal function call)
+    // - A type_specifier (g_new(MyType, n))
+    // GLR resolves by checking if a ',' follows (type) or something else (expression).
+    [$.expression, $.macro_type_specifier],
   ],
 
   rules: {
+    // Support if G_UNLIKELY(...) / if G_LIKELY(...) without outer parentheses
+    // GLib uses these macros extensively: if G_UNLIKELY(condition) instead of if (G_UNLIKELY(condition))
+    if_statement: ($, original) => prec.right(choice(
+      original,
+      seq(
+        'if',
+        field('condition', alias($.likelihood_call, $.call_expression)),
+        field('consequence', $.statement),
+        optional(field('alternative', $.else_clause)),
+      ),
+    )),
+
+    // G_UNLIKELY(...) or G_LIKELY(...) call used as if condition without outer parens
+    // Uses identifier instead of literal tokens so tree-sitter doesn't create special token types
+    likelihood_call: $ => seq(
+      field('function', $.identifier),
+      field('arguments', $.argument_list),
+    ),
+
+    // g_new/g_renew/g_slice_new take a type (with optional pointer) as first argument
+    // g_new(const Type *, n) / g_renew(Type *, ptr, n) / g_slice_new(struct foo)
+    // External token ensures only known allocation functions match, but aliased
+    // to $.identifier so it creates a visible identifier node in the tree.
+    g_allocation_call: $ => seq(
+      field('function', alias($._g_allocation_function, $.identifier)),
+      field('arguments', $.g_allocation_argument_list),
+    ),
+
+    g_allocation_argument_list: $ => seq(
+      '(',
+      // Optional type qualifiers (const, volatile)
+      repeat($.type_qualifier),
+      // Type specifier
+      $.type_specifier,
+      // Optional pointers
+      repeat('*'),
+      // Remaining arguments
+      optional(seq(',', $.expression, repeat(seq(',', $.expression)))),
+      ')',
+    ),
+
     // Allow macro modifiers (G_GNUC_CONST, G_GNUC_DEPRECATED, G_GNUC_DEPRECATED_FOR(...), etc.)
     // after the parameter list in function declarations.
     // The upstream rule only allows attribute_specifier (__attribute__((...))), but GLib/GObject
@@ -77,6 +124,13 @@ module.exports = grammar(C, {
       $.gobject_macro_statement,
       $._gobject_ignore_macro,
       $.orphan_else,
+      original,
+    ),
+
+    // Add gobject_macro_statement to general statements (not just blocks)
+    // so G_GNUC_FALLTHROUGH; works inside switch cases
+    _non_case_statement: ($, original) => choice(
+      $.gobject_macro_statement,
       original,
     ),
 
@@ -171,6 +225,7 @@ module.exports = grammar(C, {
 
     _expression_not_binary: ($, original) => choice(
       original,
+      $.g_allocation_call,
       $._objc_selector_expr,
       $._objc_string_literal,
       $.objc_message_expr,

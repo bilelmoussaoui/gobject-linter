@@ -248,12 +248,16 @@ impl FunctionDefItem {
             stmt.walk(&mut |s| {
                 match s {
                     // Check init: Type *var = allocation_call()
-                    Statement::Declaration(decl) => {
+                    Statement::Declaration(decl)
                         if decl.type_info.base_type == type_info.base_type
-                            && decl.type_info.is_pointer() == type_info.is_pointer()
-                            && let Some(Expression::Call(call)) = &decl.initializer
-                            && is_allocation(call)
-                        {
+                            && decl.type_info.is_pointer() == type_info.is_pointer() =>
+                    {
+                        let is_alloc_init = match &decl.initializer {
+                            Some(Expression::Call(call)) => is_allocation(call),
+                            Some(Expression::AllocCall(_)) => true,
+                            _ => false,
+                        };
+                        if is_alloc_init {
                             found = true;
                         }
                     }
@@ -261,17 +265,22 @@ impl FunctionDefItem {
                     Statement::Expression(expr_stmt) => {
                         if let Expression::Assignment(assign) = expr_stmt.as_ref()
                             && let Expression::Identifier(id) = &*assign.lhs
-                            && let Expression::Call(call) = &*assign.rhs
-                            && is_allocation(call)
                         {
-                            // Find the declaration of the assigned variable
-                            for body_stmt in &self.body_statements {
-                                for decl in body_stmt.iter_declarations() {
-                                    if decl.name == id.name
-                                        && decl.type_info.base_type == type_info.base_type
-                                        && decl.type_info.is_pointer() == type_info.is_pointer()
-                                    {
-                                        found = true;
+                            let is_alloc_rhs = match &*assign.rhs {
+                                Expression::Call(call) => is_allocation(call),
+                                Expression::AllocCall(_) => true,
+                                _ => false,
+                            };
+                            if is_alloc_rhs {
+                                // Find the declaration of the assigned variable
+                                for body_stmt in &self.body_statements {
+                                    for decl in body_stmt.iter_declarations() {
+                                        if decl.name == id.name
+                                            && decl.type_info.base_type == type_info.base_type
+                                            && decl.type_info.is_pointer() == type_info.is_pointer()
+                                        {
+                                            found = true;
+                                        }
                                     }
                                 }
                             }

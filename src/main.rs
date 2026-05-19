@@ -228,7 +228,9 @@ fn main() -> Result<()> {
         if let Some(ref m) = meson_introspection {
             let gir_count = m.get_introspected_headers().len();
             let installed_count = m.get_installed_headers().len();
-            let compile_commands_count = compiler_map.as_ref().map(|m| m.len()).unwrap_or(0);
+            let compile_commands_count = compiler_map
+                .as_ref()
+                .map_or(0, std::collections::HashMap::len);
             println!(
                 "Meson introspection: {} GIR headers, {} installed headers, {} compile commands",
                 gir_count, installed_count, compile_commands_count

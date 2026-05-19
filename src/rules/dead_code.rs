@@ -628,6 +628,19 @@ fn collect_field_reads_impl(
                 collect_field_reads_impl(ast_context, arg, false, type_map, qualified, unqualified);
             }
         }
+        Expression::AllocCall(alloc) => {
+            collect_field_reads_impl(
+                ast_context,
+                &alloc.function,
+                false,
+                type_map,
+                qualified,
+                unqualified,
+            );
+            for arg in &alloc.arguments {
+                collect_field_reads_impl(ast_context, arg, false, type_map, qualified, unqualified);
+            }
+        }
         Expression::Binary(b) => {
             collect_field_reads_impl(
                 ast_context,

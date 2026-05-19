@@ -233,6 +233,17 @@ impl Parser {
                     location: self.node_location(node),
                 }))
             }
+            "likelihood_call" => {
+                // G_UNLIKELY(...) / G_LIKELY(...) calls
+                // Parse as regular call expression
+                self.parse_call_expression(node, source)
+                    .map(Expression::Call)
+            }
+            "g_allocation_call" => {
+                // g_new/g_renew/g_slice_new calls with type as first argument
+                self.parse_g_allocation_call(node, source)
+                    .map(Expression::AllocCall)
+            }
             "ERROR" => {
                 // Skip parse errors gracefully
                 None

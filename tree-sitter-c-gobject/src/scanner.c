@@ -9,6 +9,7 @@ typedef enum {
     MACRO_MODIFIER_NAME,           /* any other ALL_CAPS ident                  */
     GOBJECT_EXPORT_MACRO,          /* ALL_CAPS ident immediately before G_DECLARE_* or G_DEFINE_* */
     GOBJECT_IGNORE_MACRO,          /* G_GNUC_BEGIN_IGNORE_DEPRECATIONS etc.     */
+    G_ALLOCATION_FUNCTION,         /* g_new, g_renew, g_slice_new, etc.         */
     OBJC_BLOCK,                    /* @interface...@end / @implementation...@end / @protocol...@end */
     OBJC_CLASS_FORWARD,            /* @class Foo;                               */
     OBJC_SELECTOR_EXPR,            /* @selector(name:)                          */
@@ -209,6 +210,7 @@ bool tree_sitter_c_gobject_external_scanner_scan(
                      valid_symbols[GOBJECT_END_DECLS]             ||
                      valid_symbols[MACRO_MODIFIER_NAME]           ||
                      valid_symbols[GOBJECT_EXPORT_MACRO]          ||
+                     valid_symbols[G_ALLOCATION_FUNCTION]         ||
                      valid_symbols[OBJC_BLOCK]                    ||
                      valid_symbols[OBJC_CLASS_FORWARD]            ||
                      valid_symbols[OBJC_SELECTOR_EXPR]            ||
@@ -217,6 +219,39 @@ bool tree_sitter_c_gobject_external_scanner_scan(
     if (!any_valid) return false;
 
     skip_whitespace(lexer);
+
+    /* g_new, g_renew, g_slice_new, etc. - GLib memory allocation functions */
+    if (valid_symbols[G_ALLOCATION_FUNCTION] && lexer->lookahead == 'g') {
+        char buf[32];
+        int len = 0;
+        /* Read identifier (lowercase, underscore, digits) */
+        while (len < 31 &&
+               (lexer->lookahead == '_' ||
+                (lexer->lookahead >= 'a' && lexer->lookahead <= 'z') ||
+                (lexer->lookahead >= '0' && lexer->lookahead <= '9'))) {
+            buf[len++] = (char)lexer->lookahead;
+            lexer->advance(lexer, false);
+        }
+        buf[len] = '\0';
+
+        /* Match specific allocation function names */
+        if (strcmp(buf, "g_new") == 0 ||
+            strcmp(buf, "g_new0") == 0 ||
+            strcmp(buf, "g_newa") == 0 ||
+            strcmp(buf, "g_renew") == 0 ||
+            strcmp(buf, "g_try_new") == 0 ||
+            strcmp(buf, "g_try_new0") == 0 ||
+            strcmp(buf, "g_try_renew") == 0 ||
+            strcmp(buf, "g_slice_new") == 0 ||
+            strcmp(buf, "g_slice_new0") == 0 ||
+            strcmp(buf, "g_slice_dup") == 0 ||
+            strcmp(buf, "g_slice_free") == 0) {
+            lexer->result_symbol = G_ALLOCATION_FUNCTION;
+            return true;
+        }
+        /* Not a match, return false so the regular lexer handles it */
+        return false;
+    }
 
     /* Objective-C constructs starting with '@' */
     if (lexer->lookahead == '@') {

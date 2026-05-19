@@ -168,6 +168,10 @@
         "named": true
       },
       {
+        "type": "g_allocation_call",
+        "named": true
+      },
+      {
         "type": "generic_expression",
         "named": true
       },
@@ -263,6 +267,10 @@
       },
       {
         "type": "for_statement",
+        "named": true
+      },
+      {
+        "type": "gobject_macro_statement",
         "named": true
       },
       {
@@ -972,6 +980,10 @@
           "named": true
         },
         {
+          "type": "gobject_macro_statement",
+          "named": true
+        },
+        {
           "type": "goto_statement",
           "named": true
         },
@@ -1129,10 +1141,6 @@
         },
         {
           "type": "gobject_decls_block",
-          "named": true
-        },
-        {
-          "type": "gobject_macro_statement",
           "named": true
         },
         {
@@ -1356,10 +1364,6 @@
         },
         {
           "type": "gobject_decls_block",
-          "named": true
-        },
-        {
-          "type": "gobject_macro_statement",
           "named": true
         },
         {
@@ -1944,6 +1948,55 @@
     }
   },
   {
+    "type": "g_allocation_argument_list",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "expression",
+          "named": true
+        },
+        {
+          "type": "type_qualifier",
+          "named": true
+        },
+        {
+          "type": "type_specifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "g_allocation_call",
+    "named": true,
+    "fields": {
+      "arguments": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "g_allocation_argument_list",
+            "named": true
+          }
+        ]
+      },
+      "function": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "generic_expression",
     "named": true,
     "fields": {},
@@ -2410,6 +2463,10 @@
         "multiple": false,
         "required": true,
         "types": [
+          {
+            "type": "call_expression",
+            "named": true
+          },
           {
             "type": "parenthesized_expression",
             "named": true
@@ -3107,10 +3164,6 @@
           "named": true
         },
         {
-          "type": "gobject_macro_statement",
-          "named": true
-        },
-        {
           "type": "gobject_type_macro",
           "named": true
         },
@@ -3219,10 +3272,6 @@
           "named": true
         },
         {
-          "type": "gobject_macro_statement",
-          "named": true
-        },
-        {
           "type": "gobject_type_macro",
           "named": true
         },
@@ -3299,10 +3348,6 @@
         },
         {
           "type": "gobject_decls_block",
-          "named": true
-        },
-        {
-          "type": "gobject_macro_statement",
           "named": true
         },
         {
@@ -3478,10 +3523,6 @@
           "named": true
         },
         {
-          "type": "gobject_macro_statement",
-          "named": true
-        },
-        {
           "type": "gobject_type_macro",
           "named": true
         },
@@ -3587,10 +3628,6 @@
         },
         {
           "type": "gobject_decls_block",
-          "named": true
-        },
-        {
-          "type": "gobject_macro_statement",
           "named": true
         },
         {

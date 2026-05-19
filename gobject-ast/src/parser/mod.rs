@@ -51,6 +51,8 @@ impl Parser {
         matches!(
             node.kind(),
             "call_expression"
+                | "g_allocation_call"
+                | "likelihood_call"
                 | "assignment_expression"
                 | "binary_expression"
                 | "unary_expression"

@@ -1,3 +1,4 @@
+mod alloc_call;
 mod assignment;
 mod binary;
 mod call;
@@ -13,6 +14,7 @@ mod subscript;
 mod unary;
 mod update;
 
+pub use alloc_call::AllocCallExpression;
 pub use assignment::Assignment;
 pub use binary::BinaryExpression;
 pub use call::CallExpression;
@@ -38,6 +40,7 @@ use crate::model::SourceLocation;
 #[serde(rename_all = "snake_case")]
 pub enum Expression {
     Call(CallExpression),
+    AllocCall(AllocCallExpression),
     Assignment(Assignment),
     Binary(BinaryExpression),
     Unary(UnaryExpression),
@@ -63,6 +66,7 @@ impl Expression {
     pub fn location(&self) -> &SourceLocation {
         match self {
             Self::Call(c) => &c.location,
+            Self::AllocCall(a) => &a.location,
             Self::Assignment(a) => &a.location,
             Self::Binary(b) => &b.location,
             Self::Unary(u) => &u.location,
@@ -115,6 +119,12 @@ impl Expression {
             Self::Call(call) => {
                 call.function.walk(f);
                 for arg in &call.arguments {
+                    arg.walk(f);
+                }
+            }
+            Self::AllocCall(alloc) => {
+                alloc.function.walk(f);
+                for arg in &alloc.arguments {
                     arg.walk(f);
                 }
             }
