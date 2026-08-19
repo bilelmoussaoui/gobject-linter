@@ -159,6 +159,7 @@ macro_rules! for_each_rule_impl {
             (gi_missing_since, GiMissingSince),
             (gi_not_bindings_friendly, GiNotBindingsFriendly),
             (qemu_coroutine_fn, QemuCoroutineFn, "qemu:coroutine_fn"),
+            (qemu_coroutine_fn_position, QemuCoroutineFnPosition, "qemu:coroutine_fn_position"),
             $($extra)*
         }
     };

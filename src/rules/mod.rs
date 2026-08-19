@@ -224,6 +224,7 @@ pub use property_enum_convention::PropertyEnumConvention;
 pub use property_enum_coverage::PropertyEnumCoverage;
 pub use property_switch_exhaustiveness::PropertySwitchExhaustiveness;
 pub use qemu::QemuCoroutineFn;
+pub use qemu::QemuCoroutineFnPosition;
 pub use signal_canonical_name::SignalCanonicalName;
 pub use signal_enum_coverage::SignalEnumCoverage;
 pub use strcmp_explicit_comparison::StrcmpExplicitComparison;

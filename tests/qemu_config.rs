@@ -33,8 +33,12 @@ fn namespaced_rule_name_works_in_toml_and_cli() {
 fn qemu_rules_follow_the_base_registry() {
     let config = Config::default();
     let rules = create_all_rules(&config);
-    assert_eq!(
-        rules.last().expect("registered rules").rule.name(),
-        "qemu:coroutine_fn"
+    assert!(
+        rules
+            .last()
+            .expect("registered rules")
+            .rule
+            .name()
+            .starts_with("qemu:"),
     );
 }
