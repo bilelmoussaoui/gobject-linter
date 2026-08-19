@@ -1,0 +1,4 @@
+contracts.h:4:1: qemu:coroutine_fn: declaration of `conflicting_declarations` has a different coroutine contract from an earlier declaration
+contracts.h:5:1: qemu:coroutine_fn: declaration of `invalid_combination` has an invalid coroutine annotation combination
+contracts.c:8:1: qemu:coroutine_fn: definition of `mismatched_contract` is no_coroutine_fn but its declaration has a different coroutine contract
+contracts.c:16:5: qemu:coroutine_fn: calling coroutine_fn `inherited_contract` from non-coroutine context

@@ -158,6 +158,7 @@ macro_rules! for_each_rule_impl {
             (untranslated_string, UntranslatedString),
             (gi_missing_since, GiMissingSince),
             (gi_not_bindings_friendly, GiNotBindingsFriendly),
+            (qemu_coroutine_fn, QemuCoroutineFn, "qemu:coroutine_fn"),
             $($extra)*
         }
     };

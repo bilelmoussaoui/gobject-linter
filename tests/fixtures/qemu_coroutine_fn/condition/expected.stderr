@@ -1,0 +1,1 @@
+basic.c:6:9: qemu:coroutine_fn: calling coroutine_fn `coroutine_condition` from non-coroutine context

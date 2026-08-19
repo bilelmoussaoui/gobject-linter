@@ -1,0 +1,5 @@
+basic.c:25:5: qemu:coroutine_fn: calling coroutine_fn `*callback` from non-coroutine context
+basic.c:26:5: qemu:coroutine_fn: calling coroutine_fn `callbacks[0]` from non-coroutine context
+basic.c:27:5: qemu:coroutine_fn: calling coroutine_fn `coro_ops->run` from non-coroutine context
+basic.c:29:5: qemu:coroutine_fn: calling coroutine_fn `typed_ops->run` from non-coroutine context
+basic.c:30:5: qemu:coroutine_fn: calling coroutine_fn `local` from non-coroutine context
