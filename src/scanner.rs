@@ -90,10 +90,17 @@ pub struct RuleEntry<'a> {
 }
 
 /// Macro to define all rules in execution order.
-/// Format: (config_field, RuleType)
+/// Format: (config_field, RuleType) or (config_field, RuleType, "public:name")
 #[macro_export]
 macro_rules! for_each_rule {
     ($callback:ident) => {
+        $crate::for_each_rule_impl! {$callback,}
+    };
+}
+
+#[macro_export]
+macro_rules! for_each_rule_impl {
+    ($callback:ident, $($extra:tt)*) => {
         $callback! {
             (dead_code, DeadCode),
             (unused_vfunc, UnusedVfunc),
@@ -151,25 +158,47 @@ macro_rules! for_each_rule {
             (untranslated_string, UntranslatedString),
             (gi_missing_since, GiMissingSince),
             (gi_not_bindings_friendly, GiNotBindingsFriendly),
+            $($extra)*
         }
     };
 }
 
+#[macro_export]
+macro_rules! rule_display_name {
+    ($config_field:ident) => {
+        stringify!($config_field)
+    };
+    ($config_field:ident, $display_name:expr) => {
+        $display_name
+    };
+}
+
 macro_rules! impl_rule_name_enum {
-    ($(($config_field:ident, $rule_type:ident)),* $(,)?) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+    ($(($config_field:ident, $rule_type:ident $(, $display_name:expr)?)),* $(,)?) => {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         pub enum RuleName {
-            $(
-                #[value(name = stringify!($config_field))]
-                $rule_type,
-            )*
+            $($rule_type,)*
         }
 
         impl RuleName {
             pub fn as_str(&self) -> &'static str {
                 match self {
-                    $(Self::$rule_type => stringify!($config_field),)*
+                    $(Self::$rule_type => rule_display_name!($config_field $(, $display_name)?),)*
                 }
+            }
+        }
+
+        impl clap::ValueEnum for RuleName {
+            fn value_variants<'a>() -> &'a [Self] {
+                &[$(Self::$rule_type,)*]
+            }
+
+            fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+                Some(match self {
+                    $(Self::$rule_type => clap::builder::PossibleValue::new(
+                        rule_display_name!($config_field $(, $display_name)?)
+                    ),)*
+                })
             }
         }
 
@@ -184,7 +213,7 @@ macro_rules! impl_rule_name_enum {
 for_each_rule!(impl_rule_name_enum);
 
 macro_rules! impl_create_all_rules {
-    ($(($config_field:ident, $rule_type:ident)),* $(,)?) => {
+    ($(($config_field:ident, $rule_type:ident $(, $display_name:expr)?)),* $(,)?) => {
         /// Create all rule instances in execution order
         pub fn create_all_rules<'a>(config: &'a Config) -> Vec<RuleEntry<'a>> {
             vec![
@@ -200,7 +229,7 @@ macro_rules! impl_create_all_rules {
                             config.default_level.unwrap_or(RuleLevel::Warn)
                         };
                         let configured = config.rules.$config_field.level.unwrap_or(default_level);
-                        apply_msvc_compatibility(config, stringify!($config_field), requires_auto_cleanup, configured)
+                        apply_msvc_compatibility(config, rule_display_name!($config_field $(, $display_name)?), requires_auto_cleanup, configured)
                     } else {
                         RuleLevel::Ignore
                     };
@@ -253,7 +282,7 @@ fn apply_msvc_compatibility(
 for_each_rule!(impl_create_all_rules);
 
 macro_rules! impl_validate_config {
-    ($(($config_field:ident, $rule_type:ident)),* $(,)?) => {
+    ($(($config_field:ident, $rule_type:ident $(, $display_name:expr)?)),* $(,)?) => {
         /// Check that explicitly enabled rules are compatible with config
         /// constraints (min_glib_version, msvc_compatible). Returns an error
         /// describing the first conflict found.
@@ -265,7 +294,7 @@ macro_rules! impl_validate_config {
                     && level.is_enabled()
                 {
                     let rule = $rule_type;
-                    let name = stringify!($config_field);
+                    let name = rule_display_name!($config_field $(, $display_name)?);
 
                     if let Some((req_major, req_minor)) = rule.min_glib_version()
                         && !is_rule_compatible(config, Some((req_major, req_minor)))

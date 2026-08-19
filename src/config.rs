@@ -9,7 +9,7 @@ use clap::ValueEnum;
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use serde::{Deserialize, de};
 
-use crate::{for_each_rule, rules::*, scanner::RuleName};
+use crate::{for_each_rule, rule_display_name, rules::*, scanner::RuleName};
 
 #[derive(Default, Debug, Clone, Copy, ValueEnum, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -356,11 +356,11 @@ impl<'de> Deserialize<'de> for RuleConfig {
 }
 
 macro_rules! impl_rules_config {
-    ($(($config_field:ident, $rule_type:ident)),* $(,)?) => {
+    ($(($config_field:ident, $rule_type:ident $(, $display_name:expr)?)),* $(,)?) => {
         #[derive(Debug, Clone, Deserialize, Default)]
         pub struct RulesConfig {
             $(
-                #[serde(default)]
+                #[serde(default $(, alias = $display_name)?)]
                 pub $config_field: RuleConfig,
             )*
         }
@@ -422,10 +422,10 @@ impl Config {
     /// Get reference to a rule config by field name
     pub fn get_rule_config(&self, field_name: &str) -> Option<&RuleConfig> {
         macro_rules! impl_get_rule_config {
-            ($(($config_field:ident, $rule_type:ident)),* $(,)?) => {
+            ($(($config_field:ident, $rule_type:ident $(, $display_name:expr)?)),* $(,)?) => {
                 match field_name {
                     $(
-                        stringify!($config_field) => Some(&self.rules.$config_field),
+                        rule_display_name!($config_field $(, $display_name)?) => Some(&self.rules.$config_field),
                     )*
                     _ => None,
                 }
@@ -438,10 +438,10 @@ impl Config {
     /// Get mutable reference to a rule config by field name
     pub fn get_rule_config_mut(&mut self, field_name: &str) -> Option<&mut RuleConfig> {
         macro_rules! impl_get_rule_config_mut {
-            ($(($config_field:ident, $rule_type:ident)),* $(,)?) => {
+            ($(($config_field:ident, $rule_type:ident $(, $display_name:expr)?)),* $(,)?) => {
                 match field_name {
                     $(
-                        stringify!($config_field) => Some(&mut self.rules.$config_field),
+                        rule_display_name!($config_field $(, $display_name)?) => Some(&mut self.rules.$config_field),
                     )*
                     _ => None,
                 }
@@ -478,10 +478,10 @@ impl Config {
     /// Enable only specific rules, disabling all others
     pub fn enable_only_rules(&mut self, rule_names: &[RuleName]) {
         macro_rules! impl_enable_only_rules {
-            ($(($config_field:ident, $rule_type:ident)),* $(,)?) => {
+            ($(($config_field:ident, $rule_type:ident $(, $display_name:expr)?)),* $(,)?) => {
                 {
                     $(
-                        self.rules.$config_field.level = Some(if rule_names.iter().any(|r| r.as_str() == stringify!($config_field)) {
+                        self.rules.$config_field.level = Some(if rule_names.iter().any(|r| r.as_str() == rule_display_name!($config_field $(, $display_name)?)) {
                             let default_level = match self.default_level {
                                 None | Some(RuleLevel::Ignore) => RuleLevel::Warn,
                                 Some(level) => level,
@@ -504,10 +504,10 @@ impl Config {
     /// Disable specific rules (all others remain enabled according to config)
     pub fn disable_rules(&mut self, rule_names: &[RuleName]) {
         macro_rules! impl_disable_rules {
-            ($(($config_field:ident, $rule_type:ident)),* $(,)?) => {
+            ($(($config_field:ident, $rule_type:ident $(, $display_name:expr)?)),* $(,)?) => {
                 {
                     $(
-                        if rule_names.iter().any(|r| r.as_str() == stringify!($config_field)) {
+                        if rule_names.iter().any(|r| r.as_str() == rule_display_name!($config_field $(, $display_name)?)) {
                             self.rules.$config_field.level = Some(RuleLevel::Ignore);
                         }
                     )*
@@ -521,7 +521,7 @@ impl Config {
     /// Filter rules by category, disabling all others
     pub fn filter_by_category(&mut self, category: Category) -> Result<()> {
         macro_rules! impl_filter_by_category {
-            ($(($config_field:ident, $rule_type:ident)),* $(,)?) => {
+            ($(($config_field:ident, $rule_type:ident $(, $display_name:expr)?)),* $(,)?) => {
                 {
                     $(
                         if $rule_type.category() != category {
