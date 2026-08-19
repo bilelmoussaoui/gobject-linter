@@ -1,0 +1,1 @@
+basic.c:23:5: qemu:coroutine_fn: calling coroutine_fn `coro_callee` from coroutine_mixed_fn context

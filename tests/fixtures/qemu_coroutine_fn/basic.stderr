@@ -1,0 +1,6 @@
+basic.c:17:5: qemu:coroutine_fn: calling coroutine_fn `coro_callee` from non-coroutine context
+basic.c:18:5: qemu:coroutine_fn: calling coroutine_fn `callback` from non-coroutine context
+basic.c:19:5: qemu:coroutine_fn: calling coroutine_fn `driver->run` from non-coroutine context
+basic.c:20:5: qemu:coroutine_fn: calling coroutine_fn `local` from non-coroutine context
+basic.c:27:5: qemu:coroutine_fn: calling no_coroutine_fn `blocking_callee` from coroutine_fn context
+basic.c:34:5: qemu:coroutine_fn: calling coroutine_fn `coro_callee` from coroutine_mixed_fn context

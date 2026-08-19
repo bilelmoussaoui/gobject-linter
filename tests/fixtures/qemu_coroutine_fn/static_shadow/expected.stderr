@@ -1,0 +1,3 @@
+external.c:7:5: qemu:coroutine_fn: calling coroutine_fn `shadowed_definition` from non-coroutine context
+external.c:8:5: qemu:coroutine_fn: calling coroutine_fn `shadowed_declaration` from non-coroutine context
+local.c:20:5: qemu:coroutine_fn: calling coroutine_fn `inherited_contract` from non-coroutine context

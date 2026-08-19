@@ -1,0 +1,1 @@
+file_a.c:9:5: qemu:coroutine_fn: calling coroutine_fn `same_name` from non-coroutine context
