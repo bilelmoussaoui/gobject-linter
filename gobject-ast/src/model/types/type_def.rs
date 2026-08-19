@@ -10,6 +10,9 @@ pub struct CallableSignature {
     pub parameters: Vec<Parameter>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub macro_modifiers: Vec<String>,
+    /// Source locations of the declaration's macro modifiers.
+    #[serde(skip)]
+    pub macro_modifier_locations: Vec<SourceLocation>,
 }
 
 /// A parsed field from a struct body (e.g. `GObject parent` → field_type =

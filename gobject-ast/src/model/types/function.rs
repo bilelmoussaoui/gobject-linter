@@ -35,6 +35,9 @@ pub struct FunctionDeclItem {
     pub export_macros: Vec<ExportMacro>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub macro_modifiers: Vec<String>,
+    /// Source locations of the declaration's macro modifiers.
+    #[serde(skip)]
+    pub macro_modifier_locations: Vec<SourceLocation>,
     pub location: SourceLocation,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub doc: Option<FunctionDoc>,
@@ -52,6 +55,9 @@ pub struct FunctionDefItem {
     pub parameters: Vec<Parameter>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub macro_modifiers: Vec<String>,
+    /// Source locations of the declaration's macro modifiers.
+    #[serde(skip)]
+    pub macro_modifier_locations: Vec<SourceLocation>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub body_statements: Vec<Statement>,
     pub location: SourceLocation,

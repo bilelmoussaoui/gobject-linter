@@ -194,11 +194,19 @@ impl Parser {
     /// function body. The grammar decides which identifiers are modifiers;
     /// the AST keeps their spelling without attaching project semantics.
     pub(super) fn collect_macro_modifiers(&self, node: Node, source: &[u8]) -> Vec<String> {
-        fn visit(node: Node, source: &[u8], modifiers: &mut Vec<String>) {
+        self.collect_macro_modifier_locations(node)
+            .iter()
+            .filter_map(|location| {
+                std::str::from_utf8(&source[location.start_byte..location.end_byte]).ok()
+            })
+            .map(|text| text.trim().to_owned())
+            .collect()
+    }
+
+    pub(super) fn collect_macro_modifier_locations(&self, node: Node) -> Vec<SourceLocation> {
+        fn visit(parser: &Parser, node: Node, modifiers: &mut Vec<SourceLocation>) {
             if node.kind() == "macro_modifier" {
-                if let Ok(text) = std::str::from_utf8(&source[node.byte_range()]) {
-                    modifiers.push(text.trim().to_owned());
-                }
+                modifiers.push(parser.node_location(node));
                 return;
             }
             if matches!(node.kind(), "parameter_list" | "compound_statement") {
@@ -206,12 +214,12 @@ impl Parser {
             }
             let mut cursor = node.walk();
             for child in node.children(&mut cursor) {
-                visit(child, source, modifiers);
+                visit(parser, child, modifiers);
             }
         }
 
         let mut modifiers = Vec::new();
-        visit(node, source, &mut modifiers);
+        visit(self, node, &mut modifiers);
         modifiers
     }
 
