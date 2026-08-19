@@ -83,6 +83,10 @@ struct Args {
     #[arg(long, value_name = "FILE")]
     diff: Option<PathBuf>,
 
+    /// Show detailed explanation for a rule (like rustc --explain)
+    #[arg(long, value_enum, value_name = "RULE")]
+    explain: Option<RuleName>,
+
     /// Generate shell completion script and exit
     #[arg(long, value_name = "SHELL")]
     completions: Option<Shell>,
@@ -182,6 +186,22 @@ fn main() -> Result<()> {
 
     // Validate that explicitly enabled rules don't conflict with config
     scanner::validate_config(&config)?;
+
+    // Handle --explain
+    if let Some(rule_name) = args.explain {
+        let rules = scanner::create_all_rules(&config);
+        let Some(entry) = rules.iter().find(|e| e.rule.name() == rule_name.as_str()) else {
+            eprintln!("{} unknown rule '{}'", "error:".red().bold(), rule_name);
+            std::process::exit(1);
+        };
+        let text = entry
+            .rule
+            .long_description()
+            .unwrap_or(entry.rule.description());
+        let md = format!("# {}\n\n{text}", entry.rule.name());
+        print_explain_markdown(&md);
+        return Ok(());
+    }
 
     // Handle --list-rules
     if args.list_rules {
@@ -427,4 +447,42 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn print_explain_markdown(md: &str) {
+    use std::{
+        io::Write,
+        process::{Command, Stdio},
+    };
+
+    let pagers: &[&[&str]] = &[
+        &["mdcat"],
+        &["glow", "-"],
+        &[
+            "bat",
+            "--language=markdown",
+            "--style=plain",
+            "--paging=auto",
+        ],
+    ];
+
+    for pager in pagers {
+        let Some(program) = pager.first() else {
+            continue;
+        };
+        let Ok(mut child) = Command::new(program)
+            .args(&pager[1..])
+            .stdin(Stdio::piped())
+            .spawn()
+        else {
+            continue;
+        };
+        if let Some(mut stdin) = child.stdin.take() {
+            let _ = stdin.write_all(md.as_bytes());
+        }
+        let _ = child.wait();
+        return;
+    }
+
+    print!("{md}");
 }
