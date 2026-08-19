@@ -1,0 +1,3 @@
+modifier_locations.c:24:25: qemu:coroutine_fn_position: `coroutine_fn` should be placed before the return type
+modifier_locations.c:26:36: qemu:coroutine_fn_position: `no_coroutine_fn` should be placed before the return type
+modifier_locations.c:35:35: qemu:coroutine_fn_position: `coroutine_mixed_fn` should be placed before the return type
