@@ -1,0 +1,8 @@
+short_circuit.c:26:28: qemu:coroutine_fn: calling no_coroutine_fn `plain_pred` from coroutine_fn context
+short_circuit.c:27:29: qemu:coroutine_fn: calling coroutine_fn `coro_pred` from non-coroutine context
+short_circuit.c:28:29: qemu:coroutine_fn: calling no_coroutine_fn `plain_pred` from coroutine_fn context
+short_circuit.c:29:28: qemu:coroutine_fn: calling coroutine_fn `coro_pred` from non-coroutine context
+short_circuit.c:31:36: qemu:coroutine_fn: calling coroutine_fn `coro_pred` from non-coroutine context
+short_circuit.c:32:5: qemu:coroutine_fn: calling coroutine_fn `coro_pred` from coroutine_mixed_fn context
+short_circuit.c:34:5: qemu:coroutine_fn: calling coroutine_fn `coro_pred` from coroutine_mixed_fn context
+short_circuit.c:36:35: qemu:coroutine_fn: calling coroutine_fn `coro_pred` from non-coroutine context

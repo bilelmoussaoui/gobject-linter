@@ -1,0 +1,4 @@
+scopes.c:17:5: qemu:coroutine_fn: calling coroutine_fn `callback` from non-coroutine context
+scopes.c:27:5: qemu:coroutine_fn: calling coroutine_fn `callback` from non-coroutine context
+scopes.c:37:9: qemu:coroutine_fn: calling coroutine_fn `callback` from non-coroutine context
+scopes.c:51:5: qemu:coroutine_fn: calling coroutine_fn `callback` from coroutine_mixed_fn context
