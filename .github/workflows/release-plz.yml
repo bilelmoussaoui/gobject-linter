@@ -9,15 +9,24 @@ on:
     branches:
       - main
 
+concurrency:
+  group: release-plz-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release-plz:
     name: Release-plz
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
+      # A PAT is required: tags pushed with GITHUB_TOKEN do not trigger the
+      # release workflow, and release PRs would not run CI.
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          token: ${{ secrets.RELEASE_PLZ_TOKEN }}
+          persist-credentials: false
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -25,5 +34,5 @@ jobs:
       - name: Run release-plz
         uses: release-plz/action@v0.5
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}

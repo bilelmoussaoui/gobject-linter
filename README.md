@@ -143,11 +143,28 @@ and only new or modified lines are checked.
 - git diff origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME...HEAD | gobject-linter --diff -
 ```
 
-### Installation Alternative
+## Installation
 
-If you prefer installing locally instead of using containers:
+Prebuilt binaries, including the LSP server, are attached to every
+[GitHub Release](https://github.com/bilelmoussaoui/gobject-linter/releases):
+
+**Linux and macOS** (shell script):
 
 ```bash
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/bilelmoussaoui/gobject-linter/releases/latest/download/gobject-linter-installer.sh | sh
+```
+
+**Windows** (PowerShell):
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/bilelmoussaoui/gobject-linter/releases/latest/download/gobject-linter-installer.ps1 | iex"
+```
+
+Or build from source (this installs the `gobject-linter` binary only):
+
+```bash
+cargo install gobject-linter
+# or, for the latest development version
 cargo install --git https://github.com/bilelmoussaoui/gobject-linter gobject-linter
 ```
 
@@ -172,10 +189,13 @@ gobject-linter --completions fish | source
 
 ## LSP Server
 
-For real-time linting in your editor:
+For real-time linting in your editor. The prebuilt packages above ship
+`gobject-linter-lsp`; to build it from source:
 
 ```bash
-cargo build --release --bin gobject-linter-lsp
+cargo build --release --bin gobject-linter-lsp --features lsp
+# or install it next to the CLI
+cargo install gobject-linter --features lsp
 ```
 
 **Neovim** (nvim-lspconfig):
