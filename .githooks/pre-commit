@@ -1,0 +1,6 @@
+#!/bin/sh
+
+set -e
+
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings

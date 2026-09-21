@@ -1,0 +1,9 @@
+#!/bin/sh
+# Validate conventional commit format with mandatory scope
+# Format: type(scope): description
+if ! grep -qE '^[a-z]+\([a-z0-9./-]+\)!?: .+' "$1"; then
+    echo "Error: Invalid commit message format."
+    echo "Required: type(scope): description"
+    echo "Example: feat(api): add user endpoint"
+    exit 1
+fi
