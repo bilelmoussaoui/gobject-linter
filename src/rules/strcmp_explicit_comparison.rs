@@ -14,7 +14,7 @@ impl Rule for StrcmpExplicitComparison {
     }
 
     fn description(&self) -> &'static str {
-        "Require explicit comparison with 0 for strcmp/g_strcmp0 (returns 0 for equality, not TRUE)"
+        "Require explicit comparison with 0 for strcmp/strncmp/g_strcmp0/g_ascii_strcasecmp (returns 0 for equality, not TRUE)"
     }
 
     fn category(&self) -> crate::rules::Category {
@@ -143,6 +143,9 @@ impl StrcmpExplicitComparison {
     }
 
     fn is_str_compare(&self, func_name: &str) -> bool {
-        matches!(func_name, "strcmp" | "g_strcmp0")
+        matches!(
+            func_name,
+            "strcmp" | "strncmp" | "g_strcmp0" | "g_ascii_strcasecmp" | "g_ascii_strncasecmp"
+        )
     }
 }

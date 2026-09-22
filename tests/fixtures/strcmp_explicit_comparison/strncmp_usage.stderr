@@ -1,0 +1,6 @@
+strncmp_usage.c:7:7: strcmp_explicit_comparison: strncmp() returns 0 for equality — add explicit comparison: 'strncmp(...) != 0'
+strncmp_usage.c:11:8: strcmp_explicit_comparison: strncmp() returns 0 for equality — use 'strncmp(...) == 0' instead of '!strncmp(...)'
+strncmp_usage.c:15:7: strcmp_explicit_comparison: g_ascii_strcasecmp() returns 0 for equality — add explicit comparison: 'g_ascii_strcasecmp(...) != 0'
+strncmp_usage.c:19:8: strcmp_explicit_comparison: g_ascii_strcasecmp() returns 0 for equality — use 'g_ascii_strcasecmp(...) == 0' instead of '!g_ascii_strcasecmp(...)'
+strncmp_usage.c:23:7: strcmp_explicit_comparison: g_ascii_strncasecmp() returns 0 for equality — add explicit comparison: 'g_ascii_strncasecmp(...) != 0'
+strncmp_usage.c:27:8: strcmp_explicit_comparison: g_ascii_strncasecmp() returns 0 for equality — use 'g_ascii_strncasecmp(...) == 0' instead of '!g_ascii_strncasecmp(...)'

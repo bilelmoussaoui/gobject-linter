@@ -3,6 +3,8 @@ sources = [
   'bare_usage.fixed.c',
   'multiple_same_line.c',
   'multiple_same_line.fixed.c',
+  'strncmp_usage.c',
+  'strncmp_usage.fixed.c',
   'variable_assignment.c',
 ]
 
