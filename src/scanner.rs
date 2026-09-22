@@ -847,4 +847,103 @@ mod tests {
         let opt_in: Vec<_> = rules.iter().filter(|e| e.rule.opt_in()).collect();
         assert!(opt_in.iter().all(|e| e.level == RuleLevel::Ignore));
     }
+
+    // --- list_all_rules_json ---
+
+    #[test]
+    fn list_all_rules_json_returns_valid_json() {
+        let config = Config::default();
+        let json_str = list_all_rules_json(&config);
+        let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+
+        assert!(parsed["total"].as_u64().unwrap() > 0);
+        assert!(parsed["fixable_count"].as_u64().unwrap() > 0);
+
+        let rules = parsed["rules"].as_array().unwrap();
+        assert!(!rules.is_empty());
+        assert_eq!(rules.len(), parsed["total"].as_u64().unwrap() as usize);
+
+        let first = &rules[0];
+        assert!(first["name"].is_string());
+        assert!(first["description"].is_string());
+        assert!(first["category"].is_string());
+        assert!(first["fixable"].is_boolean());
+        assert!(first["opt_in"].is_boolean());
+        assert!(first["requires_meson"].is_boolean());
+        assert!(first["min_glib_version"].is_string());
+        assert!(first["requires_auto_cleanup"].is_boolean());
+        assert!(first["config_options"].is_array());
+
+        let options = first["config_options"].as_array().unwrap();
+        assert!(options.len() >= 2);
+        assert_eq!(options[0]["name"], "level");
+        assert_eq!(options[1]["name"], "ignore");
+    }
+
+    #[test]
+    fn list_all_rules_json_opt_in_rule_metadata() {
+        let config = Config::default();
+        let json_str = list_all_rules_json(&config);
+        let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+
+        let rules = parsed["rules"].as_array().unwrap();
+        let opt_in_rule = rules.iter().find(|r| r["opt_in"].as_bool() == Some(true));
+        assert!(
+            opt_in_rule.is_some(),
+            "should have at least one opt-in rule"
+        );
+
+        let rule = opt_in_rule.unwrap();
+        assert!(rule["opt_in_reason"].is_string());
+    }
+
+    #[test]
+    fn list_all_rules_json_versioned_rule() {
+        let config = Config::default();
+        let json_str = list_all_rules_json(&config);
+        let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+
+        let rules = parsed["rules"].as_array().unwrap();
+        let versioned = rules
+            .iter()
+            .find(|r| r["min_glib_version"].as_str() != Some("2.0"));
+        assert!(
+            versioned.is_some(),
+            "should have at least one versioned rule"
+        );
+    }
+
+    // --- RuleName ---
+
+    #[test]
+    fn rule_name_display() {
+        let name = RuleName::DeadCode;
+        assert_eq!(format!("{name}"), "dead_code");
+    }
+
+    #[test]
+    fn rule_name_as_str() {
+        assert_eq!(RuleName::UseGNew.as_str(), "use_g_new");
+        assert_eq!(RuleName::IncludeOrder.as_str(), "include_order");
+    }
+
+    // --- validate_config: glib version conflict ---
+
+    #[test]
+    fn validate_config_glib_version_conflict_errors() {
+        let mut config = Config::default().with_min_glib_version((2, 50));
+        config.rules.g_auto_init.level = Some(RuleLevel::Warn);
+        let result = validate_config(&config);
+        if GAutoInit.min_glib_version().is_some_and(|(_, m)| m > 50) {
+            assert!(result.is_err());
+        }
+    }
+
+    // --- list_all_rules text (smoke test) ---
+
+    #[test]
+    fn list_all_rules_does_not_panic() {
+        let config = Config::default();
+        list_all_rules(&config);
+    }
 }
