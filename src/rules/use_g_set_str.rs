@@ -19,6 +19,10 @@ impl Rule for UseGSetStr {
         "Suggest g_set_str() instead of manual g_free and g_strdup"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/use_g_set_str.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Complexity
     }

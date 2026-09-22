@@ -21,6 +21,10 @@ impl Rule for TypeStyle {
         "Enforce consistent use of GLib or C standard type aliases"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/type_style.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Style
     }

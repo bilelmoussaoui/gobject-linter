@@ -27,6 +27,10 @@ impl Rule for UseGSourceOnce {
         "Suggest using g_idle_add_once/g_timeout_add_once/g_timeout_add_seconds_once when callback always returns G_SOURCE_REMOVE"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/use_g_source_once.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Complexity
     }

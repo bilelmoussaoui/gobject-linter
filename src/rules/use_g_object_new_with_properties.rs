@@ -19,6 +19,12 @@ impl Rule for UseGObjectNewWithProperties {
         "Suggest setting properties in g_object_new instead of separate g_object_set calls"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!(
+            "../../docs/rules/use_g_object_new_with_properties.md"
+        ))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Complexity
     }

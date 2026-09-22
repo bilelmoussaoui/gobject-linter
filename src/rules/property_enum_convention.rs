@@ -23,6 +23,10 @@ impl Rule for PropertyEnumConvention {
         "Enforce property enum conventions (typed or legacy style)"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/property_enum_convention.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Style
     }

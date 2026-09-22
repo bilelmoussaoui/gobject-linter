@@ -174,6 +174,12 @@ impl Rule for UseExplicitDefaultFlags {
         "Use explicit default flag constants (e.g., G_APPLICATION_DEFAULT_FLAGS) instead of 0"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!(
+            "../../docs/rules/use_explicit_default_flags.md"
+        ))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Style
     }

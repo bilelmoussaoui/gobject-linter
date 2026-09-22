@@ -17,6 +17,10 @@ impl Rule for MissingGBeginDecls {
         "Detect headers with missing or mismatched G_BEGIN_DECLS/G_END_DECLS"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/missing_g_begin_decls.md"))
+    }
+
     fn category(&self) -> Category {
         Category::Correctness
     }

@@ -26,6 +26,12 @@ impl Rule for UseGObjectNotifyByPspec {
         "Suggest g_object_notify_by_pspec instead of g_object_notify for better performance"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!(
+            "../../docs/rules/use_g_object_notify_by_pspec.md"
+        ))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Perf
     }

@@ -17,6 +17,12 @@ impl Rule for UseGValueSetStaticString {
         "Use g_value_set_static_string for string literals instead of g_value_set_string"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!(
+            "../../docs/rules/use_g_value_set_static_string.md"
+        ))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Perf
     }

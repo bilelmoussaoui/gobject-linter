@@ -85,6 +85,10 @@ impl Rule for UseGAsciiFunctions {
         "Use g_ascii_* functions instead of locale-dependent C ctype functions"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/use_g_ascii_functions.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Correctness
     }

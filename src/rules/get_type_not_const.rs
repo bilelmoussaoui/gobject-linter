@@ -20,12 +20,7 @@ impl Rule for GetTypeNotConst {
     }
 
     fn long_description(&self) -> Option<&'static str> {
-        Some(
-            "Functions ending in `_get_type` have a side effect on first call: they register \
-             the type. Annotating them with `G_GNUC_CONST` or `G_GNUC_PURE` is incorrect because \
-             these attributes promise no side effects. With GCC 16+, the compiler may optimize \
-             away the type initialization entirely, causing crashes. Remove the attribute.",
-        )
+        Some(include_str!("../../docs/rules/get_type_not_const.md"))
     }
 
     fn category(&self) -> Category {

@@ -17,6 +17,12 @@ impl Rule for StrcmpExplicitComparison {
         "Require explicit comparison with 0 for strcmp/strncmp/g_strcmp0/g_ascii_strcasecmp (returns 0 for equality, not TRUE)"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!(
+            "../../docs/rules/strcmp_explicit_comparison.md"
+        ))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Correctness
     }

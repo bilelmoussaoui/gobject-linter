@@ -17,6 +17,10 @@ impl Rule for GiMissingSince {
         "Detect public API with AVAILABLE_IN macros but missing or mismatched Since: annotations"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/gi_missing_since.md"))
+    }
+
     fn category(&self) -> Category {
         Category::Introspection
     }

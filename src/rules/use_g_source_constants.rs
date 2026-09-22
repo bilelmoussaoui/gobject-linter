@@ -31,6 +31,10 @@ impl Rule for UseGSourceConstants {
         "Use G_SOURCE_CONTINUE/G_SOURCE_REMOVE instead of TRUE/FALSE in GSourceFunc callbacks"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/use_g_source_constants.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Style
     }

@@ -35,6 +35,10 @@ impl Rule for UseGStrlcpy {
         "Use g_strlcpy/g_strlcat instead of unsafe strcpy/strcat/strncat"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/use_g_strlcpy.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Correctness
     }

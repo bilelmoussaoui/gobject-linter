@@ -17,6 +17,10 @@ impl Rule for UntranslatedString {
         "Detect user-visible strings that should be wrapped with gettext"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/untranslated_string.md"))
+    }
+
     fn category(&self) -> Category {
         Category::Pedantic
     }

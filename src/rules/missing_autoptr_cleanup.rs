@@ -47,12 +47,7 @@ impl Rule for MissingAutoptrCleanup {
     }
 
     fn long_description(&self) -> Option<&'static str> {
-        Some(
-            "Detects types that don't have automatic g_autoptr() support:\n\
-             - Boxed types (G_DEFINE_BOXED_TYPE*) without G_DEFINE_AUTOPTR_CLEANUP_FUNC\n\
-             - Old-style GObject types (G_DEFINE_TYPE*) that should use G_DECLARE_* or have explicit cleanup\n\
-             Modern GLib code should support g_autoptr() for automatic memory management.",
-        )
+        Some(include_str!("../../docs/rules/missing_autoptr_cleanup.md"))
     }
 
     fn category(&self) -> Category {

@@ -17,6 +17,10 @@ impl Rule for PropertyEnumCoverage {
         "Ensure all property enum values have corresponding g_param_spec or g_object_class_override_property"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/property_enum_coverage.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Correctness
     }

@@ -21,6 +21,10 @@ impl Rule for UseGNew {
         "Suggest g_new/g_new0 instead of g_malloc/g_malloc0 with sizeof for type safety"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/use_g_new.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Complexity
     }

@@ -20,6 +20,12 @@ impl Rule for UseGObjectClassInstallProperties {
         "Suggest g_object_class_install_properties for multiple g_object_class_install_property calls"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!(
+            "../../docs/rules/use_g_object_class_install_properties.md"
+        ))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Complexity
     }

@@ -23,6 +23,10 @@ impl Rule for UseGStrcmp0 {
         "Suggest g_strcmp0 instead of strcmp if arguments can be NULL (NULL-safe)"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/use_g_strcmp0.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Style
     }

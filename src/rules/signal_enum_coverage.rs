@@ -17,6 +17,10 @@ impl Rule for SignalEnumCoverage {
         "Ensure all signal enum values have corresponding g_signal_new calls"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/signal_enum_coverage.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Correctness
     }

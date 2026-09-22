@@ -19,6 +19,10 @@ impl Rule for UseGSetObject {
         "Suggest g_set_object() instead of manual g_clear_object and g_object_ref"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/use_g_set_object.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Complexity
     }

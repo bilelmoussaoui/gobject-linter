@@ -24,13 +24,7 @@ impl Rule for DeadCode {
     }
 
     fn long_description(&self) -> Option<&'static str> {
-        Some(
-            "Detects internal functions and types that are never used anywhere in the codebase. \
-             For functions: tracks both direct calls and function pointer usage (e.g., callbacks). \
-             For types: tracks usage in variable declarations, casts, sizeof, and GObject macros. \
-             Only reports items in private headers (not installed by meson) and static functions/types \
-             defined in .c files.",
-        )
+        Some(include_str!("../../docs/rules/dead_code.md"))
     }
 
     fn category(&self) -> Category {

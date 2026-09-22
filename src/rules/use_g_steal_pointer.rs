@@ -19,6 +19,10 @@ impl Rule for UseGStealPointer {
         "Use g_steal_pointer() instead of manually copying a pointer and setting it to NULL"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/use_g_steal_pointer.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Style
     }

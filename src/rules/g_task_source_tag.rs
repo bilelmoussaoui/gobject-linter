@@ -17,6 +17,10 @@ impl Rule for GTaskSourceTag {
         "Ensure g_task_set_source_tag is called after g_task_new"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/g_task_source_tag.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Pedantic
     }

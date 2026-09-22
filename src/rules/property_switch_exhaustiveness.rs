@@ -22,6 +22,12 @@ impl Rule for PropertySwitchExhaustiveness {
         "Ensure get_property/set_property switch statements handle all required properties"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!(
+            "../../docs/rules/property_switch_exhaustiveness.md"
+        ))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Correctness
     }

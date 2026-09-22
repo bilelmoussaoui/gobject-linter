@@ -26,6 +26,10 @@ impl Rule for GiNotBindingsFriendly {
         "Detect public API patterns that are problematic for GObject Introspection bindings"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/gi_not_bindings_friendly.md"))
+    }
+
     fn category(&self) -> Category {
         Category::Introspection
     }

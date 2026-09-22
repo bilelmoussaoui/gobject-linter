@@ -17,6 +17,10 @@ impl Rule for UnnecessaryNullCheck {
         "Detect unnecessary NULL checks before g_free/g_clear_* functions"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/unnecessary_null_check.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Suspicious
     }

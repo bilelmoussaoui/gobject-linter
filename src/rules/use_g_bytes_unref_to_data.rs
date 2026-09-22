@@ -19,6 +19,12 @@ impl Rule for UseGBytesUnrefToData {
         "Use g_bytes_unref_to_data() instead of g_bytes_get_data() + g_bytes_unref()"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!(
+            "../../docs/rules/use_g_bytes_unref_to_data.md"
+        ))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Complexity
     }

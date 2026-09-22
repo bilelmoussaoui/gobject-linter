@@ -17,6 +17,10 @@ impl Rule for SignalCanonicalName {
         "Signal names should use hyphens (-) instead of underscores (_)"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/signal_canonical_name.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Style
     }

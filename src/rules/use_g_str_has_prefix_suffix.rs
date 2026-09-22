@@ -17,6 +17,12 @@ impl Rule for UseGStrHasPrefixSuffix {
         "Use g_str_has_prefix/g_str_has_suffix() instead of manual strncmp/strcmp comparisons"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!(
+            "../../docs/rules/use_g_str_has_prefix_suffix.md"
+        ))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Style
     }

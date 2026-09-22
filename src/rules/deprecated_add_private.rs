@@ -23,6 +23,10 @@ impl Rule for DeprecatedAddPrivate {
         "Detect deprecated g_type_class_add_private (use G_DEFINE_TYPE_WITH_PRIVATE instead)"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/deprecated_add_private.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Restriction
     }

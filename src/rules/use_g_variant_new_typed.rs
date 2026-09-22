@@ -17,6 +17,10 @@ impl Rule for UseGVariantNewTyped {
         "Prefer g_variant_new_string/boolean/etc over g_variant_new with format strings"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/use_g_variant_new_typed.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Style
     }

@@ -17,6 +17,10 @@ impl Rule for UseGGnucFlagEnum {
         "Use G_GNUC_FLAG_ENUM for enums that represent bit flags"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/use_g_gnuc_flag_enum.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Style
     }

@@ -19,6 +19,10 @@ impl Rule for GErrorLeak {
         "Check for GError variables that are neither freed nor propagated"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/g_error_leak.md"))
+    }
+
     fn category(&self) -> Category {
         Category::Correctness
     }

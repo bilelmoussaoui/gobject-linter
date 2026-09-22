@@ -44,6 +44,10 @@ impl Rule for PropertyCanonicalName {
         "Ensure property names are canonical (use dashes, not underscores)"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/property_canonical_name.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Correctness
     }

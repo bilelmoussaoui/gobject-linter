@@ -19,6 +19,10 @@ impl Rule for UnusedVfunc {
         "Detect virtual methods assigned in class_init but never called through the vtable"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/unused_vfunc.md"))
+    }
+
     fn category(&self) -> Category {
         Category::Suspicious
     }

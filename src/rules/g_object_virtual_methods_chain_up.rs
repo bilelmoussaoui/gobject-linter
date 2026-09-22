@@ -19,6 +19,12 @@ impl Rule for GObjectVirtualMethodsChainUp {
         "Ensure dispose/finalize/constructed methods chain up to parent class"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!(
+            "../../docs/rules/g_object_virtual_methods_chain_up.md"
+        ))
+    }
+
     fn category(&self) -> Category {
         Category::Correctness
     }

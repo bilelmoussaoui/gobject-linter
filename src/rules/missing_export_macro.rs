@@ -18,11 +18,7 @@ impl Rule for MissingExportMacro {
     }
 
     fn long_description(&self) -> Option<&'static str> {
-        Some(
-            "Detects functions and types in public headers that lack export macros.\n\
-             Public API should be marked with appropriate export macros (e.g., G_MODULE_EXPORT, \
-             CLUTTER_EXPORT, META_EXPORT) to ensure proper symbol visibility.",
-        )
+        Some(include_str!("../../docs/rules/missing_export_macro.md"))
     }
 
     fn category(&self) -> Category {

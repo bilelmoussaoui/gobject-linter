@@ -219,6 +219,10 @@ impl Rule for UseClearFunctions {
         "Suggest g_clear_* functions instead of manual cleanup and NULL/zero assignment"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/use_clear_functions.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Complexity
     }

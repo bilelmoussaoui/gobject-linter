@@ -17,6 +17,10 @@ impl Rule for NoGAutoMacros {
         "Forbid g_auto* macros (g_autoptr, g_autofree, etc.) for MSVC compatibility"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/no_g_auto_macros.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Portability
     }

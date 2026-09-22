@@ -21,6 +21,10 @@ impl Rule for GAutoInit {
         "Ensure g_auto*/g_autofree/g_autofd variables are initialized"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/g_auto_init.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Correctness
     }

@@ -17,6 +17,12 @@ impl Rule for UseGStringFreeAndSteal {
         "Suggest g_string_free_and_steal instead of g_string_free (..., FALSE) for better readability"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!(
+            "../../docs/rules/use_g_string_free_and_steal.md"
+        ))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Style
     }

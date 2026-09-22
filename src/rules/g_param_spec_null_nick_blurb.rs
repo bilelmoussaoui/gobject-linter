@@ -17,6 +17,12 @@ impl Rule for GParamSpecNullNickBlurb {
         "Ensure g_param_spec_* functions have NULL for nick and blurb parameters"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!(
+            "../../docs/rules/g_param_spec_null_nick_blurb.md"
+        ))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Pedantic
     }

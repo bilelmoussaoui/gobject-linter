@@ -19,6 +19,12 @@ impl Rule for GParamSpecStaticStrings {
         "Ensure *_param_spec_* calls use G_PARAM_STATIC_STRINGS flag for string literals"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!(
+            "../../docs/rules/g_param_spec_static_strings.md"
+        ))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Perf
     }

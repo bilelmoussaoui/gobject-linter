@@ -14,6 +14,10 @@ impl Rule for MissingImplementation {
         "Report functions declared in headers but not implemented"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/missing_implementation.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Suspicious
     }

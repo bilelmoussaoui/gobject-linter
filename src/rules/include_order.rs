@@ -19,6 +19,10 @@ impl Rule for IncludeOrder {
         "Enforce consistent include ordering: config header (configurable), associated header, standard C/POSIX headers, system headers, project headers"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/include_order.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Style
     }

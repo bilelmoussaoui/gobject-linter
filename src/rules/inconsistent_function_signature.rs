@@ -36,6 +36,12 @@ impl Rule for InconsistentFunctionSignature {
         "Detect functions whose return type or parameter types in the declaration do not match the definition"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!(
+            "../../docs/rules/inconsistent_function_signature.md"
+        ))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Suspicious
     }

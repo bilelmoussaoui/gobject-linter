@@ -19,6 +19,10 @@ impl Rule for MatchingDeclareDefine {
         "Ensure G_DECLARE_* and G_DEFINE_* macros are used consistently"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/matching_declare_define.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Pedantic
     }

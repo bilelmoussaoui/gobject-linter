@@ -17,6 +17,10 @@ impl Rule for UseGSettingsTyped {
         "Prefer g_settings_get/set_string/boolean/etc over g_settings_get/set_value with g_variant"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/use_g_settings_typed.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Style
     }

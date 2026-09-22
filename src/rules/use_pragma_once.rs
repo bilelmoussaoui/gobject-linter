@@ -19,6 +19,10 @@ impl Rule for UsePragmaOnce {
         "Suggest #pragma once instead of traditional include guards"
     }
 
+    fn long_description(&self) -> Option<&'static str> {
+        Some(include_str!("../../docs/rules/use_pragma_once.md"))
+    }
+
     fn category(&self) -> crate::rules::Category {
         crate::rules::Category::Style
     }
