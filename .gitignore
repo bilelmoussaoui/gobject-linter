@@ -3,3 +3,4 @@ gobject-ast/target
 website/rules.json
 tree-sitter-c-gobject/target
 tests/fixtures/_build
+lcov.info
