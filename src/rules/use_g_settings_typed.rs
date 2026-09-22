@@ -161,7 +161,7 @@ impl UseGSettingsTyped {
         let typed_func = match func_name {
             "g_variant_get_string" => "g_settings_get_string",
             "g_variant_get_boolean" => "g_settings_get_boolean",
-            "g_variant_get_byte" => "g_settings_get_byte",
+            "g_variant_get_byte" => "g_settings_get_uint",
             "g_variant_get_int16" => "g_settings_get_int",
             "g_variant_get_uint16" => "g_settings_get_uint",
             "g_variant_get_int32" => "g_settings_get_int",
@@ -213,7 +213,7 @@ impl UseGSettingsTyped {
         let typed_func = match format_str {
             "s" => "g_settings_set_string",
             "b" => "g_settings_set_boolean",
-            "y" => "g_settings_set_byte",
+            "y" => "g_settings_set_uint", // byte → uint (closest match)
             "n" => "g_settings_set_int",  // int16 → int (closest match)
             "q" => "g_settings_set_uint", // uint16 → uint (closest match)
             "i" => "g_settings_set_int",
