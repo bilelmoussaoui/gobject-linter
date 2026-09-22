@@ -47,14 +47,38 @@ const FLAG_REPLACEMENTS: &[(&str, usize, &str, (u32, u32))] = &[
         (2, 26),
     ),
     (
+        "g_dbus_connection_new_sync",
+        1,
+        "G_DBUS_CONNECTION_FLAGS_NONE",
+        (2, 26),
+    ),
+    (
         "g_dbus_connection_new_for_address",
+        1,
+        "G_DBUS_CONNECTION_FLAGS_NONE",
+        (2, 26),
+    ),
+    (
+        "g_dbus_connection_new_for_address_sync",
         1,
         "G_DBUS_CONNECTION_FLAGS_NONE",
         (2, 26),
     ),
     ("g_dbus_proxy_new", 2, "G_DBUS_PROXY_FLAGS_NONE", (2, 26)),
     (
+        "g_dbus_proxy_new_sync",
+        2,
+        "G_DBUS_PROXY_FLAGS_NONE",
+        (2, 26),
+    ),
+    (
         "g_dbus_proxy_new_for_bus",
+        2,
+        "G_DBUS_PROXY_FLAGS_NONE",
+        (2, 26),
+    ),
+    (
+        "g_dbus_proxy_new_for_bus_sync",
         2,
         "G_DBUS_PROXY_FLAGS_NONE",
         (2, 26),
