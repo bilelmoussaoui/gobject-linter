@@ -466,3 +466,147 @@ impl MesonIntrospection {
         (compiler, flags)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- parse_compile_command ---
+
+    #[test]
+    fn parse_simple_command() {
+        let (compiler, flags) =
+            MesonIntrospection::parse_compile_command("cc -I/usr/include -DFOO=1 -c main.c");
+        assert_eq!(compiler, "cc");
+        assert_eq!(flags, vec!["-I/usr/include", "-DFOO=1"]);
+    }
+
+    #[test]
+    fn parse_command_with_ccache() {
+        let (compiler, flags) =
+            MesonIntrospection::parse_compile_command("ccache gcc -Wall -c foo.c");
+        assert_eq!(compiler, "gcc");
+        assert_eq!(flags, vec!["-Wall"]);
+    }
+
+    #[test]
+    fn parse_command_skips_output_flags() {
+        let (compiler, flags) = MesonIntrospection::parse_compile_command(
+            "gcc -I/inc -o output.o -MF deps.d -MQ target -MD -c src.c",
+        );
+        assert_eq!(compiler, "gcc");
+        assert_eq!(flags, vec!["-I/inc"]);
+    }
+
+    #[test]
+    fn parse_empty_command() {
+        let (compiler, flags) = MesonIntrospection::parse_compile_command("");
+        assert_eq!(compiler, "cc");
+        assert!(flags.is_empty());
+    }
+
+    #[test]
+    fn parse_command_with_multiple_includes() {
+        let (compiler, flags) = MesonIntrospection::parse_compile_command(
+            "/usr/bin/clang -I/a -I/b -DBAR -Wall -Werror -c widget.c",
+        );
+        assert_eq!(compiler, "/usr/bin/clang");
+        assert!(flags.contains(&"-I/a".to_string()));
+        assert!(flags.contains(&"-I/b".to_string()));
+        assert!(flags.contains(&"-DBAR".to_string()));
+        assert!(flags.contains(&"-Wall".to_string()));
+        assert!(flags.contains(&"-Werror".to_string()));
+    }
+
+    // --- find_build_dir ---
+
+    #[test]
+    fn find_build_dir_none_when_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(find_build_dir(dir.path(), None).is_none());
+    }
+
+    #[test]
+    fn find_build_dir_user_specified() {
+        let dir = tempfile::tempdir().unwrap();
+        let build = dir.path().join("mybuild/meson-info");
+        std::fs::create_dir_all(&build).unwrap();
+        std::fs::write(build.join("meson-info.json"), "{}").unwrap();
+        let result = find_build_dir(dir.path(), Some("mybuild"));
+        assert_eq!(result, Some(dir.path().join("mybuild")));
+    }
+
+    #[test]
+    fn find_build_dir_common_names() {
+        for name in &["build", "builddir", "_build"] {
+            let dir = tempfile::tempdir().unwrap();
+            let info = dir.path().join(name).join("meson-info");
+            std::fs::create_dir_all(&info).unwrap();
+            std::fs::write(info.join("meson-info.json"), "{}").unwrap();
+            let result = find_build_dir(dir.path(), None);
+            assert_eq!(result, Some(dir.path().join(name)));
+        }
+    }
+
+    #[test]
+    fn find_build_dir_fallback_search() {
+        let dir = tempfile::tempdir().unwrap();
+        let info = dir.path().join("custom-build/meson-info");
+        std::fs::create_dir_all(&info).unwrap();
+        std::fs::write(info.join("meson-info.json"), "{}").unwrap();
+        let result = find_build_dir(dir.path(), None);
+        assert!(result.is_some());
+    }
+
+    // --- is_build_dir ---
+
+    #[test]
+    fn is_build_dir_true() {
+        let dir = tempfile::tempdir().unwrap();
+        let info = dir.path().join("meson-info");
+        std::fs::create_dir_all(&info).unwrap();
+        std::fs::write(info.join("meson-info.json"), "{}").unwrap();
+        assert!(is_build_dir(dir.path()));
+    }
+
+    #[test]
+    fn is_build_dir_false() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(!is_build_dir(dir.path()));
+    }
+
+    // --- MesonIntrospection::mock ---
+
+    #[test]
+    fn mock_returns_specified_headers() {
+        let introspected: HashSet<PathBuf> = [PathBuf::from("/src/foo.h")].into_iter().collect();
+        let installed: HashSet<PathBuf> = [PathBuf::from("/src/bar.h")].into_iter().collect();
+
+        let meson = MesonIntrospection::mock(introspected.clone(), installed.clone());
+        assert_eq!(meson.get_introspected_headers(), &introspected);
+        assert_eq!(meson.get_installed_headers(), &installed);
+    }
+
+    // --- compute_installed_headers ---
+
+    #[test]
+    fn compute_installed_headers_filters_non_headers() {
+        let mut installed = HashMap::new();
+        installed.insert(
+            "/src/widget.h".to_string(),
+            "/usr/include/widget.h".to_string(),
+        );
+        installed.insert("/src/widget.c".to_string(), "/usr/lib/widget.o".to_string());
+        installed.insert("/src/util.h".to_string(), "/usr/include/util.h".to_string());
+
+        let data = MesonData {
+            installed,
+            ..MesonData::default()
+        };
+
+        let headers = MesonIntrospection::compute_installed_headers(&data);
+        assert_eq!(headers.len(), 2);
+        assert!(headers.contains(&PathBuf::from("/src/widget.h")));
+        assert!(headers.contains(&PathBuf::from("/src/util.h")));
+    }
+}

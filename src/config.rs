@@ -451,6 +451,18 @@ impl Config {
         for_each_rule!(impl_get_rule_config_mut)
     }
 
+    #[cfg(test)]
+    pub fn with_min_glib_version(mut self, version: (u32, u32)) -> Self {
+        self.min_glib_version = Some(version);
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_msvc_compatible(mut self, msvc: bool) -> Self {
+        self.msvc_compatible = msvc;
+        self
+    }
+
     pub fn get_string_list(&self, rule_name: &str, key: &str) -> Vec<String> {
         self.get_rule_config(rule_name)
             .and_then(|rc| rc.options.get(key))
@@ -522,5 +534,367 @@ impl Config {
 
         for_each_rule!(impl_filter_by_category);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- parse_glib_version ---
+
+    #[test]
+    fn parse_glib_version_valid() {
+        assert_eq!(parse_glib_version("2.76"), Some((2, 76)));
+        assert_eq!(parse_glib_version("2.0"), Some((2, 0)));
+        assert_eq!(parse_glib_version("3.10"), Some((3, 10)));
+    }
+
+    #[test]
+    fn parse_glib_version_invalid() {
+        assert_eq!(parse_glib_version("2"), None);
+        assert_eq!(parse_glib_version("2.76.1"), None);
+        assert_eq!(parse_glib_version("abc.def"), None);
+        assert_eq!(parse_glib_version(""), None);
+        assert_eq!(parse_glib_version("2."), None);
+    }
+
+    // --- Style ---
+
+    #[test]
+    fn format_call_with_space() {
+        let style = Style {
+            space_before_paren: true,
+        };
+        assert_eq!(style.format_call("g_free", &["ptr"]), "g_free (ptr)");
+        assert_eq!(
+            style.format_call("g_object_set", &["obj", "\"prop\"", "val", "NULL"]),
+            "g_object_set (obj, \"prop\", val, NULL)"
+        );
+    }
+
+    #[test]
+    fn format_call_without_space() {
+        let style = Style {
+            space_before_paren: false,
+        };
+        assert_eq!(style.format_call("g_free", &["ptr"]), "g_free(ptr)");
+    }
+
+    #[test]
+    fn format_call_no_args() {
+        let style = Style::default();
+        assert_eq!(style.format_call("func", &[]), "func ()");
+    }
+
+    #[test]
+    fn format_call_stmt_appends_semicolon() {
+        let style = Style::default();
+        assert_eq!(style.format_call_stmt("g_free", &["ptr"]), "g_free (ptr);");
+    }
+
+    #[test]
+    fn format_addr_call_prepends_ampersand() {
+        let style = Style {
+            space_before_paren: true,
+        };
+        assert_eq!(
+            style.format_addr_call("g_clear_object", "obj", &[]),
+            "g_clear_object (&obj)"
+        );
+        assert_eq!(
+            style.format_addr_call("g_set_object", "dest", &["src"]),
+            "g_set_object (&dest, src)"
+        );
+    }
+
+    #[test]
+    fn format_addr_call_without_space() {
+        let style = Style {
+            space_before_paren: false,
+        };
+        assert_eq!(
+            style.format_addr_call("g_clear_object", "obj", &[]),
+            "g_clear_object(&obj)"
+        );
+    }
+
+    #[test]
+    fn format_addr_call_stmt_appends_semicolon() {
+        let style = Style::default();
+        assert_eq!(
+            style.format_addr_call_stmt("g_clear_object", "obj", &[]),
+            "g_clear_object (&obj);"
+        );
+    }
+
+    // --- RuleLevel ---
+
+    #[test]
+    fn rule_level_is_enabled() {
+        assert!(RuleLevel::Error.is_enabled());
+        assert!(RuleLevel::Warn.is_enabled());
+        assert!(!RuleLevel::Ignore.is_enabled());
+    }
+
+    #[test]
+    fn rule_level_is_error() {
+        assert!(RuleLevel::Error.is_error());
+        assert!(!RuleLevel::Warn.is_error());
+        assert!(!RuleLevel::Ignore.is_error());
+    }
+
+    #[test]
+    fn rule_level_is_warn() {
+        assert!(!RuleLevel::Error.is_warn());
+        assert!(RuleLevel::Warn.is_warn());
+        assert!(!RuleLevel::Ignore.is_warn());
+    }
+
+    // --- RuleConfig deserialization ---
+
+    fn parse_rule_config(toml_value: &str) -> Result<RuleConfig, toml::de::Error> {
+        #[derive(Deserialize)]
+        struct Wrapper {
+            rule: RuleConfig,
+        }
+        let wrapper: Wrapper = toml::from_str(&format!("rule = {toml_value}"))?;
+        Ok(wrapper.rule)
+    }
+
+    #[test]
+    fn rule_config_from_bool_true() {
+        let config = parse_rule_config("true").unwrap();
+        assert_eq!(config.level, Some(RuleLevel::Error));
+    }
+
+    #[test]
+    fn rule_config_from_bool_false() {
+        let config = parse_rule_config("false").unwrap();
+        assert_eq!(config.level, Some(RuleLevel::Ignore));
+    }
+
+    #[test]
+    fn rule_config_from_string_error() {
+        let config = parse_rule_config("\"error\"").unwrap();
+        assert_eq!(config.level, Some(RuleLevel::Error));
+    }
+
+    #[test]
+    fn rule_config_from_string_warn() {
+        let config = parse_rule_config("\"warn\"").unwrap();
+        assert_eq!(config.level, Some(RuleLevel::Warn));
+    }
+
+    #[test]
+    fn rule_config_from_string_ignore() {
+        let config = parse_rule_config("\"ignore\"").unwrap();
+        assert_eq!(config.level, Some(RuleLevel::Ignore));
+    }
+
+    #[test]
+    fn rule_config_from_string_invalid() {
+        assert!(parse_rule_config("\"bogus\"").is_err());
+    }
+
+    #[test]
+    fn rule_config_from_table_with_level() {
+        let config: RuleConfig = toml::from_str(r#"level = "error""#).unwrap();
+        assert_eq!(config.level, Some(RuleLevel::Error));
+        assert!(config.ignore.is_empty());
+    }
+
+    #[test]
+    fn rule_config_from_table_with_ignore() {
+        let config: RuleConfig =
+            toml::from_str("level = \"warn\"\nignore = [\"tests/**\"]").unwrap();
+        assert_eq!(config.level, Some(RuleLevel::Warn));
+        assert_eq!(config.ignore, vec!["tests/**"]);
+    }
+
+    #[test]
+    fn rule_config_from_table_with_options() {
+        let config: RuleConfig =
+            toml::from_str("level = \"warn\"\nconfig_header = \"config.h\"").unwrap();
+        assert_eq!(config.level, Some(RuleLevel::Warn));
+        assert!(config.options.contains_key("config_header"));
+    }
+
+    #[test]
+    fn rule_config_from_table_level_only_omitted() {
+        let config: RuleConfig = toml::from_str("ignore = [\"*.h\"]").unwrap();
+        assert_eq!(config.level, None);
+        assert_eq!(config.ignore, vec!["*.h"]);
+    }
+
+    // --- Config::load ---
+
+    #[test]
+    fn load_missing_file_returns_default() {
+        let config = Config::load(Path::new("/nonexistent/path.toml")).unwrap();
+        assert!(config.min_glib_version.is_none());
+        assert!(!config.msvc_compatible);
+        assert!(config.ignore.is_empty());
+    }
+
+    #[test]
+    fn load_empty_file_returns_default() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("gobject-linter.toml");
+        fs::write(&path, "").unwrap();
+        let config = Config::load(&path).unwrap();
+        assert!(config.min_glib_version.is_none());
+    }
+
+    #[test]
+    fn load_with_min_glib_version() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("gobject-linter.toml");
+        fs::write(&path, "min_glib_version = \"2.76\"").unwrap();
+        let config = Config::load(&path).unwrap();
+        assert_eq!(config.min_glib_version, Some((2, 76)));
+    }
+
+    #[test]
+    fn load_with_invalid_glib_version() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("gobject-linter.toml");
+        fs::write(&path, "min_glib_version = \"abc\"").unwrap();
+        assert!(Config::load(&path).is_err());
+    }
+
+    #[test]
+    fn load_with_msvc_compatible() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("gobject-linter.toml");
+        fs::write(&path, "msvc_compatible = true").unwrap();
+        let config = Config::load(&path).unwrap();
+        assert!(config.msvc_compatible);
+    }
+
+    #[test]
+    fn load_with_ignore_patterns() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("gobject-linter.toml");
+        fs::write(&path, "ignore = [\"tests/**\", \"build/**\"]").unwrap();
+        let config = Config::load(&path).unwrap();
+        assert_eq!(config.ignore, vec!["tests/**", "build/**"]);
+    }
+
+    #[test]
+    fn load_with_default_level() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("gobject-linter.toml");
+        fs::write(&path, "default_level = \"error\"").unwrap();
+        let config = Config::load(&path).unwrap();
+        assert_eq!(config.default_level, Some(RuleLevel::Error));
+    }
+
+    #[test]
+    fn load_with_style_no_space() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("gobject-linter.toml");
+        fs::write(&path, "[style]\nspace_before_paren = false").unwrap();
+        let config = Config::load(&path).unwrap();
+        assert!(!config.style.space_before_paren);
+    }
+
+    // --- Config ignore matchers ---
+
+    #[test]
+    fn build_ignore_matcher_empty() {
+        let config = Config::default();
+        let matcher = config.build_ignore_matcher().unwrap();
+        assert!(!matcher.is_match("foo.c"));
+    }
+
+    #[test]
+    fn build_ignore_matcher_matches() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("gobject-linter.toml");
+        fs::write(&path, "ignore = [\"tests/**\"]").unwrap();
+        let config = Config::load(&path).unwrap();
+        let matcher = config.build_ignore_matcher().unwrap();
+        assert!(matcher.is_match("tests/foo.c"));
+        assert!(!matcher.is_match("src/foo.c"));
+    }
+
+    #[test]
+    fn build_rule_ignore_matcher_combines_global_and_rule() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("gobject-linter.toml");
+        fs::write(&path, "ignore = [\"vendor/**\"]").unwrap();
+        let config = Config::load(&path).unwrap();
+
+        let rule_config = RuleConfig {
+            level: Some(RuleLevel::Warn),
+            ignore: vec!["tests/**".to_string()],
+            options: HashMap::new(),
+        };
+
+        let matcher = config.build_rule_ignore_matcher(&rule_config).unwrap();
+        assert!(matcher.is_match("vendor/lib.c"));
+        assert!(matcher.is_match("tests/test.c"));
+        assert!(!matcher.is_match("src/main.c"));
+    }
+
+    // --- Config::get_rule_config ---
+
+    #[test]
+    fn get_rule_config_existing() {
+        let config = Config::default();
+        assert!(config.get_rule_config("dead_code").is_some());
+        assert!(config.get_rule_config("include_order").is_some());
+    }
+
+    #[test]
+    fn get_rule_config_nonexistent() {
+        let config = Config::default();
+        assert!(config.get_rule_config("nonexistent_rule").is_none());
+    }
+
+    #[test]
+    fn get_rule_config_mut_existing() {
+        let mut config = Config::default();
+        let rc = config.get_rule_config_mut("dead_code").unwrap();
+        rc.level = Some(RuleLevel::Error);
+        assert_eq!(config.rules.dead_code.level, Some(RuleLevel::Error));
+    }
+
+    // --- Config::get_string_list ---
+
+    #[test]
+    fn get_string_list_missing_rule() {
+        let config = Config::default();
+        assert!(config.get_string_list("nonexistent", "key").is_empty());
+    }
+
+    #[test]
+    fn get_string_list_missing_key() {
+        let config = Config::default();
+        assert!(
+            config
+                .get_string_list("dead_code", "missing_key")
+                .is_empty()
+        );
+    }
+
+    // --- Config::enable_only_rules / disable_rules ---
+
+    #[test]
+    fn enable_only_rules_disables_others() {
+        let mut config = Config::default();
+        config.enable_only_rules(&[crate::scanner::RuleName::DeadCode]);
+        assert!(config.rules.dead_code.level.unwrap().is_enabled());
+        assert!(!config.rules.include_order.level.unwrap().is_enabled());
+        assert!(!config.rules.use_g_new.level.unwrap().is_enabled());
+    }
+
+    #[test]
+    fn disable_rules_disables_specified() {
+        let mut config = Config::default();
+        config.rules.dead_code.level = Some(RuleLevel::Error);
+        config.disable_rules(&[crate::scanner::RuleName::DeadCode]);
+        assert_eq!(config.rules.dead_code.level, Some(RuleLevel::Ignore));
     }
 }

@@ -620,3 +620,231 @@ fn deduplicate_by_rule_precedence(violations: &mut Vec<Violation>) {
     // (highest rule_index due to sort order)
     violations.dedup_by(|b, a| a.file == b.file && a.line == b.line && a.column == b.column);
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::*;
+    use crate::rules::Category;
+
+    fn make_violation(file: &str, line: usize, col: usize, rule_index: usize) -> Violation {
+        Violation {
+            file: PathBuf::from(file),
+            line,
+            column: col,
+            message: String::new(),
+            rule: "test_rule",
+            category: Category::Correctness,
+            level: RuleLevel::Warn,
+            snippet: None,
+            rule_index,
+            fixes: Vec::new(),
+        }
+    }
+
+    // --- get_source_snippet ---
+
+    #[test]
+    fn snippet_at_valid_line() {
+        let source = b"line1\nline2\nline3\nline4\n";
+        let snippet = get_source_snippet(source, 2).unwrap();
+        assert!(snippet.contains(">line2"));
+    }
+
+    #[test]
+    fn snippet_at_line_zero_returns_none() {
+        let source = b"line1\nline2\n";
+        assert!(get_source_snippet(source, 0).is_none());
+    }
+
+    #[test]
+    fn snippet_past_end_returns_none() {
+        let source = b"line1\nline2\n";
+        assert!(get_source_snippet(source, 100).is_none());
+    }
+
+    #[test]
+    fn snippet_collapses_noise_lines() {
+        let mut lines = Vec::new();
+        for i in 1..=20 {
+            lines.push(format!("code_line_{i}"));
+        }
+        // Insert braces-only lines around target
+        lines[8] = "{".to_string();
+        lines[11] = "}".to_string();
+        let source = lines.join("\n");
+        let snippet = get_source_snippet(source.as_bytes(), 10).unwrap();
+        assert!(snippet.contains("..."));
+        assert!(snippet.contains(">code_line_10"));
+    }
+
+    #[test]
+    fn snippet_single_line_file() {
+        let source = b"only_line";
+        let snippet = get_source_snippet(source, 1).unwrap();
+        assert!(snippet.contains(">only_line"));
+    }
+
+    // --- is_rule_compatible ---
+
+    #[test]
+    fn compatible_no_requirement() {
+        let config = Config::default();
+        assert!(is_rule_compatible(&config, None));
+    }
+
+    #[test]
+    fn compatible_no_min_version_set() {
+        let config = Config::default();
+        assert!(is_rule_compatible(&config, Some((2, 76))));
+    }
+
+    #[test]
+    fn compatible_version_met() {
+        let config = Config::default().with_min_glib_version((2, 76));
+        assert!(is_rule_compatible(&config, Some((2, 76))));
+        assert!(is_rule_compatible(&config, Some((2, 70))));
+    }
+
+    #[test]
+    fn incompatible_version_too_low() {
+        let config = Config::default().with_min_glib_version((2, 70));
+        assert!(!is_rule_compatible(&config, Some((2, 76))));
+    }
+
+    #[test]
+    fn compatible_higher_major() {
+        let config = Config::default().with_min_glib_version((3, 0));
+        assert!(is_rule_compatible(&config, Some((2, 99))));
+    }
+
+    // --- apply_msvc_compatibility ---
+
+    #[test]
+    fn msvc_off_no_g_auto_macros_forced_ignore() {
+        let config = Config::default();
+        let level = apply_msvc_compatibility(&config, "no_g_auto_macros", false, RuleLevel::Warn);
+        assert_eq!(level, RuleLevel::Ignore);
+    }
+
+    #[test]
+    fn msvc_on_no_g_auto_macros_forced_error() {
+        let config = Config::default().with_msvc_compatible(true);
+        let level = apply_msvc_compatibility(&config, "no_g_auto_macros", false, RuleLevel::Warn);
+        assert_eq!(level, RuleLevel::Error);
+    }
+
+    #[test]
+    fn msvc_off_normal_rule_passes_through() {
+        let config = Config::default();
+        let level = apply_msvc_compatibility(&config, "use_g_new", false, RuleLevel::Error);
+        assert_eq!(level, RuleLevel::Error);
+    }
+
+    #[test]
+    fn msvc_on_auto_cleanup_rule_disabled() {
+        let config = Config::default().with_msvc_compatible(true);
+        let level = apply_msvc_compatibility(&config, "use_auto_cleanup", true, RuleLevel::Warn);
+        assert_eq!(level, RuleLevel::Ignore);
+    }
+
+    #[test]
+    fn msvc_on_non_auto_cleanup_passes_through() {
+        let config = Config::default().with_msvc_compatible(true);
+        let level = apply_msvc_compatibility(&config, "use_g_new", false, RuleLevel::Warn);
+        assert_eq!(level, RuleLevel::Warn);
+    }
+
+    // --- deduplicate_by_rule_precedence ---
+
+    #[test]
+    fn dedup_empty() {
+        let mut violations = vec![];
+        deduplicate_by_rule_precedence(&mut violations);
+        assert!(violations.is_empty());
+    }
+
+    #[test]
+    fn dedup_single() {
+        let mut violations = vec![make_violation("a.c", 1, 1, 0)];
+        deduplicate_by_rule_precedence(&mut violations);
+        assert_eq!(violations.len(), 1);
+    }
+
+    #[test]
+    fn dedup_keeps_higher_rule_index() {
+        let mut violations = vec![
+            make_violation("a.c", 10, 5, 1),
+            make_violation("a.c", 10, 5, 3),
+            make_violation("a.c", 10, 5, 2),
+        ];
+        deduplicate_by_rule_precedence(&mut violations);
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].rule_index, 3);
+    }
+
+    #[test]
+    fn dedup_different_positions_kept() {
+        let mut violations = vec![
+            make_violation("a.c", 10, 5, 1),
+            make_violation("a.c", 20, 5, 1),
+            make_violation("b.c", 10, 5, 1),
+        ];
+        deduplicate_by_rule_precedence(&mut violations);
+        assert_eq!(violations.len(), 3);
+    }
+
+    // --- validate_config ---
+
+    #[test]
+    fn validate_config_default_ok() {
+        let config = Config::default();
+        assert!(validate_config(&config).is_ok());
+    }
+
+    #[test]
+    fn validate_config_no_g_auto_without_msvc_errors() {
+        let mut config = Config::default();
+        config.rules.no_g_auto_macros.level = Some(RuleLevel::Error);
+        assert!(validate_config(&config).is_err());
+    }
+
+    #[test]
+    fn validate_config_msvc_with_auto_cleanup_rule_errors() {
+        let mut config = Config::default().with_msvc_compatible(true);
+        config.rules.use_auto_cleanup.level = Some(RuleLevel::Warn);
+        assert!(validate_config(&config).is_err());
+    }
+
+    // --- create_all_rules ---
+
+    #[test]
+    fn create_all_rules_returns_nonempty() {
+        let config = Config::default();
+        let rules = create_all_rules(&config);
+        assert!(!rules.is_empty());
+    }
+
+    #[test]
+    fn create_all_rules_default_level_applied() {
+        let config = Config {
+            default_level: Some(RuleLevel::Error),
+            ..Config::default()
+        };
+        let rules = create_all_rules(&config);
+        let non_opt_in: Vec<_> = rules
+            .iter()
+            .filter(|e| !e.rule.opt_in() && e.rule.name() != "no_g_auto_macros")
+            .collect();
+        assert!(non_opt_in.iter().all(|e| e.level == RuleLevel::Error));
+    }
+
+    #[test]
+    fn create_all_rules_opt_in_default_ignore() {
+        let config = Config::default();
+        let rules = create_all_rules(&config);
+        let opt_in: Vec<_> = rules.iter().filter(|e| e.rule.opt_in()).collect();
+        assert!(opt_in.iter().all(|e| e.level == RuleLevel::Ignore));
+    }
+}
