@@ -1,0 +1,1 @@
+old_style_gobject.h:10:1: missing_autoptr_cleanup: GObject type 'OldObj' defined with G_DEFINE_TYPE* should either use G_DECLARE_* or have G_DEFINE_AUTOPTR_CLEANUP_FUNC

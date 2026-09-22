@@ -1,0 +1,1 @@
+deprecated.h:15:1: gi_missing_since: Function 'my_deprecated_func' has DEPRECATED_IN_4_0 but is missing a Deprecated: annotation
