@@ -3,7 +3,7 @@ use gobject_ast::model::{CallExpression, FileModel, GObjectType, ParamFlag, Prop
 use crate::{
     ast_context::AstContext,
     config::Config,
-    rules::{Fix, Rule, Violation},
+    rules::{ConfigOption, Fix, Rule, Violation},
 };
 
 pub struct GParamSpecNullNickBlurb;
@@ -23,6 +23,16 @@ impl Rule for GParamSpecNullNickBlurb {
 
     fn fixable(&self) -> bool {
         true
+    }
+
+    fn config_options(&self) -> &'static [ConfigOption] {
+        &[ConfigOption {
+            name: "static_flags",
+            option_type: "array<string>",
+            default_value: "[]",
+            example_value: "[\"MY_PARAM_READWRITE\", \"MY_PARAM_READABLE\"]",
+            description: "List of custom flag constants that already include G_PARAM_STATIC_STRINGS",
+        }]
     }
 
     fn check_gobject_type(
