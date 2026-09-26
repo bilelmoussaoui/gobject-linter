@@ -845,33 +845,49 @@ impl Parser {
                 && type_node.kind() == "enum_specifier"
                 && let Some(body) = type_node.child_by_field_name("body")
             {
-                // Collect type_identifiers (attribute macros like
-                // G_GNUC_FLAG_ENUM) and the actual typedef name
-                // from type_definition children. When a macro
-                // attribute precedes the name, tree-sitter records
-                // the macro as type_identifier and the actual name as an ERROR
-                // node.
+                // Collect attribute macros (like G_GNUC_FLAG_ENUM) and the
+                // actual typedef name from type_definition children.
+                // The grammar may represent attribute macros as either
+                // type_identifier or macro_modifier nodes depending on
+                // whether the custom grammar recognises them.
                 let mut attributes = Vec::new();
                 let mut error_name: Option<String> = None;
                 let mut cursor = node.walk();
-                for child in node.children(&mut cursor) {
-                    if child.kind() == "type_identifier" {
-                        if let Ok(text) = std::str::from_utf8(&source[child.byte_range()]) {
-                            attributes.push(text.to_owned());
+                if cursor.goto_first_child() {
+                    loop {
+                        let child = cursor.node();
+                        let field = cursor.field_name();
+                        match child.kind() {
+                            "macro_modifier" => {
+                                if let Ok(text) = std::str::from_utf8(&source[child.byte_range()]) {
+                                    attributes.push(text.to_owned());
+                                }
+                            }
+                            "type_identifier" if field != Some("declarator") => {
+                                if let Ok(text) = std::str::from_utf8(&source[child.byte_range()]) {
+                                    attributes.push(text.to_owned());
+                                }
+                            }
+                            "ERROR" => {
+                                error_name = std::str::from_utf8(&source[child.byte_range()])
+                                    .ok()
+                                    .map(|s| s.trim().to_owned())
+                                    .filter(|s| !s.is_empty());
+                            }
+                            _ => {}
                         }
-                    } else if child.kind() == "ERROR" {
-                        // Without includes the grammar records the real typedef
-                        // name as an ERROR node inside
-                        // the type_definition.
-                        error_name = std::str::from_utf8(&source[child.byte_range()])
-                            .ok()
-                            .map(|s| s.trim().to_owned())
-                            .filter(|s| !s.is_empty());
+                        if !cursor.goto_next_sibling() {
+                            break;
+                        }
                     }
                 }
 
                 // The name placement varies by parse context; try in order.
-                let name = if error_name.is_some() {
+                let name = if let Some(decl) = node.child_by_field_name("declarator") {
+                    std::str::from_utf8(&source[decl.byte_range()])
+                        .ok()
+                        .map(std::borrow::ToOwned::to_owned)
+                } else if error_name.is_some() {
                     error_name
                 } else if let Some(next) = node.next_sibling() {
                     if next.kind() == "type_identifier" {
