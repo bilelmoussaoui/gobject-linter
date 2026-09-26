@@ -4,10 +4,10 @@ use tree_sitter::Node;
 
 use crate::{
     model::{
-        Comment, CommentPosition, ConditionalKind, DefineValue, EnumInfo, EnumValue, Expression,
-        FunctionDeclItem, FunctionDefItem, FunctionDoc, Parameter, PragmaKind,
-        PreprocessorDirective, SourceLocation, Statement, StructField, TopLevelItem, TypeDefItem,
-        TypeInfo, TypedefTarget,
+        CallableSignature, Comment, CommentPosition, ConditionalKind, DefineValue, EnumInfo,
+        EnumValue, Expression, FunctionDeclItem, FunctionDefItem, FunctionDoc, Parameter,
+        PragmaKind, PreprocessorDirective, SourceLocation, Statement, StructField, TopLevelItem,
+        TypeDefItem, TypeInfo, TypedefTarget,
     },
     parser::Parser,
 };
@@ -361,20 +361,13 @@ impl Parser {
                         // Extract return type
                         let return_type = self.extract_return_type(node, source);
 
-                        // Extract parameters and macro modifiers from the
-                        // function_declarator node
-                        let (parameters, macro_modifiers) = {
+                        // Extract parameters from the function declarator.
+                        let parameters = {
                             let mut params = Vec::new();
-                            let mut modifiers = Vec::new();
                             let mut cursor = func_decl.walk();
                             for child in func_decl.children(&mut cursor) {
                                 if child.kind() == "parameter_list" && params.is_empty() {
                                     params = self.extract_parameters(child, source);
-                                } else if child.kind() == "macro_modifier"
-                                    && let Ok(text) =
-                                        std::str::from_utf8(&source[child.byte_range()])
-                                {
-                                    modifiers.push(text.trim().to_owned());
                                 }
                             }
                             if params.is_empty() {
@@ -386,8 +379,9 @@ impl Parser {
                                     params = self.extract_parameters(child, source);
                                 }
                             }
-                            (params, modifiers)
+                            params
                         };
+                        let macro_modifiers = self.collect_macro_modifiers(node, source);
 
                         return Some(TopLevelItem::FunctionDeclaration(FunctionDeclItem {
                             name: name.to_owned(),
@@ -557,6 +551,7 @@ impl Parser {
         let body_location = body.map(|b| self.node_location(b));
 
         let return_type = self.extract_return_type(node, source);
+        let macro_modifiers = self.collect_macro_modifiers(node, source);
 
         Some(TopLevelItem::FunctionDefinition(FunctionDefItem {
             name: name.to_owned(),
@@ -564,6 +559,7 @@ impl Parser {
             is_static,
             is_inline,
             parameters,
+            macro_modifiers,
             body_statements,
             location: self.node_location(node),
             body_location,
@@ -664,6 +660,7 @@ impl Parser {
                             location: self.node_location(child),
                             bit_width: None,
                             inner_fields,
+                            callable: None,
                         });
                         continue;
                     }
@@ -706,12 +703,25 @@ impl Parser {
                             .and_then(|s| s.trim().parse::<u32>().ok())
                     };
 
+                    let callable = child
+                        .child_by_field_name("declarator")
+                        .and_then(|declarator| self.find_function_declarator(declarator))
+                        .map(|func_decl| CallableSignature {
+                            return_type: self.extract_return_type(child, source),
+                            parameters: self
+                                .find_node_by_kind(func_decl, "parameter_list")
+                                .map(|params| self.extract_parameters(params, source))
+                                .unwrap_or_default(),
+                            macro_modifiers: self.collect_macro_modifiers(child, source),
+                        });
+
                     fields.push(StructField {
                         field_type,
                         field_name,
                         location: self.node_location(child),
                         bit_width,
                         inner_fields: vec![],
+                        callable,
                     });
                 }
                 // Recurse into nested anonymous struct/union bodies
@@ -735,8 +745,17 @@ impl Parser {
         if matches!(declarator.kind(), "field_identifier" | "identifier") {
             return std::str::from_utf8(&source[declarator.byte_range()]).ok();
         }
-        if let Some(inner) = declarator.child_by_field_name("declarator") {
-            return self.extract_field_declarator_name(inner, source);
+        if let Some(inner) = declarator.child_by_field_name("declarator")
+            && let Some(name) = self.extract_field_declarator_name(inner, source)
+        {
+            return Some(name);
+        }
+
+        let mut cursor = declarator.walk();
+        for child in declarator.named_children(&mut cursor) {
+            if let Some(name) = self.extract_field_declarator_name(child, source) {
+                return Some(name);
+            }
         }
         None
     }
@@ -792,6 +811,7 @@ impl Parser {
             TypedefTarget::Callback {
                 return_type,
                 parameters,
+                macro_modifiers: self.collect_macro_modifiers(node, source),
             }
         } else {
             let type_node = node.child_by_field_name("type")?;
@@ -852,43 +872,44 @@ impl Parser {
                 // whether the custom grammar recognises them.
                 let mut attributes = Vec::new();
                 let mut error_name: Option<String> = None;
+                let declarator = node.child_by_field_name("declarator");
+                let mut declarator_name = declarator.and_then(|declarator| {
+                    self.extract_declarator_name(declarator, source)
+                        .map(std::borrow::ToOwned::to_owned)
+                });
+                // The default grammar can recover `G_GNUC_FLAG_ENUM Name` by
+                // putting the attribute in the declarator field and the real
+                // name in an ERROR node. Only an identifier made entirely of
+                // uppercase ASCII, digits, and underscores is eligible for
+                // that recovery path; ordinary typedef names stay names.
+                if declarator_name.as_deref().is_some_and(|name| {
+                    name.contains('_')
+                        && name.bytes().all(|byte| {
+                            byte.is_ascii_uppercase() || byte.is_ascii_digit() || byte == b'_'
+                        })
+                }) {
+                    attributes.push(declarator_name.take().unwrap());
+                }
                 let mut cursor = node.walk();
-                if cursor.goto_first_child() {
-                    loop {
-                        let child = cursor.node();
-                        let field = cursor.field_name();
-                        match child.kind() {
-                            "macro_modifier" => {
-                                if let Ok(text) = std::str::from_utf8(&source[child.byte_range()]) {
-                                    attributes.push(text.to_owned());
-                                }
-                            }
-                            "type_identifier" if field != Some("declarator") => {
-                                if let Ok(text) = std::str::from_utf8(&source[child.byte_range()]) {
-                                    attributes.push(text.to_owned());
-                                }
-                            }
-                            "ERROR" => {
-                                error_name = std::str::from_utf8(&source[child.byte_range()])
-                                    .ok()
-                                    .map(|s| s.trim().to_owned())
-                                    .filter(|s| !s.is_empty());
-                            }
-                            _ => {}
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "macro_modifier"
+                        || (child.kind() == "type_identifier"
+                            && declarator.is_none_or(|declarator| child.id() != declarator.id()))
+                    {
+                        if let Ok(text) = std::str::from_utf8(&source[child.byte_range()]) {
+                            attributes.push(text.to_owned());
                         }
-                        if !cursor.goto_next_sibling() {
-                            break;
-                        }
+                    } else if child.kind() == "ERROR" {
+                        error_name = std::str::from_utf8(&source[child.byte_range()])
+                            .ok()
+                            .map(|s| s.trim().to_owned())
+                            .filter(|s| !s.is_empty());
                     }
                 }
 
                 // The name placement varies by parse context; try in order.
-                let name = if let Some(decl) = node.child_by_field_name("declarator") {
-                    std::str::from_utf8(&source[decl.byte_range()])
-                        .ok()
-                        .map(std::borrow::ToOwned::to_owned)
-                } else if error_name.is_some() {
-                    error_name
+                let name = if error_name.is_some() || declarator_name.is_some() {
+                    error_name.or(declarator_name)
                 } else if let Some(next) = node.next_sibling() {
                     if next.kind() == "type_identifier" {
                         std::str::from_utf8(&source[next.byte_range()])

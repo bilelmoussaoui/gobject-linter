@@ -18,4 +18,4 @@ pub use gtype::GType;
 pub use include::Include;
 pub use property::{ParamFlag, ParamSpecAssignment, Property, PropertyType};
 pub use signal::{Signal, SignalFlag};
-pub use type_def::{StructField, TypeDefItem, TypedefTarget};
+pub use type_def::{CallableSignature, StructField, TypeDefItem, TypedefTarget};

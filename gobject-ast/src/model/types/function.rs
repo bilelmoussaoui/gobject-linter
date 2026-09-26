@@ -48,6 +48,8 @@ pub struct FunctionDefItem {
     pub is_inline: bool,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub parameters: Vec<Parameter>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub macro_modifiers: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub body_statements: Vec<Statement>,
     pub location: SourceLocation,
