@@ -64,9 +64,10 @@ mod tests {
         let include_data: Vec<(&str, bool, _)> = file.iter_all_includes().collect();
 
         // Should parse ALL includes, including those inside #ifdef blocks
-        // config.h, math.h, gobject/gvaluecollector.h, pango/pangocairo.h (in ifdef),
-        // cogl/cogl.h, clutter-actor-private.h, clutter-actor-pango.h (in ifdef),
-        // clutter-pango-private.h (in ifdef), clutter-action.h = 9 total
+        // config.h, math.h, gobject/gvaluecollector.h, pango/pangocairo.h (in
+        // ifdef), cogl/cogl.h, clutter-actor-private.h,
+        // clutter-actor-pango.h (in ifdef), clutter-pango-private.h (in
+        // ifdef), clutter-action.h = 9 total
         assert_eq!(
             include_data.len(),
             9,

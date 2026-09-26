@@ -129,7 +129,8 @@ impl UseGSettingsTyped {
         config: &Config,
         violations: &mut Vec<Violation>,
     ) {
-        // g_variant_get_*(variant, ...) - first arg should be g_settings_get_value call
+        // g_variant_get_*(variant, ...) - first arg should be
+        // g_settings_get_value call
         if call.arguments.is_empty() {
             return;
         }

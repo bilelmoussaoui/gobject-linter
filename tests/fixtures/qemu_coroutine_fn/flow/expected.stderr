@@ -1,0 +1,1 @@
+basic.c:28:5: qemu:coroutine_fn: calling no_coroutine_fn `blocking_call` from coroutine_fn context

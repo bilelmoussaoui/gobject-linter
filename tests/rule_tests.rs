@@ -505,3 +505,8 @@ rule_test!(
     gi_not_bindings_friendly,
     gobject_linter::rules::GiNotBindingsFriendly
 );
+rule_test!(qemu_coroutine_fn, gobject_linter::rules::QemuCoroutineFn);
+rule_test!(
+    qemu_coroutine_fn_position,
+    gobject_linter::rules::QemuCoroutineFnPosition
+);

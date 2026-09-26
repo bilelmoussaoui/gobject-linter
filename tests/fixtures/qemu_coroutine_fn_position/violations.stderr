@@ -1,0 +1,8 @@
+violations.c:2:6: qemu:coroutine_fn_position: `coroutine_fn` should be placed before the return type
+violations.c:3:6: qemu:coroutine_fn_position: `no_coroutine_fn` should be placed before the return type
+violations.c:4:6: qemu:coroutine_fn_position: `coroutine_mixed_fn` should be placed before the return type
+violations.c:7:13: qemu:coroutine_fn_position: `coroutine_fn` should be placed before the return type
+violations.c:13:13: qemu:coroutine_fn_position: `no_coroutine_fn` should be placed before the return type
+violations.c:18:13: qemu:coroutine_fn_position: `coroutine_fn` should be placed before the return type
+violations.c:27:17: qemu:coroutine_fn_position: `coroutine_fn` should be placed before the return type
+violations.c:28:17: qemu:coroutine_fn_position: `coroutine_fn` should be placed before the return type

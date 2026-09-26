@@ -154,7 +154,8 @@ impl UseGObjectClassInstallProperties {
             .filter(|gt| gt.type_name != gobject_type.type_name)
             .any(|gt| !gt.properties.is_empty());
 
-        // Pre-collect variable-pattern assignments for lookup during fix generation
+        // Pre-collect variable-pattern assignments for lookup during fix
+        // generation
         let param_spec_assignments: Vec<_> = assignments
             .iter()
             .filter_map(|a| {
@@ -292,7 +293,8 @@ impl UseGObjectClassInstallProperties {
                     fixes.push(Fix::new(eq_start, value_loc.end_byte, String::new()));
                 }
             } else {
-                // NUM_PROPERTIES, PROP_OVERRIDE = NUM_PROPERTIES — delete sentinel
+                // NUM_PROPERTIES, PROP_OVERRIDE = NUM_PROPERTIES — delete
+                // sentinel
                 fixes.push(Fix::delete_line_and_trailing_blank(
                     &sentinel_value.location,
                 ));
@@ -483,7 +485,8 @@ impl UseGObjectClassInstallProperties {
             // Check if this is a variable pattern or direct call
             let (param_spec, delete_install_call) =
                 if let Expression::Call(param_spec_call) = param_spec_arg {
-                    // Direct call: g_object_class_install_property(..., g_param_spec_xxx(...))
+                    // Direct call: g_object_class_install_property(...,
+                    // g_param_spec_xxx(...))
                     let func_name = param_spec_call.function_name();
                     let paren = if style.space_before_paren { " (" } else { "(" };
                     let new_line_prefix =
@@ -498,8 +501,8 @@ impl UseGObjectClassInstallProperties {
                         false,
                     )
                 } else {
-                    // Variable pattern: pspec = g_param_spec_xxx(...); install_property(...,
-                    // pspec);
+                    // Variable pattern: pspec = g_param_spec_xxx(...);
+                    // install_property(..., pspec);
                     let Some(var_name) = param_spec_arg.location().as_str() else {
                         continue;
                     };

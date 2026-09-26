@@ -71,7 +71,8 @@ impl Rule for UsePragmaOnce {
                 let (define_start, define_end) = define_loc.find_line_bounds();
                 fixes.push(Fix::new(define_start, define_end, "#pragma once\n"));
 
-                // Fix 3: Remove the entire #endif line (with preceding blank line if any)
+                // Fix 3: Remove the entire #endif line (with preceding blank
+                // line if any)
                 fixes.push(Fix::delete_line_and_leading_blank(&endif_loc));
 
                 violations.push(self.violation_with_fixes_at(
@@ -92,7 +93,8 @@ impl UsePragmaOnce {
         &self,
         items: &'a [TopLevelItem],
     ) -> Option<(SourceLocation, SourceLocation, SourceLocation, &'a str)> {
-        // The first non-comment item should be #ifndef (traditional include guard)
+        // The first non-comment item should be #ifndef (traditional include
+        // guard)
         items
             .iter()
             .find(|item| !matches!(item, TopLevelItem::Comment(_)))
@@ -103,7 +105,8 @@ impl UsePragmaOnce {
                     body,
                     location,
                 }) => {
-                    // Found #ifndef - check it contains matching #define as first item
+                    // Found #ifndef - check it contains matching #define as
+                    // first item
                     let define_loc = self.find_matching_define(body, name)?;
 
                     let endif_loc = location.with_byte_range(location.end_byte, location.end_byte);

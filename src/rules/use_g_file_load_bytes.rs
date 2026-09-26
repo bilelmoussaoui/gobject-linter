@@ -73,8 +73,9 @@ impl UseGFileLoadBytes {
 
         // Find all g_file_load_contents or g_file_load_contents_finish calls
         for call in func.find_calls(&["g_file_load_contents", "g_file_load_contents_finish"]) {
-            // g_file_load_contents(file, cancellable, &contents, &length, &etag, &error)
-            //                      0     1            2          3         4       5
+            // g_file_load_contents(file, cancellable, &contents, &length,
+            // &etag, &error)                      0     1
+            // 2          3         4       5
             if call.arguments.len() >= 6 {
                 // Extract the contents variable from argument 2 (&contents)
                 if let Some(contents_var) = self.extract_pointer_var(&call.arguments[2]) {
@@ -141,7 +142,8 @@ impl UseGFileLoadBytes {
         {
             // Extract the first argument (contents variable)
             if let Some(contents_var) = self.extract_contents_var(&call.arguments[0]) {
-                // Check if this contents variable came from g_file_load_contents
+                // Check if this contents variable came from
+                // g_file_load_contents
                 if load_contents_vars.contains(&contents_var) {
                     violations.push(self.violation_at(
                             &file.path,

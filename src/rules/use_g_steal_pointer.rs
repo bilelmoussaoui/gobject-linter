@@ -309,8 +309,8 @@ impl UseGStealPointer {
             let replacement = format!("{dest_expr} = {steal};");
             let message = format!("Use {steal} instead of copying and setting to NULL");
 
-            // If condition tests the same variable being stolen, remove entire if
-            // Otherwise just replace the body
+            // If condition tests the same variable being stolen, remove entire
+            // if Otherwise just replace the body
             let fix = if condition_expr == Some(ptr_expr) {
                 Fix::new(
                     if_stmt.location.start_byte,
@@ -386,7 +386,8 @@ impl UseGStealPointer {
                 "Use {replacement} instead of copying {ptr_expr_str} and setting it to NULL"
             );
 
-            // If condition tests the same variable being stolen, remove entire if
+            // If condition tests the same variable being stolen, remove entire
+            // if
             let fix = if condition_expr == Some(ptr_expr) {
                 Fix::new(
                     if_stmt.location.start_byte,
@@ -436,8 +437,8 @@ impl UseGStealPointer {
         let rhs = match &*assign.rhs {
             Expression::Identifier(_) | Expression::FieldAccess(_) => &assign.rhs,
             Expression::Null(_) | Expression::Call(_) => {
-                // For NULL or function calls like g_strdup(), we don't want to suggest
-                // g_steal_pointer
+                // For NULL or function calls like g_strdup(), we don't want to
+                // suggest g_steal_pointer
                 return None;
             }
             _ => {

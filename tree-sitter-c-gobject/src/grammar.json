@@ -3155,8 +3155,17 @@
         {
           "type": "REPEAT",
           "content": {
-            "type": "SYMBOL",
-            "name": "type_qualifier"
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "type_qualifier"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "macro_modifier"
+              }
+            ]
           }
         },
         {
@@ -3170,8 +3179,17 @@
         {
           "type": "REPEAT",
           "content": {
-            "type": "SYMBOL",
-            "name": "type_qualifier"
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "type_qualifier"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "macro_modifier"
+              }
+            ]
           }
         }
       ]
@@ -4026,6 +4044,13 @@
               }
             },
             {
+              "type": "REPEAT",
+              "content": {
+                "type": "SYMBOL",
+                "name": "macro_modifier"
+              }
+            },
+            {
               "type": "FIELD",
               "name": "declarator",
               "content": {
@@ -4077,6 +4102,13 @@
               }
             },
             {
+              "type": "REPEAT",
+              "content": {
+                "type": "SYMBOL",
+                "name": "macro_modifier"
+              }
+            },
+            {
               "type": "FIELD",
               "name": "declarator",
               "content": {
@@ -4125,6 +4157,13 @@
               "content": {
                 "type": "SYMBOL",
                 "name": "type_qualifier"
+              }
+            },
+            {
+              "type": "REPEAT",
+              "content": {
+                "type": "SYMBOL",
+                "name": "macro_modifier"
               }
             },
             {
@@ -5422,6 +5461,13 @@
             ]
           },
           {
+            "type": "REPEAT",
+            "content": {
+              "type": "SYMBOL",
+              "name": "macro_modifier"
+            }
+          },
+          {
             "type": "CHOICE",
             "members": [
               {
@@ -5499,6 +5545,13 @@
                 "type": "BLANK"
               }
             ]
+          },
+          {
+            "type": "REPEAT",
+            "content": {
+              "type": "SYMBOL",
+              "name": "macro_modifier"
+            }
           },
           {
             "type": "CHOICE",
@@ -10202,21 +10255,39 @@
       "type": "PREC_LEFT",
       "value": 2,
       "content": {
-        "type": "SEQ",
+        "type": "CHOICE",
         "members": [
           {
-            "type": "SYMBOL",
-            "name": "_macro_modifier_name"
-          },
-          {
-            "type": "CHOICE",
+            "type": "SEQ",
             "members": [
               {
                 "type": "SYMBOL",
-                "name": "argument_list"
+                "name": "_qemu_function_like_modifier"
               },
               {
-                "type": "BLANK"
+                "type": "SYMBOL",
+                "name": "argument_list"
+              }
+            ]
+          },
+          {
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "_macro_modifier_name"
+              },
+              {
+                "type": "CHOICE",
+                "members": [
+                  {
+                    "type": "SYMBOL",
+                    "name": "argument_list"
+                  },
+                  {
+                    "type": "BLANK"
+                  }
+                ]
               }
             ]
           }
@@ -10372,6 +10443,10 @@
     {
       "type": "SYMBOL",
       "name": "objc_message_expr"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_qemu_function_like_modifier"
     }
   ],
   "inline": [

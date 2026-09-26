@@ -102,16 +102,79 @@ fn parse_glib_version_arg(s: &str) -> Result<(u32, u32), String> {
     })
 }
 
+/// Escape unescaped colons in zsh completion value lists (clap#1596).
+///
+/// zsh uses `:` as a delimiter in completion specs. clap_complete escapes
+/// colons in `((val\:desc))` description pairs but not in `(val1 val2)`
+/// value-only lists, so any value name containing `:` breaks parsing.
+fn escape_zsh_value_colons(script: &str) -> String {
+    let mut result = String::with_capacity(script.len());
+    let mut chars = script.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        if ch == '(' {
+            if chars.peek() == Some(&'(') {
+                // Double-paren group — already escaped, pass through verbatim
+                result.push('(');
+                result.push(chars.next().unwrap());
+                let mut depth = 2u32;
+                for inner in chars.by_ref() {
+                    result.push(inner);
+                    match inner {
+                        '(' => depth += 1,
+                        ')' => {
+                            depth -= 1;
+                            if depth == 0 {
+                                break;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            } else {
+                // Single-paren value list — escape colons
+                result.push('(');
+                for inner in chars.by_ref() {
+                    if inner == ')' {
+                        result.push(')');
+                        break;
+                    } else if inner == ':' {
+                        result.push_str("\\:");
+                    } else {
+                        result.push(inner);
+                    }
+                }
+            }
+        } else {
+            result.push(ch);
+        }
+    }
+
+    result
+}
+
 fn main() -> Result<()> {
     let args = Args::parse();
 
     if let Some(shell) = args.completions {
-        clap_complete::generate(
-            shell,
-            &mut Args::command(),
-            env!("CARGO_PKG_NAME"),
-            &mut std::io::stdout(),
-        );
+        if shell == Shell::Zsh {
+            let mut buf = Vec::new();
+            clap_complete::generate(
+                shell,
+                &mut Args::command(),
+                env!("CARGO_PKG_NAME"),
+                &mut buf,
+            );
+            let script = String::from_utf8(buf).expect("completion script is valid UTF-8");
+            print!("{}", escape_zsh_value_colons(&script));
+        } else {
+            clap_complete::generate(
+                shell,
+                &mut Args::command(),
+                env!("CARGO_PKG_NAME"),
+                &mut std::io::stdout(),
+            );
+        }
         return Ok(());
     }
 
@@ -321,7 +384,8 @@ fn main() -> Result<()> {
         let mut patch = PatchSet::new();
         patch.parse(&diff_content).context("Failed to parse diff")?;
 
-        // Diff paths are relative to the git root, which may differ from project_root
+        // Diff paths are relative to the git root, which may differ from
+        // project_root
         let git_root = {
             let mut dir = project_root.as_path();
             loop {
@@ -440,7 +504,8 @@ fn main() -> Result<()> {
         }
     }
 
-    // Exit with error code only if there are error-level violations (not warnings)
+    // Exit with error code only if there are error-level violations (not
+    // warnings)
     let has_errors = violations.iter().any(|v| v.level.is_error());
     if has_errors {
         std::process::exit(1);
@@ -485,4 +550,46 @@ fn print_explain_markdown(md: &str) {
     }
 
     print!("{md}");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn escape_zsh_colons_in_value_list() {
+        assert_eq!(
+            escape_zsh_value_colons("':RULE:(dead_code qemu:co_fn use_g_new)'"),
+            "':RULE:(dead_code qemu\\:co_fn use_g_new)'"
+        );
+    }
+
+    #[test]
+    fn escape_zsh_colons_no_change_without_colons() {
+        assert_eq!(
+            escape_zsh_value_colons("':RULE:(dead_code use_g_new)'"),
+            "':RULE:(dead_code use_g_new)'"
+        );
+    }
+
+    #[test]
+    fn escape_zsh_colons_preserves_double_paren() {
+        assert_eq!(
+            escape_zsh_value_colons("((correctness\\:\"desc\" style\\:\"desc2\"))"),
+            "((correctness\\:\"desc\" style\\:\"desc2\"))"
+        );
+    }
+
+    #[test]
+    fn escape_zsh_colons_preserves_structural() {
+        assert_eq!(
+            escape_zsh_value_colons("'-c+[Path]:FILE:_files'"),
+            "'-c+[Path]:FILE:_files'"
+        );
+    }
+
+    #[test]
+    fn escape_zsh_colons_multiple_colons() {
+        assert_eq!(escape_zsh_value_colons("(a:b:c)"), "(a\\:b\\:c)");
+    }
 }

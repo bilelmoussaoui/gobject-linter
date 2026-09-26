@@ -48,6 +48,8 @@ pub struct FunctionDefItem {
     pub is_inline: bool,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub parameters: Vec<Parameter>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub macro_modifiers: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub body_statements: Vec<Statement>,
     pub location: SourceLocation,
@@ -170,7 +172,8 @@ impl FunctionDefItem {
         for stmt in &self.body_statements {
             for ret in stmt.iter_returns() {
                 if let Some(Expression::Identifier(id)) = &ret.value {
-                    // Find the declaration of this identifier in all body statements
+                    // Find the declaration of this identifier in all body
+                    // statements
                     for body_stmt in &self.body_statements {
                         for decl in body_stmt.iter_declarations() {
                             if decl.name == id.name

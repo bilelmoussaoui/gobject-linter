@@ -117,6 +117,7 @@ impl TypeStyle {
                     TypedefTarget::Callback {
                         return_type,
                         parameters,
+                        ..
                     } => {
                         self.check_type(return_type, file, style, violations);
                         self.check_params(parameters, file, style, violations);

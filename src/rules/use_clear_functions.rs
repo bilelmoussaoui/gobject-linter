@@ -318,7 +318,8 @@ impl UseClearFunctions {
             i += 1;
         }
 
-        // handle_id: check for unnecessary braces around single g_clear_handle_id
+        // handle_id: check for unnecessary braces around single
+        // g_clear_handle_id
         for stmt in statements {
             if let Statement::If(if_stmt) = stmt {
                 self.check_unnecessary_braces(if_stmt, file, violations);
