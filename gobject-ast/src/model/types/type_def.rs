@@ -2,6 +2,16 @@ use serde::Serialize;
 
 use crate::model::{EnumInfo, Parameter, SourceLocation, TypeDoc, TypeInfo, VirtualFunction};
 
+/// The callable part of a function-pointer declaration.
+#[derive(Debug, Clone, Serialize)]
+pub struct CallableSignature {
+    pub return_type: TypeInfo,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parameters: Vec<Parameter>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub macro_modifiers: Vec<String>,
+}
+
 /// A parsed field from a struct body (e.g. `GObject parent` → field_type =
 /// "GObject")
 #[derive(Debug, Clone, Serialize)]
@@ -19,6 +29,9 @@ pub struct StructField {
     /// b]).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inner_fields: Vec<Self>,
+    /// Present when this field is a function pointer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub callable: Option<CallableSignature>,
 }
 
 impl StructField {
@@ -57,6 +70,8 @@ pub enum TypedefTarget {
     Callback {
         return_type: TypeInfo,
         parameters: Vec<Parameter>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        macro_modifiers: Vec<String>,
     },
 }
 

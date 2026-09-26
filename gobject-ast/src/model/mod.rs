@@ -37,8 +37,8 @@ pub use top_level::{
 };
 pub use type_info::{AutoCleanupMacro, TypeInfo};
 pub use types::{
-    BasicType, DeclareKind, DefineKind, EnumInfo, EnumValue, EnumValueDef, FunctionDeclItem,
-    FunctionDefItem, GObjectType, GObjectTypeKind, GType, Include, InterfaceImplementation,
-    ParamFlag, ParamSpecAssignment, Parameter, Property, PropertyType, Signal, SignalFlag,
-    StructField, TypeDefItem, TypedefTarget, VirtualFunction,
+    BasicType, CallableSignature, DeclareKind, DefineKind, EnumInfo, EnumValue, EnumValueDef,
+    FunctionDeclItem, FunctionDefItem, GObjectType, GObjectTypeKind, GType, Include,
+    InterfaceImplementation, ParamFlag, ParamSpecAssignment, Parameter, Property, PropertyType,
+    Signal, SignalFlag, StructField, TypeDefItem, TypedefTarget, VirtualFunction,
 };

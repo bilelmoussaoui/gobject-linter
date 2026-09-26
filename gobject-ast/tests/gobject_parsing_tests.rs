@@ -670,3 +670,22 @@ fn test_custom_param_spec() {
     assert!(color_prop.flags.contains(&ParamFlag::ReadWrite));
     assert!(color_prop.flags.contains(&ParamFlag::StaticStrings));
 }
+
+#[test]
+fn test_enum_attribute_before_typedef_name() {
+    let project = parse_fixture("enum_flag_attributes.c");
+    let file = project.files.values().next().expect("No files parsed");
+
+    let enums = file.iter_all_enums().collect::<Vec<_>>();
+    let names = enums
+        .iter()
+        .map(|enum_info| enum_info.name.as_deref())
+        .collect::<Vec<_>>();
+
+    // An ALL_CAPS typedef name is still a name, not an attribute macro.
+    assert_eq!(names, [Some("MyFlags"), Some("MY_FLAGS"), Some("MYFLAGS")]);
+    for enum_info in &enums {
+        assert_eq!(enum_info.attributes, ["G_GNUC_FLAG_ENUM"]);
+        assert!(enum_info.has_attribute("G_GNUC_FLAG_ENUM"));
+    }
+}
