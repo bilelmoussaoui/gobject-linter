@@ -363,6 +363,7 @@ fn test_callback_typedef_parsing() {
     let TypedefTarget::Callback {
         return_type,
         parameters,
+        ..
     } = target
     else {
         panic!(
@@ -393,6 +394,7 @@ fn test_callback_typedef_parsing() {
     let TypedefTarget::Callback {
         return_type,
         parameters,
+        ..
     } = target
     else {
         panic!("MyPredicate should be TypedefTarget::Callback");
@@ -411,6 +413,7 @@ fn test_callback_typedef_parsing() {
     let TypedefTarget::Callback {
         return_type,
         parameters,
+        ..
     } = target
     else {
         panic!("MyGetNameFunc should be TypedefTarget::Callback");

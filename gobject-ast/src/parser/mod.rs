@@ -190,6 +190,31 @@ impl Parser {
         result
     }
 
+    /// Collect declaration modifiers without descending into parameters or a
+    /// function body. The grammar decides which identifiers are modifiers;
+    /// the AST keeps their spelling without attaching project semantics.
+    pub(super) fn collect_macro_modifiers(&self, node: Node, source: &[u8]) -> Vec<String> {
+        fn visit(node: Node, source: &[u8], modifiers: &mut Vec<String>) {
+            if node.kind() == "macro_modifier" {
+                if let Ok(text) = std::str::from_utf8(&source[node.byte_range()]) {
+                    modifiers.push(text.trim().to_owned());
+                }
+                return;
+            }
+            if matches!(node.kind(), "parameter_list" | "compound_statement") {
+                return;
+            }
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                visit(child, source, modifiers);
+            }
+        }
+
+        let mut modifiers = Vec::new();
+        visit(node, source, &mut modifiers);
+        modifiers
+    }
+
     /// Extract GObject type from a gobject_type_macro or macro_modifier node
     /// The grammar now properly parses argument_list with identifier children
     fn extract_gobject_from_macro_modifier(
