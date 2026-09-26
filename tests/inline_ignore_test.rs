@@ -30,9 +30,9 @@ fn test_inline_ignore() {
     let (violations, _) =
         scanner::scan_with_ast(&ctx, &config, temp_dir.path(), None, true).expect("failed to scan");
 
-    // Note: This test will also print a warning to stderr about "some_other_rule"
-    // being invalid (which is expected behavior - we validate rule names in
-    // ignore directives)
+    // Note: This test will also print a warning to stderr about
+    // "some_other_rule" being invalid (which is expected behavior - we
+    // validate rule names in ignore directives)
 
     // Format violations
     let actual: Vec<String> = violations
@@ -154,8 +154,9 @@ void test(void) {
     let (violations, _) =
         scanner::scan_with_ast(&ctx, &config, temp_dir.path(), None, true).expect("failed to scan");
 
-    // The violation should NOT be suppressed because the rule name doesn't match
-    // (we warn about the invalid name, but don't suppress the actual violation)
+    // The violation should NOT be suppressed because the rule name doesn't
+    // match (we warn about the invalid name, but don't suppress the actual
+    // violation)
     assert_eq!(
         violations.len(),
         1,

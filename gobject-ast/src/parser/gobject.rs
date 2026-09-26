@@ -19,9 +19,9 @@ impl Parser {
         // Recursively find all identifiers in parent node
         let mut arg_values = Vec::new();
 
-        // Special handling for function_declarator nodes (from declarations with
-        // parameter_list) These have parameter_declaration children OR direct
-        // identifier children
+        // Special handling for function_declarator nodes (from declarations
+        // with parameter_list) These have parameter_declaration
+        // children OR direct identifier children
         if parent.kind() == "function_declarator" {
             // Find parameter_list child
             let mut cursor = parent.walk();
@@ -30,7 +30,8 @@ impl Parser {
                     let mut params_cursor = child.walk();
                     for param in child.children(&mut params_cursor) {
                         if param.kind() == "parameter_declaration" {
-                            // Extract the type_identifier from the parameter_declaration
+                            // Extract the type_identifier from the
+                            // parameter_declaration
                             let mut param_cursor = param.walk();
                             for param_child in param.children(&mut param_cursor) {
                                 if param_child.kind() == "type_identifier"
@@ -110,8 +111,8 @@ impl Parser {
             });
         }
 
-        // G_DEFINE_BOXED_TYPE* needs 4 args: TypeName, function_prefix, copy_func,
-        // free_func
+        // G_DEFINE_BOXED_TYPE* needs 4 args: TypeName, function_prefix,
+        // copy_func, free_func
         if (macro_name == "G_DEFINE_BOXED_TYPE" || macro_name == "G_DEFINE_BOXED_TYPE_WITH_CODE")
             && arg_values.len() >= 4
         {
@@ -149,14 +150,16 @@ impl Parser {
             });
         }
 
-        // G_DEFINE_QUARK(quark-name, func_prefix) — 2 args; the first may expand
-        // into multiple identifiers (e.g. `my-error` → ["my", "error"]) so the
-        // function prefix is always the last collected identifier.
+        // G_DEFINE_QUARK(quark-name, func_prefix) — 2 args; the first may
+        // expand into multiple identifiers (e.g. `my-error` → ["my",
+        // "error"]) so the function prefix is always the last collected
+        // identifier.
         if macro_name == "G_DEFINE_QUARK" && !arg_values.is_empty() {
             let func_prefix = (*arg_values.last().unwrap()).to_owned();
 
-            // Read the raw source text of the first argument from the argument_list
-            // node so we get "my-error" rather than ["my", "error"].
+            // Read the raw source text of the first argument from the
+            // argument_list node so we get "my-error" rather than
+            // ["my", "error"].
             let quark_name = {
                 let mut cursor = parent.walk();
                 parent
@@ -301,8 +304,9 @@ impl Parser {
                 None
             };
 
-            // For *_WITH_CODE macros and G_DEFINE_TYPE_EXTENDED, extract interfaces,
-            // has_private, and code statements from the code block.
+            // For *_WITH_CODE macros and G_DEFINE_TYPE_EXTENDED, extract
+            // interfaces, has_private, and code statements from the
+            // code block.
             let (interfaces, has_private_from_code, code_block_statements) =
                 if macro_name.ends_with("_WITH_CODE") || macro_name == "G_DEFINE_TYPE_EXTENDED" {
                     self.extract_code_block_info_from_parent(parent, source, &arg_values)
@@ -432,9 +436,10 @@ impl Parser {
         let mut has_private = false;
         let code_statements = Vec::new();
 
-        // With the new grammar, *_WITH_CODE macros produce a `gobject_code_block`
-        // child containing `gobject_code_block_item` nodes (identifier +
-        // argument_list). Walk them directly — no heuristics needed.
+        // With the new grammar, *_WITH_CODE macros produce a
+        // `gobject_code_block` child containing
+        // `gobject_code_block_item` nodes (identifier + argument_list).
+        // Walk them directly — no heuristics needed.
         let code_block = {
             let mut cursor = parent.walk();
             parent

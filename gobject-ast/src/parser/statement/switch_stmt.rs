@@ -107,7 +107,8 @@ impl Parser {
                 *current_case = Some((label, case_body));
             }
         } else if child.kind().starts_with("preproc_") {
-            // Preprocessor block - recursively search for case statements inside
+            // Preprocessor block - recursively search for case statements
+            // inside
             let mut prep_cursor = child.walk();
             for prep_child in child.children(&mut prep_cursor) {
                 self.parse_switch_child(prep_child, source, cases, current_case);

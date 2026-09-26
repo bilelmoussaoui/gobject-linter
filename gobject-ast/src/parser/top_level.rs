@@ -21,7 +21,8 @@ impl Parser {
         let mut declarator_node = None;
 
         // Find the type node by walking children
-        // Now that grammar is fixed, macro_modifier will be a separate node we can skip
+        // Now that grammar is fixed, macro_modifier will be a separate node we
+        // can skip
         for child in node.children(&mut cursor) {
             match child.kind() {
                 "type_identifier" if type_node.is_none() => {
@@ -52,7 +53,8 @@ impl Parser {
         }
 
         // Count pointer indirections: GList *foo() parses as
-        // type_identifier("GList") > pointer_declarator(*) > function_declarator
+        // type_identifier("GList") > pointer_declarator(*) >
+        // function_declarator
         let pointer_depth = Self::count_declarator_pointers(declarator_node);
 
         // Extract type text
@@ -213,10 +215,12 @@ impl Parser {
             }
             "preproc_if" | "preproc_ifdef" | "preproc_ifndef" => {
                 // Parse conditional preprocessor directives with their body
-                // Note: tree-sitter-c uses "preproc_ifdef" for both #ifdef and #ifndef
-                // We need to check the actual text to distinguish them
+                // Note: tree-sitter-c uses "preproc_ifdef" for both #ifdef and
+                // #ifndef We need to check the actual text to
+                // distinguish them
                 let kind = if node.kind() == "preproc_ifdef" {
-                    // Check if it's actually #ifndef by looking at the directive text
+                    // Check if it's actually #ifndef by looking at the
+                    // directive text
                     let first_child = node.child(0);
                     let is_ifndef = first_child
                         .and_then(|child| std::str::from_utf8(&source[child.byte_range()]).ok())
@@ -235,8 +239,8 @@ impl Parser {
                     }
                 };
 
-                // Get condition (for #ifdef/#ifndef, it's the name; for #if, it's the whole
-                // condition)
+                // Get condition (for #ifdef/#ifndef, it's the name; for #if,
+                // it's the whole condition)
                 let condition = if let Some(name_node) = node.child_by_field_name("name") {
                     Some(
                         std::str::from_utf8(&source[name_node.byte_range()])
@@ -253,8 +257,8 @@ impl Parser {
                     None
                 };
 
-                // Parse body items - recursively parse children that are not part of the
-                // preprocessor syntax
+                // Parse body items - recursively parse children that are not
+                // part of the preprocessor syntax
                 let body = self.parse_conditional_body(node, source);
 
                 Some(TopLevelItem::Preprocessor(
@@ -328,9 +332,10 @@ impl Parser {
                     ))));
                 }
 
-                // Check for a standalone struct definition: `struct _Foo { ... };`
-                // This is a declaration whose first named child is a struct_specifier
-                // with a body.  No typedef alias — just the struct itself.
+                // Check for a standalone struct definition: `struct _Foo { ...
+                // };` This is a declaration whose first named
+                // child is a struct_specifier with a body.  No
+                // typedef alias — just the struct itself.
                 if let Some(struct_item) = self.try_parse_struct_definition(node, source) {
                     return Some(struct_item);
                 }
@@ -356,7 +361,8 @@ impl Parser {
                         // Extract return type
                         let return_type = self.extract_return_type(node, source);
 
-                        // Extract parameters and macro modifiers from the function_declarator node
+                        // Extract parameters and macro modifiers from the
+                        // function_declarator node
                         let (parameters, macro_modifiers) = {
                             let mut params = Vec::new();
                             let mut modifiers = Vec::new();
@@ -455,7 +461,8 @@ impl Parser {
                 let full_text = std::str::from_utf8(&source[node.byte_range()]).unwrap_or("");
                 let macro_name = full_text.split('(').next().unwrap_or("").trim();
 
-                // Route cleanup-func macros before the generic G_DEFINE_ handler
+                // Route cleanup-func macros before the generic G_DEFINE_
+                // handler
                 if macro_name == "G_DEFINE_AUTOPTR_CLEANUP_FUNC"
                     || macro_name == "G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC"
                     || macro_name == "G_DEFINE_AUTO_CLEANUP_FREE_FUNC"
@@ -578,8 +585,8 @@ impl Parser {
         source: &[u8],
     ) -> Option<TopLevelItem> {
         // If the declaration also declares a variable (has a `declarator` field
-        // like `struct _Foo { … } var;`), let it fall through to parse_statement
-        // so the variable declaration is not lost.
+        // like `struct _Foo { … } var;`), let it fall through to
+        // parse_statement so the variable declaration is not lost.
         if declaration_node.child_by_field_name("declarator").is_some() {
             return None;
         }
@@ -595,8 +602,9 @@ impl Parser {
                     .unwrap_or("")
                     .to_owned();
 
-                // Skip anonymous structs (e.g. `static const struct { … } arr[];`).
-                // We already checked for declarator above, but an anonymous struct
+                // Skip anonymous structs (e.g. `static const struct { … }
+                // arr[];`). We already checked for declarator
+                // above, but an anonymous struct
                 // with no declarator is an unusual edge case — skip it too.
                 if name.is_empty() {
                     return None;
@@ -635,8 +643,9 @@ impl Parser {
                         continue;
                     };
 
-                    // Anonymous struct/union: store as a field with inner_fields
-                    // so callers can see `union { A a; B b; } d` as field d with
+                    // Anonymous struct/union: store as a field with
+                    // inner_fields so callers can see
+                    // `union { A a; B b; } d` as field d with
                     // inner fields [a, b], preserving the aggregate structure.
                     if matches!(type_node.kind(), "struct_specifier" | "union_specifier")
                         && type_node.child_by_field_name("name").is_none()
@@ -666,7 +675,8 @@ impl Parser {
                                 .map(str::trim)
                         }
                         "struct_specifier" | "union_specifier" | "enum_specifier" => {
-                            // Named tag: grab the name so type_references tracks it.
+                            // Named tag: grab the name so type_references
+                            // tracks it.
                             type_node
                                 .child_by_field_name("name")
                                 .and_then(|n| std::str::from_utf8(&source[n.byte_range()]).ok())
@@ -736,14 +746,15 @@ impl Parser {
         node: Node,
         source: &[u8],
     ) -> Option<TypeDefItem> {
-        // type_definition has "declarator" for the typedef name and "type" for what
-        // it's typedef'ing
+        // type_definition has "declarator" for the typedef name and "type" for
+        // what it's typedef'ing
         let declarator_node = node.child_by_field_name("declarator")?;
 
-        // For simple typedefs (`typedef Struct Name`), the declarator IS the name.
-        // For function-pointer typedefs (`typedef RetType (*Name)(params)`), the
-        // declarator is a function_declarator tree — drill into it to get just the
-        // identifier.  Same for array typedefs (`typedef int Name[N]`).
+        // For simple typedefs (`typedef Struct Name`), the declarator IS the
+        // name. For function-pointer typedefs (`typedef RetType
+        // (*Name)(params)`), the declarator is a function_declarator
+        // tree — drill into it to get just the identifier.  Same for
+        // array typedefs (`typedef int Name[N]`).
         let name = if matches!(declarator_node.kind(), "type_identifier" | "identifier") {
             std::str::from_utf8(&source[declarator_node.byte_range()])
                 .ok()?
@@ -753,8 +764,9 @@ impl Parser {
                 .to_owned()
         };
 
-        // When the typedef wraps an inline struct body, extract field declarations
-        // so rules can see which types are referenced inside the struct.
+        // When the typedef wraps an inline struct body, extract field
+        // declarations so rules can see which types are referenced
+        // inside the struct.
         let struct_fields = node
             .child_by_field_name("type")
             .filter(|n| matches!(n.kind(), "struct_specifier" | "union_specifier"))
@@ -833,10 +845,12 @@ impl Parser {
                 && type_node.kind() == "enum_specifier"
                 && let Some(body) = type_node.child_by_field_name("body")
             {
-                // Collect type_identifiers (attribute macros like G_GNUC_FLAG_ENUM)
-                // and the actual typedef name from type_definition children.
-                // When a macro attribute precedes the name, tree-sitter records
-                // the macro as type_identifier and the actual name as an ERROR node.
+                // Collect type_identifiers (attribute macros like
+                // G_GNUC_FLAG_ENUM) and the actual typedef name
+                // from type_definition children. When a macro
+                // attribute precedes the name, tree-sitter records
+                // the macro as type_identifier and the actual name as an ERROR
+                // node.
                 let mut attributes = Vec::new();
                 let mut error_name: Option<String> = None;
                 let mut cursor = node.walk();
@@ -846,8 +860,9 @@ impl Parser {
                             attributes.push(text.to_owned());
                         }
                     } else if child.kind() == "ERROR" {
-                        // Without includes the grammar records the real typedef name as an ERROR
-                        // node inside the type_definition.
+                        // Without includes the grammar records the real typedef
+                        // name as an ERROR node inside
+                        // the type_definition.
                         error_name = std::str::from_utf8(&source[child.byte_range()])
                             .ok()
                             .map(|s| s.trim().to_owned())
@@ -888,8 +903,8 @@ impl Parser {
             return None;
         }
 
-        // Handle standalone enum Name { ... }; or anonymous enum { ... }; - parse as
-        // declaration first
+        // Handle standalone enum Name { ... }; or anonymous enum { ... }; -
+        // parse as declaration first
         if let Some(Statement::Declaration(_)) = self.parse_statement(node, source) {
             let mut cursor = node.walk();
             for child in node.children(&mut cursor) {
@@ -933,7 +948,8 @@ impl Parser {
 
                 let (value, value_expr, value_location) =
                     if let Some(value_node) = child.child_by_field_name("value") {
-                        // Parse as expression (only if it's actually an expression node)
+                        // Parse as expression (only if it's actually an
+                        // expression node)
                         let expr = if Self::is_expression_node(&value_node) {
                             self.parse_expression(value_node, source)
                         } else {
@@ -1070,9 +1086,10 @@ impl Parser {
         if let Some(inner) = declarator.child_by_field_name("declarator") {
             if matches!(inner.kind(), "identifier" | "type_identifier") {
                 let text = std::str::from_utf8(&source[inner.byte_range()]).ok()?;
-                // __attribute__ appearing between '*' and the real name means the
-                // function_declarator's "declarator" field points at the attribute
-                // keyword rather than the actual identifier.  Recover by searching
+                // __attribute__ appearing between '*' and the real name means
+                // the function_declarator's "declarator" field
+                // points at the attribute keyword rather than
+                // the actual identifier.  Recover by searching
                 // sibling call_expression nodes for the real name.
                 if text == "__attribute__" {
                     let mut cursor = declarator.walk();

@@ -290,7 +290,8 @@ fn create_clickable_link(
     let location = format!("{}:{}:{}", abs_path.display(), line, column);
 
     if !use_hyperlinks {
-        // Plain text output for pipes, redirects, etc. - no colors, no hyperlinks
+        // Plain text output for pipes, redirects, etc. - no colors, no
+        // hyperlinks
         return location;
     }
 

@@ -19,10 +19,12 @@ impl Parser {
         };
 
         let else_body = node.child_by_field_name("alternative").map(|alt_node| {
-            // The alternative can be an else_clause or directly an if_statement (else if)
+            // The alternative can be an else_clause or directly an if_statement
+            // (else if)
             let statement_node = if alt_node.kind() == "else_clause" {
                 // else_clause contains the actual statement(s)
-                // Find the first named child that's not a comment or the 'else' keyword
+                // Find the first named child that's not a comment or the 'else'
+                // keyword
                 let mut cursor = alt_node.walk();
                 alt_node
                     .children(&mut cursor)

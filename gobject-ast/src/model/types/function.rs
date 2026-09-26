@@ -170,7 +170,8 @@ impl FunctionDefItem {
         for stmt in &self.body_statements {
             for ret in stmt.iter_returns() {
                 if let Some(Expression::Identifier(id)) = &ret.value {
-                    // Find the declaration of this identifier in all body statements
+                    // Find the declaration of this identifier in all body
+                    // statements
                     for body_stmt in &self.body_statements {
                         for decl in body_stmt.iter_declarations() {
                             if decl.name == id.name

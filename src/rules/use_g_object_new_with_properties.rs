@@ -62,7 +62,8 @@ impl UseGObjectNewWithProperties {
         violations: &mut Vec<Violation>,
     ) {
         for i in 0..statements.len() {
-            // Check if this statement contains one of our empty g_object_new calls
+            // Check if this statement contains one of our empty g_object_new
+            // calls
             if let Some((var, location)) =
                 self.find_empty_new_in_statement(&statements[i], empty_new_calls)
             {
@@ -77,7 +78,8 @@ impl UseGObjectNewWithProperties {
                         continue;
                     }
 
-                    // Stop if we hit something that's not a g_object_set on our variable
+                    // Stop if we hit something that's not a g_object_set on our
+                    // variable
                     break;
                 }
 

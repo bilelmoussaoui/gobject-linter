@@ -84,7 +84,8 @@ impl PropertyEnumConvention {
             let n_props_usage: HashMap<&str, usize> = file
                 .iter_property_enums()
                 .filter(|e| {
-                    // Apply same checks as main loop to see if this enum will be transformed
+                    // Apply same checks as main loop to see if this enum will
+                    // be transformed
                     let has_prop_0 = e.values.first().is_some_and(EnumValue::is_prop_0);
 
                     let has_n_props_at_end = e.values.last().is_some_and(EnumValue::is_prop_last);
@@ -95,8 +96,9 @@ impl PropertyEnumConvention {
                         .enumerate()
                         .any(|(idx, v)| idx < e.values.len() - 1 && v.is_prop_last());
 
-                    // Only count if it will be transformed (not in-middle pattern, not already
-                    // modern) Note: N_PROPS = PROP_X where PROP_X is override
+                    // Only count if it will be transformed (not in-middle
+                    // pattern, not already modern) Note:
+                    // N_PROPS = PROP_X where PROP_X is override
                     // is still transformable
                     !has_n_props_in_middle && (has_prop_0 || has_n_props_at_end)
                 })
@@ -112,13 +114,14 @@ impl PropertyEnumConvention {
                 });
 
             for enum_info in file.iter_property_enums() {
-                // Check if this uses the old pattern: PROP_0 at start and N_PROPS at end
+                // Check if this uses the old pattern: PROP_0 at start and
+                // N_PROPS at end
                 let has_prop_0 = enum_info.values.first().is_some_and(EnumValue::is_prop_0);
 
                 let has_n_props = enum_info.values.last().is_some_and(EnumValue::is_prop_last);
 
-                // Check if N_PROPS appears in the middle (not last) - this is the override
-                // properties pattern
+                // Check if N_PROPS appears in the middle (not last) - this is
+                // the override properties pattern
                 let has_n_props_in_middle = enum_info
                     .values
                     .iter()
@@ -150,14 +153,15 @@ impl PropertyEnumConvention {
 
                 let property_map = self.build_property_override_map(&ctx.gobject_type.properties);
 
-                // Get the name of the last REAL property (the one before N_PROPS)
-                // If N_PROPS = PROP_X and PROP_X is an override, find the last non-override
-                // property
+                // Get the name of the last REAL property (the one before
+                // N_PROPS) If N_PROPS = PROP_X and PROP_X is an
+                // override, find the last non-override property
                 let last_real_prop_name = if has_n_props && enum_info.values.len() >= 2 {
                     // Check if the value before N_PROPS is an override
                     let second_to_last = &enum_info.values[enum_info.values.len() - 2];
 
-                    // Also check if N_PROPS = PROP_X where PROP_X is an override
+                    // Also check if N_PROPS = PROP_X where PROP_X is an
+                    // override
                     let n_props_value = enum_info.values.last().unwrap();
                     let n_props_points_to_override = if n_props_value.value_location.is_some()
                         && n_props_value.value.is_none()
@@ -171,7 +175,8 @@ impl PropertyEnumConvention {
                     };
 
                     if n_props_points_to_override {
-                        // N_PROPS = PROP_ORIENTATION (override), so find last non-override property
+                        // N_PROPS = PROP_ORIENTATION (override), so find last
+                        // non-override property
                         enum_info
                             .values
                             .iter()
@@ -204,7 +209,8 @@ impl PropertyEnumConvention {
                     fixes.extend(self.create_typedef_fixes(file, enum_info, enum_name));
                 }
 
-                // Fix 1: Remove PROP_0 line entirely (including any blank line after it)
+                // Fix 1: Remove PROP_0 line entirely (including any blank line
+                // after it)
                 if has_prop_0 && enum_info.values.len() >= 2 {
                     let prop_0 = &enum_info.values[0];
                     fixes.push(Fix::delete_line_and_trailing_blank(&prop_0.location));
@@ -214,11 +220,13 @@ impl PropertyEnumConvention {
                 if has_prop_0 && enum_info.values.len() >= 2 {
                     let first_real = &enum_info.values[1];
 
-                    // If the property already has a value (e.g., "= 0"), remove it first
+                    // If the property already has a value (e.g., "= 0"), remove
+                    // it first
                     if first_real.value == Some(0)
                         && let Some(value_loc) = &first_real.value_location
                     {
-                        // Remove existing " = 0" or "= 0" and replace with " = 1"
+                        // Remove existing " = 0" or "= 0" and replace with " =
+                        // 1"
                         fixes.push(Fix::new(
                             first_real.name_location.end_byte,
                             value_loc.end_byte,
@@ -234,15 +242,17 @@ impl PropertyEnumConvention {
                     }
                 }
 
-                // Fix 3: Remove N_PROPS line entirely (including any blank line before it)
+                // Fix 3: Remove N_PROPS line entirely (including any blank line
+                // before it)
                 if has_n_props && enum_info.values.len() >= 2 {
                     let n_props = enum_info.values.last().unwrap();
                     fixes.push(Fix::delete_line_and_leading_blank(&n_props.location));
                 }
 
-                // Fix 4 & 5: Find GParamSpec arrays and fix both their declarations and
-                // install_properties calls
-                // Only fix if this N_PROPS name is unique in the file (avoid ambiguity)
+                // Fix 4 & 5: Find GParamSpec arrays and fix both their
+                // declarations and install_properties calls
+                // Only fix if this N_PROPS name is unique in the file (avoid
+                // ambiguity)
                 if has_n_props && n_props_usage.get(n_props_name).copied().unwrap_or(0) == 1 {
                     let array_names = self.find_and_fix_param_spec_arrays(
                         file,
@@ -277,8 +287,9 @@ impl PropertyEnumConvention {
                     }
                 }
 
-                // Fix 6: Add enum cast to switch statements in get_property/set_property
-                // This enables -Wswitch-enum to catch missing properties
+                // Fix 6: Add enum cast to switch statements in
+                // get_property/set_property This enables
+                // -Wswitch-enum to catch missing properties
                 // Only apply to the specific property functions for this enum
                 let enum_name = if let Some(ref name) = enum_info.name {
                     name.clone()
@@ -321,8 +332,8 @@ impl PropertyEnumConvention {
                 }
             }
 
-            // Check modern enums (without PROP_0/N_PROPS) for outdated array sizes
-            // and missing switch casts
+            // Check modern enums (without PROP_0/N_PROPS) for outdated array
+            // sizes and missing switch casts
             for enum_info in file.iter_property_enums() {
                 let has_prop_0 = enum_info.values.first().is_some_and(EnumValue::is_prop_0);
                 let has_n_props = enum_info.values.last().is_some_and(EnumValue::is_prop_last);
@@ -332,7 +343,8 @@ impl PropertyEnumConvention {
                     continue;
                 }
 
-                // Only check already-modern enums (ones with explicit = 1 on first value)
+                // Only check already-modern enums (ones with explicit = 1 on
+                // first value)
                 let is_already_modern = enum_info
                     .values
                     .first()
@@ -378,7 +390,8 @@ impl PropertyEnumConvention {
     fn check_all_legacy_style(&self, ast_context: &AstContext, violations: &mut Vec<Violation>) {
         // Check each file's enums
         for (path, file) in ast_context.iter_all_files() {
-            // First pass: collect all existing PROP_0 variants to avoid duplicates
+            // First pass: collect all existing PROP_0 variants to avoid
+            // duplicates
             let existing_prop_zeros: std::collections::HashSet<&str> = file
                 .iter_property_enums()
                 .flat_map(|enum_info| &enum_info.values)
@@ -628,8 +641,8 @@ impl PropertyEnumConvention {
         let mut property_map = HashMap::new();
 
         for assignment in assignments {
-            // Only track assignments that have an enum_value (ArraySubscript and
-            // OverrideProperty)
+            // Only track assignments that have an enum_value (ArraySubscript
+            // and OverrideProperty)
             if let Some(enum_value) = assignment.enum_value() {
                 let is_override =
                     matches!(assignment.property().property_type, PropertyType::Override);
@@ -754,7 +767,8 @@ impl PropertyEnumConvention {
                 && property_names.contains(prop_id.name.as_str())
             {
                 // This array uses a property from our enum
-                // Check if this property is outdated (not the expected last property)
+                // Check if this property is outdated (not the expected last
+                // property)
                 if prop_id.name != expected_last_prop {
                     let replacement = format!("{} + 1", expected_last_prop);
                     let fix = Fix::new(

@@ -13,7 +13,8 @@ impl Parser {
     }
 
     pub(crate) fn parse_variable_decls(&self, node: Node, source: &[u8]) -> Vec<VariableDecl> {
-        // declaration contains type specifiers (shared) and one or more declarators
+        // declaration contains type specifiers (shared) and one or more
+        // declarators
         let mut type_parts = Vec::new();
         let mut declarators = Vec::new();
         let mut first_type_node: Option<Node> = None;

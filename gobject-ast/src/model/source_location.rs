@@ -178,8 +178,8 @@ impl SourceLocation {
     pub fn extract_indentation(&self) -> String {
         let line_start = self.find_line_start();
 
-        // Extract indentation (spaces/tabs before first non-whitespace or before
-        // location)
+        // Extract indentation (spaces/tabs before first non-whitespace or
+        // before location)
         let mut indent = String::new();
         for &byte in &self.source[line_start..self.start_byte] {
             if byte == b' ' || byte == b'\t' {
@@ -259,8 +259,8 @@ impl SourceLocation {
             brace_start -= 1;
         }
 
-        // Search forwards from opening brace to find matching closing brace using depth
-        // tracking
+        // Search forwards from opening brace to find matching closing brace
+        // using depth tracking
         let mut brace_end = brace_start + 1;
         let mut depth = 1;
         while brace_end < source.len() && depth > 0 {

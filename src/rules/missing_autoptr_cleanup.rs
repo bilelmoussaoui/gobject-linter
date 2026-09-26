@@ -77,7 +77,8 @@ impl Rule for MissingAutoptrCleanup {
             for (name, _) in file.iter_typedef_pairs() {
                 header_typedefs.insert(name);
             }
-            // Find the GObjectDeclsBlock (G_BEGIN_DECLS/G_END_DECLS) in this header
+            // Find the GObjectDeclsBlock (G_BEGIN_DECLS/G_END_DECLS) in this
+            // header
             let decls_block = file.iter_all_items().find_map(|item| match item {
                 TopLevelItem::Preprocessor(PreprocessorDirective::GObjectDeclsBlock {
                     location,

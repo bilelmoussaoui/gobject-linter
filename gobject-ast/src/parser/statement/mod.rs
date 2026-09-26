@@ -63,8 +63,9 @@ impl Parser {
                     // C99 declaration initializer: `for (int i = 0; ...)` or
                     // `for (GList *l = list; ...)`.
                     // The declaration node absorbs its own semicolon, so the
-                    // next expression is the condition — advance semicolon_count
-                    // so it is not misidentified as a second initializer.
+                    // next expression is the condition — advance
+                    // semicolon_count so it is not
+                    // misidentified as a second initializer.
                     if let Some(decl) = self.parse_variable_decl(child, source) {
                         initializer = Some(ForInit::Decl(Box::new(decl)));
                     }
@@ -174,7 +175,8 @@ impl Parser {
         let mut body_statements = Vec::new();
 
         for child in node.children(&mut cursor) {
-            // Skip preprocessor directives themselves (#if, #ifdef, #endif, etc.)
+            // Skip preprocessor directives themselves (#if, #ifdef, #endif,
+            // etc.)
             if child.kind().starts_with("preproc_") && child.kind().ends_with("_directive") {
                 continue;
             }
@@ -289,8 +291,9 @@ impl Parser {
             | "break"
             | "continue"
             | "goto" => {
-                // Skip delimiters, comments, keywords, declaration modifiers, declarators,
-                // and loose expressions (can appear in for loop clauses or as part of
+                // Skip delimiters, comments, keywords, declaration modifiers,
+                // declarators, and loose expressions (can
+                // appear in for loop clauses or as part of
                 // declarations)
                 None
             }
@@ -327,8 +330,9 @@ impl Parser {
                 None
             }
             "gobject_type_macro" | "gobject_macro_statement" | "gobject_decls_block" => {
-                // GObject macros inside function bodies (G_DEFINE_TYPE inside a block,
-                // G_STATIC_ASSERT statements, G_BEGIN_DECLS/G_END_DECLS, etc.)
+                // GObject macros inside function bodies (G_DEFINE_TYPE inside a
+                // block, G_STATIC_ASSERT statements,
+                // G_BEGIN_DECLS/G_END_DECLS, etc.)
                 None
             }
             "function_definition" => {
@@ -387,8 +391,9 @@ impl Parser {
                 }))
             }
             "ERROR" => {
-                // Parse errors - but try to extract statements from any compound_statement
-                // blocks within the error node (e.g., custom loop macros)
+                // Parse errors - but try to extract statements from any
+                // compound_statement blocks within the error
+                // node (e.g., custom loop macros)
                 let mut statements = Vec::new();
                 self.extract_statements_from_error_node(node, source, &mut statements);
 

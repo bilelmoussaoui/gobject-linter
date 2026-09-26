@@ -153,8 +153,9 @@ impl IncludeOrder {
         // Step 5: Build fixes
         let mut fixes = Vec::new();
 
-        // Replace first include with all sorted includes (including trailing newlines)
-        // Also consume any blank lines immediately after the first include
+        // Replace first include with all sorted includes (including trailing
+        // newlines) Also consume any blank lines immediately after the
+        // first include
         let first_end = first_inc.location.end_byte + first_inc.location.count_trailing_newlines();
         fixes.push(Fix::new(
             first_inc.location.start_byte,

@@ -54,8 +54,8 @@ impl UnnecessaryNullCheck {
         file: &FileModel,
         violations: &mut Vec<Violation>,
     ) {
-        // Don't flag if there's an else branch — removing the if would also drop the
-        // else logic
+        // Don't flag if there's an else branch — removing the if would also
+        // drop the else logic
         if if_stmt.has_else() {
             return;
         }
@@ -65,8 +65,8 @@ impl UnnecessaryNullCheck {
             return;
         };
 
-        // Check if the body contains only a g_free/g_clear_* call with the checked
-        // variable
+        // Check if the body contains only a g_free/g_clear_* call with the
+        // checked variable
         if !if_stmt.has_single_statement() {
             return;
         }
@@ -92,10 +92,11 @@ impl UnnecessaryNullCheck {
             return;
         }
 
-        // Verify the null check is actually redundant by checking argument form.
-        // g_clear_* dereferences its first argument (a pointer-to-pointer), so:
-        //   if (var) g_clear_pointer(&var, free) → redundant (&var is never NULL)
-        //   if (var) g_clear_pointer(var, free)  → NOT redundant (var is dereferenced)
+        // Verify the null check is actually redundant by checking argument
+        // form. g_clear_* dereferences its first argument (a
+        // pointer-to-pointer), so:   if (var) g_clear_pointer(&var,
+        // free) → redundant (&var is never NULL)   if (var)
+        // g_clear_pointer(var, free)  → NOT redundant (var is dereferenced)
         //   if (var) g_clear_pointer(&var->field, free) → NOT redundant (var is
         // dereferenced) g_free/g_strfreev take the value directly:
         //   if (var) g_free(var)        → redundant

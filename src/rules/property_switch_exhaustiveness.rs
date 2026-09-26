@@ -462,7 +462,8 @@ impl PropertySwitchExhaustiveness {
         let end_location = if let Some(last_stmt) = default_case.body.last() {
             last_stmt.location()
         } else {
-            // No statements in default case body, just use the case label location
+            // No statements in default case body, just use the case label
+            // location
             &default_case.label.location
         };
 
