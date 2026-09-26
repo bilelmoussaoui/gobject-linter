@@ -2971,6 +2971,10 @@
       "required": false,
       "types": [
         {
+          "type": "macro_modifier",
+          "named": true
+        },
+        {
           "type": "ms_based_modifier",
           "named": true
         },
@@ -3938,6 +3942,10 @@
           "named": true
         },
         {
+          "type": "macro_modifier",
+          "named": true
+        },
+        {
           "type": "ms_declspec_modifier",
           "named": true
         }
@@ -4195,6 +4203,10 @@
           "named": true
         },
         {
+          "type": "macro_modifier",
+          "named": true
+        },
+        {
           "type": "type_qualifier",
           "named": true
         }
@@ -4325,6 +4337,10 @@
       "types": [
         {
           "type": "attribute_specifier",
+          "named": true
+        },
+        {
+          "type": "macro_modifier",
           "named": true
         },
         {
