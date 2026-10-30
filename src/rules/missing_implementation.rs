@@ -49,7 +49,7 @@ impl Rule for MissingImplementation {
 
         for (path, file) in ast_context.iter_header_files() {
             for func in file.iter_function_declarations() {
-                if func.is_static || func.name.ends_with("_quark") {
+                if func.is_static || func.is_extern || func.name.ends_with("_quark") {
                     continue;
                 }
                 if defined.contains(func.name.as_str()) {

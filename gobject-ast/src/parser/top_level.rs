@@ -346,9 +346,15 @@ impl Parser {
                     if let Some(name) = self.extract_declarator_name(func_decl, source) {
                         tracing::debug!("Found function declarator with name: {}", name);
 
-                        let decl_text = std::str::from_utf8(&source[node.byte_range()]).ok()?;
-                        let is_static = decl_text.contains("static");
-                        let is_inline = decl_text.contains("inline");
+                        let storage_classes: Vec<&[u8]> = node
+                            .children(&mut node.walk())
+                            .filter(|child| child.kind() == "storage_class_specifier")
+                            .map(|child| &source[child.byte_range()])
+                            .collect();
+                        let has_storage_class = |kw: &[u8]| storage_classes.contains(&kw);
+                        let is_extern = has_storage_class(b"extern");
+                        let is_inline = has_storage_class(b"inline");
+                        let is_static = has_storage_class(b"static");
 
                         // Extract export macros from first line
                         let export_macros = self.find_export_macros_in_declaration(node, source);
@@ -387,6 +393,7 @@ impl Parser {
                             name: name.to_owned(),
                             return_type,
                             is_static,
+                            is_extern,
                             is_inline,
                             parameters,
                             export_macros,

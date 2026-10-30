@@ -26,6 +26,8 @@ pub struct FunctionDeclItem {
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub is_static: bool,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub is_extern: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub is_inline: bool,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub parameters: Vec<Parameter>,
