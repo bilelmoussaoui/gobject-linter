@@ -1,2 +1,0 @@
-[env]
-RHUSKY_REPOSITORY_ROOT = { value = ".", relative = true, force = true }
