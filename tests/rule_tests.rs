@@ -465,6 +465,7 @@ rule_test!(
     use_g_str_has_prefix_suffix,
     gobject_linter::rules::UseGStrHasPrefixSuffix
 );
+rule_test!(use_g_strconcat, gobject_linter::rules::UseGStrconcat);
 rule_test!(
     use_g_ascii_functions,
     gobject_linter::rules::UseGAsciiFunctions

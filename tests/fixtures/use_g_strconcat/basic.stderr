@@ -1,0 +1,7 @@
+basic.c:6:10: use_g_strconcat: Use g_strconcat (a, b, NULL) instead of g_strdup_printf() to concatenate strings
+basic.c:12:10: use_g_strconcat: Use g_strconcat (dir, "/", name, NULL) instead of g_strdup_printf() to concatenate strings
+basic.c:18:10: use_g_strconcat: Use g_strconcat ("Hello ", name, "!", NULL) instead of g_strdup_printf() to concatenate strings
+basic.c:24:10: use_g_strconcat: Use g_strconcat (a, NULL) instead of g_strdup_printf() to concatenate strings
+basic.c:30:10: use_g_strconcat: Use g_strconcat ("100% of ", name, NULL) instead of g_strdup_printf() to concatenate strings
+basic.c:36:10: use_g_strconcat: Use g_strconcat (a, "\n", NULL) instead of g_strdup_printf() to concatenate strings
+basic.c:42:10: use_g_strconcat: Use g_strconcat ("foo", "-", "bar", NULL) instead of g_strdup_printf() to concatenate strings
