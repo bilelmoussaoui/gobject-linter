@@ -457,6 +457,17 @@ impl Config {
         self
     }
 
+    /// Whether the configured minimum GLib version is at least `major.minor`.
+    /// No configured minimum means any version is allowed.
+    pub fn glib_at_least(&self, major: u32, minor: u32) -> bool {
+        match self.min_glib_version {
+            Some((config_major, config_minor)) => {
+                config_major > major || (config_major == major && config_minor >= minor)
+            }
+            None => true,
+        }
+    }
+
     #[cfg(test)]
     pub fn with_msvc_compatible(mut self, msvc: bool) -> Self {
         self.msvc_compatible = msvc;

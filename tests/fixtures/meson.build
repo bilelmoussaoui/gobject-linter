@@ -12,6 +12,9 @@ adwaita_dep = dependency('libadwaita-1', required: false)
 fixture_deps = [glib_dep, gobject_dep, gio_dep]
 fixture_c_args = [
   '-Wno-implicit-function-declaration',
+  # g_set_strv() takes const char *const *, which has no implicit
+  # conversion from char ** in C
+  '-Wno-error=incompatible-pointer-types',
 ]
 
 subdir('dead_code')

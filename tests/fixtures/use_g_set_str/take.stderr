@@ -1,0 +1,4 @@
+take.c:11:3: use_g_set_str: Use g_set_str_take (&self->name, g_strdup_printf ("%s!", name)); instead of g_free and an ownership-taking assignment
+take.c:18:3: use_g_set_str: Use g_set_str_take (&self->path, g_strconcat (dir, "/", file, NULL)); instead of g_free and an ownership-taking assignment
+take.c:25:3: use_g_set_str: Use g_set_str_take (&self->name, name); instead of g_free and an ownership-taking assignment
+take.c:32:3: use_g_set_str: Use g_set_str_take (&self->name, g_strndup (name, 10)); instead of g_free and an ownership-taking assignment

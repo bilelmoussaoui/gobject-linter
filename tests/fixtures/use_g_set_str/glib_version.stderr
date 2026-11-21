@@ -1,0 +1,1 @@
+glib_version.c:9:3: use_g_set_str: Use g_set_str (&*name, new_name); instead of g_free and g_strdup

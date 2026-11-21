@@ -1,0 +1,3 @@
+strv.c:10:3: use_g_set_str: Use g_set_strv (&self->args, args); instead of g_strfreev and g_strdupv
+strv.c:17:3: use_g_set_str: Use g_set_strv_take (&self->args, g_strsplit (str, ",", 0)); instead of g_strfreev and an ownership-taking assignment
+strv.c:24:3: use_g_set_str: Use g_set_strv_take (&self->args, other); instead of g_strfreev and an ownership-taking assignment

@@ -221,11 +221,7 @@ fn is_rule_compatible(config: &Config, required: Option<(u32, u32)>) -> bool {
     let Some((req_major, req_minor)) = required else {
         return true;
     };
-    if let Some((major, minor)) = config.min_glib_version {
-        major > req_major || (major == req_major && minor >= req_minor)
-    } else {
-        true
-    }
+    config.glib_at_least(req_major, req_minor)
 }
 
 /// Apply MSVC compatibility overrides to rule level

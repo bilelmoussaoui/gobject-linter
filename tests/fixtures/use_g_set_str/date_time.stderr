@@ -1,0 +1,2 @@
+date_time.c:10:3: use_g_set_str: Use g_set_date_time (&self->now, dt); instead of g_date_time_unref and g_date_time_ref
+date_time.c:17:3: use_g_set_str: Use g_set_date_time (&self->now, dt); instead of g_date_time_unref and g_date_time_ref
