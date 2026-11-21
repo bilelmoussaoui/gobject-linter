@@ -197,6 +197,7 @@ pub mod use_g_strlcpy;
 pub mod use_g_value_set_static_string;
 pub mod use_g_variant_new_typed;
 pub mod use_pragma_once;
+pub mod use_tgmath;
 
 pub use dead_code::DeadCode;
 pub use deprecated_add_private::DeprecatedAddPrivate;
@@ -255,6 +256,7 @@ pub use use_g_strlcpy::UseGStrlcpy;
 pub use use_g_value_set_static_string::UseGValueSetStaticString;
 pub use use_g_variant_new_typed::UseGVariantNewTyped;
 pub use use_pragma_once::UsePragmaOnce;
+pub use use_tgmath::UseTgmath;
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct Violation {

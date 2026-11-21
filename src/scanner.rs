@@ -149,6 +149,7 @@ macro_rules! for_each_rule {
             (use_g_strconcat, UseGStrconcat),
             (use_g_ascii_functions, UseGAsciiFunctions),
             (use_g_strlcpy, UseGStrlcpy),
+            (use_tgmath, UseTgmath),
             (untranslated_string, UntranslatedString),
             (gi_missing_since, GiMissingSince),
             (gi_not_bindings_friendly, GiNotBindingsFriendly),

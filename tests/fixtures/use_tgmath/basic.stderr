@@ -1,0 +1,3 @@
+basic.c:7:10: use_tgmath: Use sin() from <tgmath.h> instead of sinf() from <math.h>
+basic.c:13:10: use_tgmath: Use pow() from <tgmath.h> instead of powl() from <math.h>
+basic.c:19:10: use_tgmath: Use fabs() from <tgmath.h> instead of fabsf() from <math.h>

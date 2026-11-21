@@ -494,6 +494,7 @@ rule_test!(
 );
 rule_test!(get_type_not_const, gobject_linter::rules::GetTypeNotConst);
 rule_test!(use_pragma_once, gobject_linter::rules::UsePragmaOnce);
+rule_test!(use_tgmath, gobject_linter::rules::UseTgmath);
 rule_test!(dead_code, gobject_linter::rules::DeadCode);
 rule_test!(unused_vfunc, gobject_linter::rules::UnusedVfunc);
 rule_test!(
