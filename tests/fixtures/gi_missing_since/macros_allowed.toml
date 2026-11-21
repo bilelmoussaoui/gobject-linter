@@ -1,0 +1,2 @@
+[rules.gi_missing_since]
+allowed_export_macros = ["MY_LIB_EXPORT"]

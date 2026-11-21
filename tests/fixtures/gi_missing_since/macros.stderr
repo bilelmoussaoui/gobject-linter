@@ -1,0 +1,1 @@
+macros.h:29:1: gi_missing_since: Function 'my_lib_get_width' has Since: 1.8 but is missing a versioned export macro

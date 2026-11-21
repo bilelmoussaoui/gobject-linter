@@ -49,6 +49,18 @@ MY_LIB_AVAILABLE_IN_2_74
 const char *my_obj_get_name (MyObj *self);
 ```
 
+## Configuration
+
+Export macros that legitimately carry no version — the GLib visibility
+conventions `*_AVAILABLE_IN_ALL`, `*_DEPRECATED` and `*_DEPRECATED_FOR()` —
+are not reported as missing a versioned export macro. Additional macro names
+can be accepted the same way:
+
+```toml
+[rules.gi_missing_since]
+allowed_export_macros = ["MYLIB_EXPORT"]
+```
+
 ## Notes
 
 This rule is opt-in and requires meson project information. It is only relevant

@@ -2,6 +2,10 @@ sources = [
   'enum_since.h',
   'functions.c',
   'functions.h',
+  'macros.c',
+  'macros.h',
+  'macros_allowed.c',
+  'macros_allowed.h',
   'type_since.c',
   'type_since.h',
 ]

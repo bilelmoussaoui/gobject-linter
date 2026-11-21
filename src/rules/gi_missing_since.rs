@@ -3,10 +3,24 @@ use gobject_ast::model::{ExportMacro, FunctionAnnotation, PropertyAnnotation};
 use crate::{
     ast_context::AstContext,
     config::Config,
-    rules::{Category, Rule, Violation},
+    rules::{Category, ConfigOption, Rule, Violation},
 };
 
 pub struct GiMissingSince;
+
+/// Whether the macro is an export macro that legitimately carries no
+/// version: the GLib visibility conventions that are unversioned by design
+/// (`*_AVAILABLE_IN_ALL`, `*_DEPRECATED`, `*_DEPRECATED_FOR(f)`), or a name
+/// configured via `allowed_export_macros`
+fn is_unversioned_export_macro(m: &ExportMacro, allowed: &[String]) -> bool {
+    let ExportMacro::Other(name) = m else {
+        return false;
+    };
+    name.ends_with("AVAILABLE_IN_ALL")
+        || name.ends_with("DEPRECATED")
+        || name.ends_with("DEPRECATED_FOR")
+        || allowed.iter().any(|n| n == name)
+}
 
 impl Rule for GiMissingSince {
     fn name(&self) -> &'static str {
@@ -37,25 +51,46 @@ impl Rule for GiMissingSince {
         Some("Only relevant to libraries maintaining GObject Introspection annotations")
     }
 
+    fn config_options(&self) -> &'static [ConfigOption] {
+        static OPTIONS: &[ConfigOption] = &[ConfigOption {
+            name: "allowed_export_macros",
+            option_type: "array<string>",
+            default_value: "[]",
+            example_value: "[\"MYLIB_EXPORT\"]",
+            description: "Export macros accepted without a version, in addition to the \
+                          built-in *_AVAILABLE_IN_ALL, *_DEPRECATED and *_DEPRECATED_FOR \
+                          conventions",
+        }];
+
+        OPTIONS
+    }
+
     fn check_all(
         &self,
         ast_context: &AstContext,
-        _config: &Config,
+        config: &Config,
         violations: &mut Vec<Violation>,
     ) {
         if !ast_context.has_public_private_info() {
             return;
         }
 
-        self.check_type_since(ast_context, violations);
-        self.check_functions_since(ast_context, violations);
+        let allowed_macros = config.get_string_list(self.name(), "allowed_export_macros");
+
+        self.check_type_since(ast_context, &allowed_macros, violations);
+        self.check_functions_since(ast_context, &allowed_macros, violations);
         self.check_property_since_consistency(ast_context, violations);
         self.check_enum_value_inline_since(ast_context, violations);
     }
 }
 
 impl GiMissingSince {
-    fn check_type_since(&self, ast_context: &AstContext, violations: &mut Vec<Violation>) {
+    fn check_type_since(
+        &self,
+        ast_context: &AstContext,
+        allowed_macros: &[String],
+        violations: &mut Vec<Violation>,
+    ) {
         for (path, file) in ast_context.iter_header_files() {
             if !ast_context.is_public_header(path).unwrap_or(false) {
                 continue;
@@ -123,6 +158,13 @@ impl GiMissingSince {
                         }
                     }
                     None if !gt.export_macros.is_empty() => {
+                        if gt
+                            .export_macros
+                            .iter()
+                            .any(|m| is_unversioned_export_macro(m, allowed_macros))
+                        {
+                            continue;
+                        }
                         if let Some(since) = type_doc.and_then(|d| d.since.as_ref()) {
                             violations.push(self.violation_at(
                                 path,
@@ -141,7 +183,12 @@ impl GiMissingSince {
         }
     }
 
-    fn check_functions_since(&self, ast_context: &AstContext, violations: &mut Vec<Violation>) {
+    fn check_functions_since(
+        &self,
+        ast_context: &AstContext,
+        allowed_macros: &[String],
+        violations: &mut Vec<Violation>,
+    ) {
         for (path, file) in ast_context.iter_header_files() {
             if !ast_context.is_public_header(path).unwrap_or(false) {
                 continue;
@@ -238,6 +285,13 @@ impl GiMissingSince {
                         }
                     }
                     None if !func_decl.export_macros.is_empty() => {
+                        if func_decl
+                            .export_macros
+                            .iter()
+                            .any(|m| is_unversioned_export_macro(m, allowed_macros))
+                        {
+                            continue;
+                        }
                         if let Some(since) = func_doc.and_then(|d| d.since.as_ref()) {
                             violations.push(self.violation_at(
                                 path,
