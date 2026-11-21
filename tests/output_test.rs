@@ -1,10 +1,14 @@
-use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
-use gobject_linter::config::{Config, RuleLevel};
-use gobject_linter::output::{gcc, gitlab_codequality, sarif};
-use gobject_linter::reporter;
-use gobject_linter::rules::{Category, Fix, Violation};
+use gobject_linter::{
+    config::{Config, RuleLevel},
+    output::{gcc, gitlab_codequality, sarif},
+    reporter,
+    rules::{Category, Fix, Violation},
+};
 
 fn make_violation(
     file: &str,

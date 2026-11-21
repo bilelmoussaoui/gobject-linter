@@ -365,8 +365,8 @@ impl FileModel {
                 }
             }
 
-            // Check if class_init uses signal enum values in subscript assignments
-            // with g_signal_new
+            // Check if class_init uses signal enum values in subscript
+            // assignments with g_signal_new
             func.body_statements
                 .iter()
                 .flat_map(Statement::iter_assignments)
@@ -714,8 +714,8 @@ impl FileModel {
                 .find(|d| d.name == cast_macro_name)
                 .and_then(|d| {
                     // Last identifier before the closing paren is the type name
-                    // e.g. (G_TYPE_CHECK_INSTANCE_CAST ((obj), GTK_TYPE_APP_CHOOSER,
-                    // GtkAppChooser))
+                    // e.g. (G_TYPE_CHECK_INSTANCE_CAST ((obj),
+                    // GTK_TYPE_APP_CHOOSER, GtkAppChooser))
                     d.value
                         .as_raw_str()
                         .rsplit(',')

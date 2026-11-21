@@ -192,13 +192,14 @@ impl UseAutoCleanup {
             return None;
         }
 
-        // g_ptr_array_free(array, FALSE) / g_array_free(array, FALSE) return the
-        // element data -> Skip
+        // g_ptr_array_free(array, FALSE) / g_array_free(array, FALSE) return
+        // the element data -> Skip
         if self.frees_array_keeping_data(func, var_name, type_info) {
             return None;
         }
 
-        // General case: allocated + manually freed + not returned → g_autoptr(Type)
+        // General case: allocated + manually freed + not returned →
+        // g_autoptr(Type)
         let is_allocated = !allocation_proof || func.is_named_var_allocated(var_name);
         let is_manually_freed = func.is_named_var_passed_to_cleanup(var_name);
 

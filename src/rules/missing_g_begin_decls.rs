@@ -41,7 +41,8 @@ impl Rule for MissingGBeginDecls {
             });
 
             if let Some(loc) = &decls_block {
-                // GObjectDeclsBlock exists, verify G_END_DECLS is actually present
+                // GObjectDeclsBlock exists, verify G_END_DECLS is actually
+                // present
                 let source = loc.source();
                 let mut pos = loc.end_byte;
                 while pos > 0 && source[pos - 1] != b'\n' {

@@ -434,8 +434,8 @@ impl MesonIntrospection {
             (0, parts[0].to_string())
         };
 
-        // Extract flags (skip compiler, -o, -c, -MF, -MQ, -MD and their arguments, and
-        // the input file)
+        // Extract flags (skip compiler, -o, -c, -MF, -MQ, -MD and their
+        // arguments, and the input file)
         let mut flags = Vec::new();
         let mut i = compiler_idx + 1;
 

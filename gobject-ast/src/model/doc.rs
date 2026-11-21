@@ -986,7 +986,8 @@ fn parse_annotations_and_desc<T>(
     let mut annotations = Vec::new();
     let mut rest = text;
 
-    // Annotations must appear consecutively at the start: (nullable)(transfer full)
+    // Annotations must appear consecutively at the start: (nullable)(transfer
+    // full)
     while rest.starts_with('(') {
         let Some(end) = rest.find(')') else {
             break;

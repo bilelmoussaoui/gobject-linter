@@ -64,10 +64,11 @@ impl StrcmpExplicitComparison {
         violations: &mut Vec<Violation>,
     ) {
         match condition.remove_g_likely_wrapper() {
-            // Binary expression: check if it's a comparison with strcmp, or recurse for logical ops
+            // Binary expression: check if it's a comparison with strcmp, or
+            // recurse for logical ops
             Expression::Binary(binary) => {
-                // If it's a comparison operator, don't flag strcmp calls on either side
-                // (they already have explicit comparison)
+                // If it's a comparison operator, don't flag strcmp calls on
+                // either side (they already have explicit comparison)
                 match binary.operator {
                     BinaryOp::Equal
                     | BinaryOp::NotEqual

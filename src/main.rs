@@ -321,7 +321,8 @@ fn main() -> Result<()> {
         let mut patch = PatchSet::new();
         patch.parse(&diff_content).context("Failed to parse diff")?;
 
-        // Diff paths are relative to the git root, which may differ from project_root
+        // Diff paths are relative to the git root, which may differ from
+        // project_root
         let git_root = {
             let mut dir = project_root.as_path();
             loop {
@@ -440,7 +441,8 @@ fn main() -> Result<()> {
         }
     }
 
-    // Exit with error code only if there are error-level violations (not warnings)
+    // Exit with error code only if there are error-level violations (not
+    // warnings)
     let has_errors = violations.iter().any(|v| v.level.is_error());
     if has_errors {
         std::process::exit(1);

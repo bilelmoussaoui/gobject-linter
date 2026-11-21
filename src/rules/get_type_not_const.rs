@@ -99,11 +99,13 @@ impl GetTypeNotConst {
         let attr_start = func.location.start_byte + offset;
         let attr_end = attr_start + attr.len();
 
-        // After params: delete leading whitespace + attr (`…(void) G_GNUC_CONST;`)
+        // After params: delete leading whitespace + attr (`…(void)
+        // G_GNUC_CONST;`)
         if offset > 0 && decl_text.as_bytes()[offset - 1] == b' ' {
             return Some(Fix::delete(attr_start - 1, attr_end));
         }
-        // Before return type: delete attr + trailing whitespace (`G_GNUC_CONST GType…`)
+        // Before return type: delete attr + trailing whitespace (`G_GNUC_CONST
+        // GType…`)
         if attr_end < func.location.end_byte
             && decl_text.as_bytes().get(offset + attr.len()) == Some(&b' ')
         {

@@ -269,7 +269,8 @@ impl Parser {
                 }))
             }
             _ => {
-                // Unknown expression type - fail loudly so we implement it immediately
+                // Unknown expression type - fail loudly so we implement it
+                // immediately
                 todo!(
                     "Unimplemented expression type: {} at {}:{}",
                     node.kind(),

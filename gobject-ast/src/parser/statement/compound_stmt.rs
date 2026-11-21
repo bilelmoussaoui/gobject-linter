@@ -30,7 +30,8 @@ impl Parser {
         // tree-sitter splits `g_autofree struct Foo *var = NULL;` into two
         // declaration nodes: (1) `g_autofree struct` and (2) `Foo *var = NULL`.
         // The first fails to parse (no variable name), so we detect the
-        // pattern and carry the struct/union/enum + auto_cleanup to the next one.
+        // pattern and carry the struct/union/enum + auto_cleanup to the next
+        // one.
         let mut pending_struct_fixup: Option<(TagKeyword, AutoCleanupMacro)> = None;
 
         let mut cursor = body_node.walk();

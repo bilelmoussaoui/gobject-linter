@@ -67,8 +67,8 @@ impl Rule for UseGSourceOnce {
             {
                 // Only proceed if callback is NOT used elsewhere
                 if !self.is_callback_used_elsewhere(callback_name, file) {
-                    // Find the callback function definition and check if all returns are
-                    // FALSE/G_SOURCE_REMOVE
+                    // Find the callback function definition and check if all
+                    // returns are FALSE/G_SOURCE_REMOVE
                     if let Some(callback_fixes) = self.get_callback_fixes(callback_name, file) {
                         let func_name = call.function_name();
                         let replacement = match func_name {
@@ -77,15 +77,16 @@ impl Rule for UseGSourceOnce {
                             _ => "g_timeout_add_once",
                         };
 
-                        // Build arguments, replacing GSourceFunc cast with GSourceOnceFunc if
-                        // present
+                        // Build arguments, replacing GSourceFunc cast with
+                        // GSourceOnceFunc if present
                         let args_str = call
                             .arguments
                             .iter()
                             .enumerate()
                             .filter_map(|(i, arg)| {
                                 if i == idx {
-                                    // Callback argument - replace cast type if present
+                                    // Callback argument - replace cast type if
+                                    // present
                                     if let Expression::Cast(cast) = &**arg
                                         && let Some(callback_name) =
                                             cast.operand.location().as_str()
@@ -223,7 +224,8 @@ impl UseGSourceOnce {
             return None;
         }
 
-        // Preserve alignment by padding "void" to match the original type length
+        // Preserve alignment by padding "void" to match the original type
+        // length
         let replacement = format!(
             "{:width$}",
             "void",

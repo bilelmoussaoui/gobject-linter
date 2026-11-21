@@ -307,9 +307,10 @@ impl Expression {
     pub fn extract_variable(&self) -> Option<&Self> {
         match self {
             Self::Identifier(_) | Self::FieldAccess(_) => Some(self),
-            // We're probably only interested in AddressOf and Dereference, which act on pointers.
-            // Not should probably be treated separately, since it behaves like a binary operator
-            // on a pointer, i.e., !p <=> p == NULL.
+            // We're probably only interested in AddressOf and Dereference,
+            // which act on pointers. Not should probably be treated separately,
+            // since it behaves like a binary operator on a pointer, i.e., !p
+            // <=> p == NULL.
             Self::Unary(u) if matches!(u.operator, UnaryOp::AddressOf | UnaryOp::Dereference) => {
                 Some(self)
             }

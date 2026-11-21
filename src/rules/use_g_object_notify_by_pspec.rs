@@ -107,7 +107,8 @@ impl UseGObjectNotifyByPspec {
             .collect();
 
         if fixable.is_empty() {
-            // Property exists but only as override/direct-install — can't use by_pspec
+            // Property exists but only as override/direct-install — can't use
+            // by_pspec
             return;
         }
 
