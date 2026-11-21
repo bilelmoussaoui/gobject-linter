@@ -122,10 +122,7 @@ impl Signal {
         let itype = call.get_arg_text(1).map(ToOwned::to_owned);
 
         // Argument 2: signal_flags (can be bitwise OR of multiple flags)
-        let flags = call
-            .get_arg(2)
-            .map(extract_signal_flags)
-            .unwrap_or_default();
+        let flags = call.get_arg(2).map_or_default(extract_signal_flags);
 
         // Argument 3: class_offset — G_STRUCT_OFFSET(StructType, field) or 0
         let class_offset = call.get_arg(3).and_then(|expr| match expr {

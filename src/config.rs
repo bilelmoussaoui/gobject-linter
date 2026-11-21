@@ -467,12 +467,11 @@ impl Config {
         self.get_rule_config(rule_name)
             .and_then(|rc| rc.options.get(key))
             .and_then(|v| v.as_array())
-            .map(|arr| {
+            .map_or_default(|arr| {
                 arr.iter()
                     .filter_map(|v| v.as_str().map(String::from))
                     .collect()
             })
-            .unwrap_or_default()
     }
 
     /// Enable only specific rules, disabling all others

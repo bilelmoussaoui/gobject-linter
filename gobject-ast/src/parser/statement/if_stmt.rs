@@ -14,8 +14,7 @@ impl Parser {
         } else {
             // Single statement
             self.parse_statement(consequence_node, source)
-                .map(|s| vec![s])
-                .unwrap_or_default()
+                .map_or_default(|s| vec![s])
         };
 
         let else_body = node.child_by_field_name("alternative").map(|alt_node| {
@@ -36,8 +35,7 @@ impl Parser {
                 self.parse_function_body(statement_node, source)
             } else {
                 self.parse_statement(statement_node, source)
-                    .map(|s| vec![s])
-                    .unwrap_or_default()
+                    .map_or_default(|s| vec![s])
             }
         });
 

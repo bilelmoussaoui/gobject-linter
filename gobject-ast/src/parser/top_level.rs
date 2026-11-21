@@ -551,9 +551,7 @@ impl Parser {
         };
 
         let body = node.child_by_field_name("body");
-        let body_statements = body
-            .map(|b| self.parse_function_body(b, source))
-            .unwrap_or_default();
+        let body_statements = body.map_or_default(|b| self.parse_function_body(b, source));
         let body_location = body.map(|b| self.node_location(b));
 
         let return_type = self.extract_return_type(node, source);
@@ -650,8 +648,7 @@ impl Parser {
                     {
                         let inner_fields = type_node
                             .child_by_field_name("body")
-                            .map(|b| self.extract_struct_fields_from_body(b, source))
-                            .unwrap_or_default();
+                            .map_or_default(|b| self.extract_struct_fields_from_body(b, source));
                         let field_name = child
                             .child_by_field_name("declarator")
                             .and_then(|d| self.extract_field_declarator_name(d, source))
@@ -766,8 +763,7 @@ impl Parser {
             .child_by_field_name("type")
             .filter(|n| matches!(n.kind(), "struct_specifier" | "union_specifier"))
             .and_then(|s| s.child_by_field_name("body"))
-            .map(|body| self.extract_struct_fields_from_body(body, source))
-            .unwrap_or_default();
+            .map_or_default(|body| self.extract_struct_fields_from_body(body, source));
 
         // Detect function-pointer typedefs: `typedef RetType (*Name)(params)`.
         // The declarator will contain a function_declarator node.
@@ -777,8 +773,7 @@ impl Parser {
             let mut parameters = func_decl
                 .children_by_field_name("parameters", &mut func_decl.walk())
                 .next()
-                .map(|p| self.extract_parameters(p, source))
-                .unwrap_or_default();
+                .map_or_default(|p| self.extract_parameters(p, source));
             if parameters.is_empty()
                 && let Some(params_node) = self.find_node_by_kind(func_decl, "parameter_list")
             {
@@ -1032,9 +1027,7 @@ impl Parser {
             }
 
             // Use type node's location if available
-            let param_location = type_node
-                .map(|node| self.node_location(node))
-                .unwrap_or_default();
+            let param_location = type_node.map_or_default(|node| self.node_location(node));
             let type_info = TypeInfo::new(&full_text, param_location);
 
             parameters.push(Parameter::Regular {

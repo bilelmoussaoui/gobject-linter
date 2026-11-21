@@ -98,10 +98,7 @@ pub fn report_summary(
     let mut rows: Vec<(&str, usize, RuleLevel, Category, bool, String)> = counts
         .iter()
         .map(|(&rule, &count)| {
-            let time_str = timings
-                .get(rule)
-                .map(|d| format_duration(*d))
-                .unwrap_or_default();
+            let time_str = timings.get(rule).map_or_default(|d| format_duration(*d));
             (
                 rule,
                 count,
