@@ -99,6 +99,12 @@ const CLEAR_MAPPINGS: &[ClearMapping] = &[
         min_version: (2, 56),
     },
     ClearMapping {
+        source_func: "g_bus_unwatch_name",
+        replacement: ClearReplacement::HandleId,
+        null_check: NullCheck::Zero,
+        min_version: (2, 56),
+    },
+    ClearMapping {
         source_func: "g_signal_handler_disconnect",
         replacement: ClearReplacement::SignalHandler,
         null_check: NullCheck::Zero,
