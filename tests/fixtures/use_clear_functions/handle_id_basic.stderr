@@ -2,3 +2,5 @@ handle_id_basic.c:7:5: use_clear_functions: Use g_clear_handle_id (&timeout_id, 
 handle_id_basic.c:11:3: use_clear_functions: Use g_clear_handle_id (&handler_id, g_source_remove) instead of g_source_remove and zero assignment
 handle_id_basic.c:15:5: use_clear_functions: Use g_clear_handle_id (&owner_id, g_bus_unown_name) instead of g_bus_unown_name and zero assignment
 handle_id_basic.c:19:3: use_clear_functions: Use g_clear_handle_id (&handler_id, g_bus_unown_name) instead of g_bus_unown_name and zero assignment
+handle_id_basic.c:23:5: use_clear_functions: Use g_clear_handle_id (&watcher_id, g_bus_unwatch_name) instead of g_bus_unwatch_name and zero assignment
+handle_id_basic.c:27:3: use_clear_functions: Use g_clear_handle_id (&handler_id, g_bus_unwatch_name) instead of g_bus_unwatch_name and zero assignment
