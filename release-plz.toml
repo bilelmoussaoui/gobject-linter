@@ -1,0 +1,13 @@
+[workspace]
+changelog_config = "cliff.toml"
+# cargo-dist creates the GitHub Release (it attaches the binaries), so it is
+# disabled here for every package.
+git_release_enable = false
+# Only gobject-linter is tagged, with a plain "v<version>" name: cargo-dist
+# triggers on that tag, and the other crates share the same version.
+git_tag_enable = false
+
+[[package]]
+name = "gobject-linter"
+git_tag_enable = true
+git_tag_name = "v{{ version }}"

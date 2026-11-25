@@ -67,3 +67,8 @@ tempfile = "3"
 
 [lints]
 workspace = true
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

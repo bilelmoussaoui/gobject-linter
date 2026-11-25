@@ -28,3 +28,7 @@ tempfile = "3.0"
 
 [lints]
 workspace = true
+
+# Debug helper, not part of the released binaries.
+[package.metadata.dist]
+dist = false
